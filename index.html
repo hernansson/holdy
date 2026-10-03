@@ -161,7 +161,6 @@
     <div class="chips" role="group" aria-label="Filtrar por broker">
       <button type="button" id="fltAll" data-filter="all" aria-pressed="true">Todos</button>
       <button type="button" id="fltIBKR" data-filter="IBKR" aria-pressed="false">IBKR</button>
-      <button type="button" id="fltBalanz" data-filter="Balanz" aria-pressed="false">Balanz</button>
     </div>
     <label class="sortlbl">Ordenar
       <select id="sortSel" aria-label="Ordenar posiciones">
@@ -352,7 +351,7 @@
   var refreshing=false, lastRefresh=0, editingId=null;
   var uiRaw=load(LS_UI,{});
   var ui={
-    filter:["all","IBKR","Balanz"].indexOf(uiRaw.filter)>=0?uiRaw.filter:"all",
+    filter:["all","IBKR"].indexOf(uiRaw.filter)>=0?uiRaw.filter:"all",
     sort:["value","plpct","pl","day","ticker"].indexOf(uiRaw.sort)>=0?uiRaw.sort:"value",
     hide:!!uiRaw.hide
   };
@@ -420,7 +419,6 @@
     $("toolbar").hidden=!positions.length;
     $("fltAll").setAttribute("aria-pressed",String(ui.filter==="all"));
     $("fltIBKR").setAttribute("aria-pressed",String(ui.filter==="IBKR"));
-    $("fltBalanz").setAttribute("aria-pressed",String(ui.filter==="Balanz"));
     $("sortSel").value=ui.sort;
     $("btnHide").setAttribute("aria-pressed",String(ui.hide));
     $("btnHide").textContent=ui.hide?"Mostrar montos":"Ocultar montos";
