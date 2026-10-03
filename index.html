@@ -886,7 +886,9 @@
   }
 
   // ---------- Sincronización por código (requiere KV en el Worker) ----------
-  var SYNC_BASE=PROXY_URL.replace(/\/+$/,"");
+  // Servidor de perfiles compartidos (Cloudflare Worker + KV, carpeta sync/).
+  var SYNC_URL="https://holdy-sync.hernan-ss.workers.dev";
+  var SYNC_BASE=SYNC_URL.replace(/\/+$/,"");
   var CODE_CH="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   function randStr(n,alpha){ var a=new Uint8Array(n); crypto.getRandomValues(a); var o=""; for(var i=0;i<n;i++) o+=alpha.charAt(a[i]%alpha.length); return o; }
   function fmtCode(c){ return c.slice(0,5)+"-"+c.slice(5); }

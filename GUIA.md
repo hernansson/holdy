@@ -51,7 +51,8 @@ Para que quien use Holdy no tenga que crear cuenta en Finnhub, los precios puede
 
 
 ## Activar la sincronización por código (una sola vez, en Cloudflare)
-1. Cloudflare → Storage & databases → KV → **Create a namespace** (nombre: `holdy-profiles`).
-2. Workers & Pages → tu Worker → Settings → Bindings → **Add** → KV namespace → variable name `HOLDY_KV`, elegí `holdy-profiles` → Deploy.
-3. Edit code → pegá el contenido actual de `worker/worker.js` → Deploy.
+La sincronización vive en un segundo Worker (carpeta `sync/`), separado del de precios.
+1. Abrí https://deploy.workers.cloudflare.com/?url=https://github.com/hernansson/holdy/tree/main/sync
+2. Iniciá sesión, dejá el nombre `holdy-sync` y tocá **Deploy**. Se crea solo el almacén KV (`HOLDY_KV`).
+3. Holdy espera encontrarlo en https://holdy-sync.hernan-ss.workers.dev. Si el nombre o la cuenta fueran otros, cambiá `SYNC_URL` en `index.html`.
 Plan gratuito de KV: unas 1.000 escrituras por día; Holdy agrupa los cambios para gastar pocas.
