@@ -294,28 +294,20 @@
 <dialog id="dlgSet" class="sheet">
   <form method="dialog" id="formSet">
     <h3>Ajustes</h3>
-    <label>Tu propia API key de Finnhub (opcional)
-      <input id="sKey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pegá tu clave acá">
-    </label>
-    <div class="help">Si la dejás vacía, Holdy usa el servidor de precios compartido y no necesitás cuenta. Si querés usar la tuya, es gratis en <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a> y se guarda solo en este dispositivo.</div>
-    <div class="btns">
-      <button type="button" id="sTest">Probar clave</button>
-    </div>
-    <div class="help" id="sTestOut" aria-live="polite"></div>
-    <hr style="border:0;border-top:1px solid var(--line);width:100%">
-    <div class="help">Copia de seguridad: tus perfiles y posiciones viven solo en este dispositivo. Exportá un archivo para no perderlas o para pasarlas a otro celu.</div>
-    <div class="btns">
-      <button type="button" id="sExport">Exportar</button>
-      <button type="button" id="sImport">Importar</button>
+    <div class="sec" style="border-top:0;padding-top:0">
+      <div class="sec-t">Copia de seguridad</div>
+      <div class="help">Tus perfiles y posiciones viven solo en este dispositivo. Exportá un archivo para no perderlos o para pasarlos a otro celu.</div>
+      <div class="btns split">
+        <button type="button" id="sExport">Exportar</button>
+        <button type="button" id="sImport">Importar</button>
+      </div>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
     </div>
-    <div class="btns">
-      <button type="button" id="sInstall" hidden>Instalar app</button>
+    <div class="sec" id="installSec" hidden>
+      <div class="sec-t">Instalar</div>
+      <button type="button" id="sInstall">Instalar app</button>
     </div>
-    <div class="btns">
-      <button type="button" id="sClose">Cerrar</button>
-      <button type="submit" class="primary" id="sSave">Guardar</button>
-    </div>
+    <div class="btns"><button type="button" id="sClose" class="primary wide">Cerrar</button></div>
   </form>
 </dialog>
 
@@ -770,23 +762,8 @@
   });
 
   // ---------- Ajustes ----------
-  $("btnSettings").addEventListener("click",function(){ $("sKey").value=apiKey; $("sTestOut").textContent=""; dlgSet.showModal(); });
+  $("btnSettings").addEventListener("click",function(){ dlgSet.showModal(); });
   $("sClose").addEventListener("click",function(){ dlgSet.close(); });
-  $("formSet").addEventListener("submit",function(ev){
-    ev.preventDefault();
-    apiKey=$("sKey").value.trim();
-    try{ localStorage.setItem(LS_KEY,apiKey); }catch(e){}
-    dlgSet.close(); clearBanner(); refresh(true);
-  });
-  $("sTest").addEventListener("click",function(){
-    var k=$("sKey").value.trim(), out=$("sTestOut");
-    if(!k){ out.textContent="Pegá primero la clave."; return; }
-    out.textContent="Probando…";
-    var prev=apiKey; apiKey=k;
-    fetchQuote("AAPL").then(function(q){ out.textContent="Funciona. Precio de prueba (AAPL): "+q.price+" USD."; })
-      .catch(function(e){ out.textContent="No funcionó: "+((e&&e.message)||"error de red o bloqueo del navegador."); })
-      .then(function(){ apiKey=prev; });
-  });
   function doExport(){
     var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions}; })},null,2)],{type:"application/json"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
@@ -1156,12 +1133,12 @@
 
   // ---------- Instalar como app (Android/Chrome) ----------
   var deferredInstall=null;
-  window.addEventListener("beforeinstallprompt",function(e){ e.preventDefault(); deferredInstall=e; $("sInstall").hidden=false; });
-  window.addEventListener("appinstalled",function(){ deferredInstall=null; $("sInstall").hidden=true; });
+  window.addEventListener("beforeinstallprompt",function(e){ e.preventDefault(); deferredInstall=e; $("installSec").hidden=false; });
+  window.addEventListener("appinstalled",function(){ deferredInstall=null; $("installSec").hidden=true; });
   $("sInstall").addEventListener("click",function(){
     if(!deferredInstall) return;
     deferredInstall.prompt();
-    Promise.resolve(deferredInstall.userChoice).then(function(){ deferredInstall=null; $("sInstall").hidden=true; });
+    Promise.resolve(deferredInstall.userChoice).then(function(){ deferredInstall=null; $("installSec").hidden=true; });
   });
 
   // ---------- Auto-actualización ----------
