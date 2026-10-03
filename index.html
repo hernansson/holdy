@@ -120,13 +120,17 @@
   .profinfo{font-size:12px; color:var(--muted)}
   .grp{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:8px 2px 0}
   details.acc{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); overflow:hidden}
-  details.acc>summary{list-style:none; display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; min-height:56px}
+  details.acc>summary{list-style:none; display:flex; align-items:center; gap:10px; padding:7px 12px; cursor:pointer; min-height:40px}
   details.acc>summary::-webkit-details-marker{display:none}
   details.acc>summary::after{content:"▾"; color:var(--muted); transition:transform .15s}
   details.acc[open]>summary::after{transform:rotate(180deg)}
-  .acc-l{flex:1; min-width:0}
-  .acc-l .tick{display:flex; gap:6px; align-items:center}
-  .acc-r{text-align:right}
+  .acc-l{flex:1; min-width:0; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap}
+  .acc-l .tick{font-size:15px; display:flex; gap:6px; align-items:center}
+  .acc-l .sub{margin:0; font-size:12px}
+  .acc-val{font-size:13px; color:var(--muted); text-align:right; white-space:nowrap}
+  .acc-pct{font-weight:700; font-size:15px; min-width:78px; text-align:right; white-space:nowrap}
+  .list-head{display:flex; justify-content:flex-end; font-size:11px; color:var(--muted); padding:0 12px; margin-bottom:-4px}
+  .list{gap:6px}
   .acc-body{padding:0 14px 12px; border-top:1px solid var(--line)}
   .prof-item{display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--line); flex-wrap:wrap}
   .prof-item:first-of-type{border-top:0}
@@ -557,6 +561,7 @@
     var brokersUsed={}; positions.forEach(function(p){ brokersUsed[p.broker]=1; });
     var multiBroker=Object.keys(brokersUsed).length>1;
     if(openId && !sorted.some(function(p){return p.id===openId;})) openId=null;
+    box.appendChild(el("div","list-head","Valor · ganancia/pérdida desde la compra"));
     var detailEls=[], lastCcy=null;
     sorted.forEach(function(p){
       if(multiCcy && p.ccy!==lastCcy){ box.appendChild(el("div","grp","En "+p.ccy)); lastCcy=p.ccy; }
@@ -573,17 +578,14 @@
       var tk=el("div","tick"); tk.appendChild(el("span",null,p.ticker));
       if(multiBroker) tk.appendChild(el("span","chip",p.broker));
       l.appendChild(tk);
-      var subTxt, subCls="";
-      if(p.source==="manual") subTxt="Precio manual";
-      else if(dpct!==null){ subTxt="Día "+arrow(dpct)+fmtPct(dpct); subCls=cls(dpct); }
-      else if(cp===null) subTxt="Sin precio";
-      else subTxt="";
-      if(subTxt) l.appendChild(el("div","sub k "+subCls,subTxt));
+      var subTxt="", subCls="";
+      if(p.source==="manual") subTxt="manual";
+      else if(dpct!==null){ subTxt="hoy "+fmtPct(dpct); subCls=cls(dpct); }
+      else if(cp===null) subTxt="sin precio";
+      if(subTxt) l.appendChild(el("span","sub k "+subCls,subTxt));
       sum.appendChild(l);
-      var r=el("div","acc-r");
-      r.appendChild(el("div","v",value===null?"—":mm(value,p.ccy)));
-      r.appendChild(el("div","sub "+cls(pl),pl===null?"Sin precio":arrow(pl)+fmtPct(pct)));
-      sum.appendChild(r);
+      sum.appendChild(el("div","acc-val",value===null?"—":mm(value,p.ccy)));
+      sum.appendChild(el("div","acc-pct "+cls(pl),pl===null?"—":arrow(pl)+fmtPct(pct)));
       det.appendChild(sum);
 
       var body=el("div","acc-body");
@@ -594,7 +596,7 @@
       cell("Actual",cp===null?"—":fmt(cp,p.ccy));
       cell("Día",dpct===null?"—":arrow(dpct)+fmtPct(dpct),dpct===null?"":cls(dpct));
       cell("Valor",value===null?"—":mm(value,p.ccy));
-      cell("Ganancia",pl===null?"—":mms(pl,p.ccy),cls(pl));
+      cell("Ganancia desde compra",pl===null?"—":mms(pl,p.ccy)+" ("+fmtPct(pct)+")",cls(pl));
       cell("Peso",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       body.appendChild(g);
 
