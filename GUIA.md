@@ -3,7 +3,7 @@
 ## Qué hace
 - Cargás a mano cada posición: broker (Interactive Brokers o Balanz), ticker, cantidad, precio de compra y moneda.
 - Muestra valor actual, ganancia en plata y en %, peso dentro de la cartera y totales por broker y por moneda (USD y ARS nunca se mezclan).
-- Las posiciones de IBKR llevan la marca "a migrar a Balanz".
+- La idea es pasar todo a Interactive Brokers: las posiciones que siguen en Balanz se pueden marcar como migradas.
 - Tus datos quedan solo en el dispositivo (no se suben a ningún servidor). Desde Ajustes podés exportar/importar un archivo de respaldo.
 
 ## De dónde salen los precios
@@ -43,5 +43,7 @@ Para que quien use Holdy no tenga que crear cuenta en Finnhub, los precios puede
 - **Variación del día** por posición y en el total de cada moneda (para acciones con precio automático).
 - **Filtro por broker** (Todos / IBKR / Balanz) y **orden** (mayor valor, ganancia % o $, variación del día, ticker). Las monedas nunca se mezclan.
 - **Ocultar montos**: tapa importes y cantidades (los porcentajes siguen visibles). Queda guardado en el dispositivo.
-- **Migración a Balanz**: porcentaje del valor ya migrado y botón "Pasar a Balanz" en cada posición de IBKR (mantiene cantidad y precio de compra).
+- **Lista en acordeón**: cada acción es una fila simple (valor y ganancia %); al tocarla se abre el detalle (cantidad, compra, actual, día, valor, ganancia, peso) y las acciones. Se abre una a la vez.
+- **Migración a IBKR**: porcentaje del valor ya en Interactive Brokers y botón "Pasar a IBKR" en cada posición de Balanz (mantiene cantidad y precio de compra).
+- **Perfiles**: podés tener varios (botón con el nombre arriba). "Compartir" genera un link con una foto de ese perfil; quien lo abre (o lo pega en Perfiles) lo agrega en solo lectura. No hay servidor: el link contiene los datos (cantidades y precios de compra) y no se actualiza solo; para mostrar cambios hay que mandar un link nuevo.
 - **Recordatorio de respaldo** si pasaron más de 2 semanas sin exportar, y botón **Instalar app** en Ajustes cuando el navegador lo permite (Android/Chrome).

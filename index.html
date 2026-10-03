@@ -114,6 +114,25 @@
   .progress{height:8px; border-radius:999px; background:var(--chip); overflow:hidden; margin-top:6px}
   .progress>i{display:block; height:100%; background:var(--brand); border-radius:999px}
   .row-actions{flex-wrap:wrap}
+  .profbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px}
+  .profbar button{border-radius:999px; font-weight:600; min-height:38px}
+  .profbar .tag{font-size:11px; padding:2px 8px; border-radius:999px; border:1px dashed var(--warn); color:var(--warn)}
+  .profinfo{font-size:12px; color:var(--muted)}
+  .grp{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:8px 2px 0}
+  details.acc{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); overflow:hidden}
+  details.acc>summary{list-style:none; display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; min-height:56px}
+  details.acc>summary::-webkit-details-marker{display:none}
+  details.acc>summary::after{content:"▾"; color:var(--muted); transition:transform .15s}
+  details.acc[open]>summary::after{transform:rotate(180deg)}
+  .acc-l{flex:1; min-width:0}
+  .acc-l .tick{display:flex; gap:6px; align-items:center}
+  .acc-r{text-align:right}
+  .acc-body{padding:0 14px 12px; border-top:1px solid var(--line)}
+  .prof-item{display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--line); flex-wrap:wrap}
+  .prof-item:first-of-type{border-top:0}
+  .prof-item .nm{flex:1; min-width:120px; font-weight:600}
+  .prof-item button{padding:5px 10px; min-height:32px; font-size:13px}
+  .sharebox{display:grid; gap:8px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--bg)}
   @media (min-width:700px){ .summary{grid-template-columns:1fr 1fr} .row-grid{grid-template-columns:repeat(7,1fr)} }
 </style>
 </head>
@@ -127,6 +146,11 @@
 <main>
   <div id="banners"></div>
   <div id="notice"></div>
+  <div class="profbar" id="profbar">
+    <button type="button" id="btnProf" aria-haspopup="dialog"></button>
+    <span class="tag" id="roTag" hidden>solo lectura</span>
+    <span class="profinfo" id="profInfo"></span>
+  </div>
   <div class="status" id="status" role="status" aria-live="polite">Sin actualizar todavía.</div>
   <section class="summary" id="summary" aria-label="Resumen"></section>
   <div class="toolbar" id="toolbar" hidden>
@@ -190,11 +214,52 @@
       <input id="fManual" type="number" inputmode="decimal" step="any" min="0" placeholder="225.00">
     </label>
     <label>Nota (opcional)
-      <input id="fNote" placeholder="Ej: migrar a Balanz en noviembre">
+      <input id="fNote" placeholder="Ej: comprada en el dip de marzo">
     </label>
     <div class="btns">
       <button type="button" id="posCancel">Cancelar</button>
       <button type="submit" class="primary" id="posSave">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgProf" class="sheet">
+  <form method="dialog" id="formProf">
+    <h3>Perfiles</h3>
+    <div id="profList"></div>
+    <label>Crear perfil nuevo
+      <input id="pfName" maxlength="40" placeholder="Ej: Cartera de mamá">
+    </label>
+    <div class="btns"><button type="button" id="pfAdd">Crear perfil</button></div>
+    <div class="sharebox" id="shareBox" hidden>
+      <strong id="shareTitle"></strong>
+      <input id="shareLink" readonly aria-label="Link para compartir">
+      <div class="btns">
+        <button type="button" id="shareCopy">Copiar</button>
+        <button type="button" id="shareNative" hidden>Compartir…</button>
+      </div>
+      <div class="help" id="shareNote">Es una foto de hoy: quien abra el link ve tus cantidades y precios de compra, y no se actualiza solo. Para que vea cambios, mandale un link nuevo.</div>
+    </div>
+    <label>Agregar el perfil de otra persona (pegá su link)
+      <input id="pfLink" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…#share=…">
+    </label>
+    <div class="btns">
+      <button type="button" id="pfImport">Agregar desde link</button>
+    </div>
+    <div class="btns"><button type="button" id="pfClose" class="primary">Cerrar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgShare" class="sheet">
+  <form method="dialog" id="formShare">
+    <h3 id="shTitle">Perfil compartido</h3>
+    <div class="help" id="shInfo"></div>
+    <label>Nombre del perfil
+      <input id="shName" maxlength="40" required>
+    </label>
+    <div class="btns">
+      <button type="button" id="shCancel">Cancelar</button>
+      <button type="submit" class="primary" id="shOk">Agregar</button>
     </div>
   </form>
 </dialog>
@@ -211,7 +276,7 @@
     </div>
     <div class="help" id="sTestOut" aria-live="polite"></div>
     <hr style="border:0;border-top:1px solid var(--line);width:100%">
-    <div class="help">Copia de seguridad: tus posiciones viven solo en este dispositivo. Exportá un archivo para no perderlas o para pasarlas a otro celu.</div>
+    <div class="help">Copia de seguridad: tus perfiles y posiciones viven solo en este dispositivo. Exportá un archivo para no perderlas o para pasarlas a otro celu.</div>
     <div class="btns">
       <button type="button" id="sExport">Exportar</button>
       <button type="button" id="sImport">Importar</button>
@@ -243,7 +308,40 @@
   function safeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
   function safeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
-  var positions=load(LS_POS,[]);
+  var LS_PROF="cartera.profiles.v2";
+  function rid(){ return "p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+  function cleanName(s){ return String(s==null?"":s).replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,40); }
+  var ID_RE=/^[A-Za-z0-9_\-]{4,40}$/;
+  // Valida una posición (venga de un archivo o de un link). strict: ticker solo con caracteres seguros.
+  function cleanPos(p,strict){
+    if(!p || typeof p!=="object") return null;
+    var t=String(p.ticker==null?"":p.ticker).trim().toUpperCase().slice(0,20);
+    if(strict ? !/^[A-Z0-9.\-]{1,20}$/.test(t) : !t) return null;
+    var qty=+p.qty, buy=+p.buy;
+    if(!isFinite(qty)||!isFinite(buy)||!(qty>0)||!(buy>0)) return null;
+    var mp=+p.manualPrice; if(!isFinite(mp)||mp<0) mp=0;
+    var src=p.source==="manual"?"manual":"auto";
+    if(src==="manual" && !(mp>0)) src="auto";
+    return { id:rid()+Math.random().toString(36).slice(2,4), broker:p.broker==="Balanz"?"Balanz":"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
+      ticker:t, qty:qty, buy:buy, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
+      note:String(p.note||"").replace(/[\u0000-\u001f]/g," ").slice(0,200) };
+  }
+  function initProfiles(){
+    var d=load(LS_PROF,null);
+    if(d && Array.isArray(d.profiles) && d.profiles.length){
+      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.name=cleanName(pr.name)||"Perfil"; });
+      if(!d.profiles.some(function(x){return x.id===d.active;})) d.active=d.profiles[0].id;
+      return d;
+    }
+    var old=load(LS_POS,[]);
+    return {active:"main",profiles:[{id:"main",name:"Mis acciones",positions:Array.isArray(old)?old:[],readOnly:false}]};
+  }
+  var profData=initProfiles();
+  function cur(){ return profData.profiles.filter(function(x){return x.id===profData.active;})[0]; }
+  var positions=cur().positions;
+  function isRO(){ return !!cur().readOnly; }
+  function saveProfiles(){ cur().positions=positions; save(LS_PROF,profData); }
+  var openId=null;
   var prices=load(LS_PRICES,{});      // { TICKER: {price, t(ms de la cotización), fetched(ms)} }
   var apiKey=loadKey();
   var errors={};                       // { TICKER: mensaje }
@@ -324,7 +422,20 @@
     $("btnHide").textContent=ui.hide?"Mostrar montos":"Ocultar montos";
   }
 
+  function renderProfile(){
+    var c=cur();
+    $("btnProf").textContent=c.name+" ▾";
+    $("roTag").hidden=!c.readOnly;
+    var info="";
+    if(c.readOnly){
+      info=(c.owner?"De "+c.owner+". ":"")+(c.sharedAt?"Foto del "+new Date(c.sharedAt).toLocaleDateString("es-AR")+". ":"")+"Para actualizarla, pedí un link nuevo.";
+    } else if(profData.profiles.length>1) info="Tu perfil";
+    $("profInfo").textContent=info;
+    $("btnAdd").hidden=!!c.readOnly;
+  }
+
   function render(){
+    renderProfile();
     syncToolbar();
     renderNotice();
     renderSummary();
@@ -392,12 +503,13 @@
           : el("span",null,"sin precios"));
         card.appendChild(line);
       });
-      var ib=g.brokers.IBKR;
-      if(ib && g.value>0){
-        var moved=Math.round((1-ib.value/g.value)*100);
+      var bz=g.brokers.Balanz;
+      if(bz && g.value>0 && !isRO()){
+        var ibv=g.brokers.IBKR?g.brokers.IBKR.value:0;
+        var moved=Math.round(ibv/g.value*100);
         var mig=el("div","mig-block");
-        mig.appendChild(el("div","k","Migrado a Balanz: "+moved+"% del valor ("+(100-moved)+"% sigue en Interactive Brokers)"));
-        var bar=el("div","progress"); bar.setAttribute("role","img"); bar.setAttribute("aria-label","Migrado a Balanz: "+moved+"%");
+        mig.appendChild(el("div","k","Migrado a IBKR: "+moved+"% del valor ("+(100-moved)+"% sigue en Balanz)"));
+        var bar=el("div","progress"); bar.setAttribute("role","img"); bar.setAttribute("aria-label","Migrado a IBKR: "+moved+"%");
         var fill=document.createElement("i"); fill.style.width=moved+"%"; bar.appendChild(fill);
         mig.appendChild(bar); card.appendChild(mig);
       }
@@ -440,25 +552,43 @@
       if(mb===null) return -1;
       return mb-ma;
     });
+    var ccys={}; sorted.forEach(function(p){ ccys[p.ccy]=1; });
+    var multiCcy=Object.keys(ccys).length>1;
+    var brokersUsed={}; positions.forEach(function(p){ brokersUsed[p.broker]=1; });
+    var multiBroker=Object.keys(brokersUsed).length>1;
+    if(openId && !sorted.some(function(p){return p.id===openId;})) openId=null;
+    var detailEls=[], lastCcy=null;
     sorted.forEach(function(p){
+      if(multiCcy && p.ccy!==lastCcy){ box.appendChild(el("div","grp","En "+p.ccy)); lastCcy=p.ccy; }
       var cp=currentPrice(p);
       var cost=p.qty*p.buy, value=cp===null?null:p.qty*cp;
       var pl=value===null?null:value-cost, pct=(pl===null||cost<=0)?null:pl/cost;
       var weight=(value===null||!totalByCcy[p.ccy])?null:value/totalByCcy[p.ccy];
+      var di=dayInfo(p), dpct=(di&&di.base>0)?di.amt/di.base:null;
 
-      var row=el("div","row");
-      var top=el("div","row-top");
-      top.appendChild(el("span","tick",p.ticker));
-      top.appendChild(el("span","chip",p.broker==="IBKR"?"IBKR":"Balanz"));
-      if(p.broker==="IBKR") top.appendChild(el("span","chip mig","a migrar a Balanz"));
-      top.appendChild(el("span","spacer"));
-      var plBox=el("span","v "+cls(pl),pl===null?"Sin precio":arrow(pl)+fmtPct(pct));
-      top.appendChild(plBox);
-      row.appendChild(top);
+      var det=document.createElement("details"); det.className="acc"; det.setAttribute("data-id",p.id);
+      if(openId===p.id) det.open=true;
+      var sum=document.createElement("summary");
+      var l=el("div","acc-l");
+      var tk=el("div","tick"); tk.appendChild(el("span",null,p.ticker));
+      if(multiBroker) tk.appendChild(el("span","chip",p.broker));
+      l.appendChild(tk);
+      var subTxt, subCls="";
+      if(p.source==="manual") subTxt="Precio manual";
+      else if(dpct!==null){ subTxt="Día "+arrow(dpct)+fmtPct(dpct); subCls=cls(dpct); }
+      else if(cp===null) subTxt="Sin precio";
+      else subTxt="";
+      if(subTxt) l.appendChild(el("div","sub k "+subCls,subTxt));
+      sum.appendChild(l);
+      var r=el("div","acc-r");
+      r.appendChild(el("div","v",value===null?"—":mm(value,p.ccy)));
+      r.appendChild(el("div","sub "+cls(pl),pl===null?"Sin precio":arrow(pl)+fmtPct(pct)));
+      sum.appendChild(r);
+      det.appendChild(sum);
 
+      var body=el("div","acc-body");
       var g=el("div","row-grid");
       function cell(k,v,c){ var d=el("div"); d.appendChild(el("div","k",k)); d.appendChild(el("div","v"+(c?" "+c:""),v)); g.appendChild(d); }
-      var di=dayInfo(p), dpct=(di&&di.base>0)?di.amt/di.base:null;
       cell("Cantidad",qq(p.qty));
       cell("Compra",mm(p.buy,p.ccy));
       cell("Actual",cp===null?"—":fmt(cp,p.ccy));
@@ -466,35 +596,49 @@
       cell("Valor",value===null?"—":mm(value,p.ccy));
       cell("Ganancia",pl===null?"—":mms(pl,p.ccy),cls(pl));
       cell("Peso",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
-      row.appendChild(g);
+      body.appendChild(g);
 
       var stamp=priceStamp(p);
       var notes=[];
       if(errors[p.ticker] && p.source!=="manual") notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
+      if(multiBroker||p.broker==="Balanz") notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
       if(p.note) notes.push(p.note);
-      if(notes.length) row.appendChild(el("div","note",notes.join(" ")));
+      if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
 
-      var acts=el("div","row-actions");
-      var be=el("button",null,"Editar"); be.type="button"; be.addEventListener("click",function(){ openPos(p.id); });
-      var bd=el("button","danger","Eliminar"); bd.type="button"; bd.addEventListener("click",function(){
-        if(confirm("¿Eliminar "+p.ticker+" ("+p.broker+")?")){ positions=positions.filter(function(x){return x.id!==p.id;}); save(LS_POS,positions); render(); }
-      });
-      acts.appendChild(be);
-      if(p.broker==="IBKR"){
-        var bm=el("button",null,"Pasar a Balanz"); bm.type="button";
-        bm.addEventListener("click",function(){
-          if(confirm("¿"+p.ticker+" ya está en Balanz? Se mantienen la cantidad y el precio de compra.")){
-            positions=positions.map(function(x){ return x.id===p.id?Object.assign({},x,{broker:"Balanz"}):x; });
-            save(LS_POS,positions); render();
-          }
+      if(!isRO()){
+        var acts=el("div","row-actions");
+        var be=el("button",null,"Editar"); be.type="button"; be.addEventListener("click",function(){ openPos(p.id); });
+        acts.appendChild(be);
+        if(p.broker==="Balanz"){
+          var bm=el("button",null,"Pasar a IBKR"); bm.type="button";
+          bm.addEventListener("click",function(){
+            if(confirm("¿"+p.ticker+" ya está en Interactive Brokers? Se mantienen la cantidad y el precio de compra.")){
+              positions=positions.map(function(x){ return x.id===p.id?Object.assign({},x,{broker:"IBKR"}):x; });
+              saveProfiles(); render();
+            }
+          });
+          acts.appendChild(bm);
+        }
+        var bd=el("button","danger","Eliminar"); bd.type="button"; bd.addEventListener("click",function(){
+          if(confirm("¿Eliminar "+p.ticker+" ("+p.broker+")?")){ positions=positions.filter(function(x){return x.id!==p.id;}); saveProfiles(); render(); }
         });
-        acts.appendChild(bm);
+        acts.appendChild(bd);
+        body.appendChild(acts);
       }
-      acts.appendChild(bd);
-      row.appendChild(acts);
-      box.appendChild(row);
+      det.appendChild(body);
+      detEls_push(det);
+      box.appendChild(det);
     });
+    function detEls_push(d){
+      detailEls.push(d);
+      d.addEventListener("toggle",function(){
+        if(d.open){
+          openId=d.getAttribute("data-id");
+          detailEls.forEach(function(o){ if(o!==d && o.open) o.open=false; });
+        } else if(openId===d.getAttribute("data-id")) openId=null;
+      });
+    }
   }
 
   // ---------- Precios ----------
@@ -503,9 +647,11 @@
       ? "https://finnhub.io/api/v1/quote?symbol="+encodeURIComponent(ticker)+"&token="+encodeURIComponent(apiKey)
       : PROXY_URL.replace(/\/+$/,"")+"/quote?symbol="+encodeURIComponent(ticker);
     return fetch(url,{cache:"no-store"}).then(function(r){
+      if(!apiKey && r.status===400) throw new Error("Ticker no válido para el servicio de precios.");
       if(!apiKey && (r.status===401||r.status===403||r.status===503)) throw new Error("El servidor de precios no está disponible por ahora.");
       if(r.status===401||r.status===403) throw new Error("La API key no es válida o no tiene permiso.");
       if(r.status===429) throw new Error("Se superó el límite de consultas gratuitas. Probá de nuevo en un minuto.");
+      if(r.status===400) throw new Error("Ticker no válido para el servicio de precios.");
       if(!r.ok) throw new Error(apiKey?"El servicio de precios respondió con error ("+r.status+")."
         :"El servidor de precios no está disponible por ahora.");
       return r.json();
@@ -568,7 +714,9 @@
     var ticker=$("fTicker").value.trim().toUpperCase();
     var qty=parseFloat($("fQty").value), buy=parseFloat($("fBuy").value);
     var source=$("fSource").value, manual=parseFloat($("fManual").value);
+    if(isRO()) return;
     if(!ticker){ alert("Falta el ticker."); return; }
+    if(source==="auto" && !/^[A-Z0-9.\-]{1,12}$/.test(ticker)){ alert("El ticker solo puede tener letras, números, punto o guion (máx. 12)."); return; }
     if(!(qty>0)){ alert("La cantidad tiene que ser mayor a 0."); return; }
     if(!(buy>0)){ alert("El precio de compra tiene que ser mayor a 0."); return; }
     if(source==="manual" && !(manual>0)){ alert("Cargá el precio actual manual."); return; }
@@ -588,7 +736,7 @@
       data.manualTs=source==="manual"?Date.now():0;
       positions.push(data);
     }
-    save(LS_POS,positions);
+    saveProfiles();
     dlgPos.close(); render();
     if(source==="auto") refresh(true);
   });
@@ -612,7 +760,7 @@
       .then(function(){ apiKey=prev; });
   });
   function doExport(){
-    var blob=new Blob([JSON.stringify({version:1,exported:new Date().toISOString(),positions:positions},null,2)],{type:"application/json"});
+    var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions}; })},null,2)],{type:"application/json"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download="holdy-"+new Date().toISOString().slice(0,10)+".json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
@@ -626,18 +774,24 @@
     r.onload=function(){
       try{
         var j=JSON.parse(r.result);
-        var arr=Array.isArray(j)?j:j.positions;
-        if(!Array.isArray(arr)) throw new Error("formato");
-        var clean=arr.filter(function(p){ return p && typeof p.ticker==="string" && p.qty>0 && p.buy>0; }).map(function(p){
-          return { id:p.id||("p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
-            broker:p.broker==="Balanz"?"Balanz":"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
-            ticker:String(p.ticker).toUpperCase().slice(0,20), qty:+p.qty, buy:+p.buy,
-            source:p.source==="manual"?"manual":"auto", manualPrice:+p.manualPrice||0, manualTs:+p.manualTs||0,
-            note:String(p.note||"").slice(0,200) };
-        });
-        if(!clean.length) throw new Error("vacío");
-        if(confirm("Se van a reemplazar tus posiciones actuales por "+clean.length+" del archivo. ¿Seguir?")){
-          positions=clean; save(LS_POS,positions); safeSet(LS_BACKUP,String(Date.now())); render(); refresh(true); dlgSet.close();
+        var profs;
+        if(j && Array.isArray(j.profiles)){
+          profs=j.profiles.slice(0,20).map(function(x){
+            var ps=(Array.isArray(x.positions)?x.positions:[]).slice(0,300).map(function(p){return cleanPos(p,false);}).filter(Boolean);
+            return {id:ID_RE.test(String(x.id))?String(x.id):rid(),name:cleanName(x.name)||"Perfil",positions:ps,readOnly:!!x.readOnly,
+              owner:cleanName(x.owner),sharedAt:+x.sharedAt||0,shareKey:ID_RE.test(String(x.shareKey))?x.shareKey:undefined,shareId:ID_RE.test(String(x.shareId))?x.shareId:undefined};
+          });
+        } else {
+          var arr=Array.isArray(j)?j:(j&&j.positions);
+          if(!Array.isArray(arr)) throw new Error("formato");
+          profs=[{id:"main",name:"Mis acciones",readOnly:false,positions:arr.slice(0,300).map(function(p){return cleanPos(p,false);}).filter(Boolean)}];
+        }
+        var total=profs.reduce(function(n,x){return n+x.positions.length;},0);
+        if(!profs.length||!total) throw new Error("vacío");
+        if(confirm("Se van a reemplazar tus perfiles y posiciones actuales por "+profs.length+" perfil(es) con "+total+" posiciones del archivo. ¿Seguir?")){
+          profData={active:(j&&profs.some(function(x){return x.id===j.active;}))?j.active:profs[0].id,profiles:profs};
+          positions=cur().positions; openId=null;
+          save(LS_PROF,profData); safeSet(LS_BACKUP,String(Date.now())); render(); refresh(true); dlgSet.close();
         }
       }catch(e){ alert("El archivo no tiene el formato esperado."); }
       ev.target.value="";
@@ -654,6 +808,175 @@
   });
   $("sortSel").addEventListener("change",function(){ ui.sort=$("sortSel").value; save(LS_UI,ui); render(); });
   $("btnHide").addEventListener("click",function(){ ui.hide=!ui.hide; save(LS_UI,ui); render(); });
+
+  // ---------- Perfiles ----------
+  var dlgProf=$("dlgProf"), dlgShare=$("dlgShare");
+  [dlgProf,dlgShare].forEach(function(d){ d.addEventListener("click",function(e){ if(e.target===d) d.close(); }); });
+
+  function setActive(id){
+    if(!profData.profiles.some(function(x){return x.id===id;})) return;
+    cur().positions=positions;
+    profData.active=id; positions=cur().positions; openId=null;
+    save(LS_PROF,profData); render(); refresh(false);
+  }
+
+  function b64uEnc(bytes){ var s=""; for(var i=0;i<bytes.length;i+=0x8000) s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000)); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+  function b64uDec(t){ t=t.replace(/-/g,"+").replace(/_/g,"/"); while(t.length%4) t+="="; var s=atob(t), u=new Uint8Array(s.length); for(var i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
+  function streamBytes(stream,limit){
+    var reader=stream.getReader(), chunks=[], total=0;
+    function pump(){ return reader.read().then(function(r){
+      if(r.done){ var out=new Uint8Array(total), o=0; chunks.forEach(function(c){ out.set(c,o); o+=c.length; }); return out; }
+      total+=r.value.length; if(total>limit){ try{reader.cancel();}catch(e){} throw new Error("grande"); }
+      chunks.push(r.value); return pump(); }); }
+    return pump();
+  }
+  function encodeToken(obj){
+    var bytes=new TextEncoder().encode(JSON.stringify(obj));
+    if(typeof CompressionStream==="undefined") return Promise.resolve("j."+b64uEnc(bytes));
+    var cs=new CompressionStream("deflate-raw"), w=cs.writable.getWriter();
+    w.write(bytes); w.close();
+    return streamBytes(cs.readable,1000000).then(function(z){ return "z."+b64uEnc(z); });
+  }
+  function decodeToken(tok){
+    if(typeof tok!=="string" || tok.length>20000 || !/^[zj]\.[A-Za-z0-9_\-]+$/.test(tok)) return Promise.reject(new Error("formato"));
+    var bytes; try{ bytes=b64uDec(tok.slice(2)); }catch(e){ return Promise.reject(new Error("formato")); }
+    var p;
+    if(tok.charAt(0)==="j"){ p=Promise.resolve(bytes.length>200000?Promise.reject(new Error("grande")):bytes); }
+    else {
+      if(typeof DecompressionStream==="undefined") return Promise.reject(new Error("nosoportado"));
+      var ds=new DecompressionStream("deflate-raw"), w=ds.writable.getWriter();
+      w.write(bytes).catch(function(){}); w.close().catch(function(){});
+      p=streamBytes(ds.readable,200000);
+    }
+    return p.then(function(u){ return JSON.parse(new TextDecoder().decode(u)); });
+  }
+  function buildPayload(pr){
+    if(!pr.shareKey){ pr.shareKey=rid()+Math.random().toString(36).slice(2,8); save(LS_PROF,profData); }
+    return {v:2,i:pr.shareKey,n:pr.name,t:Date.now(),p:pr.positions.map(function(x){
+      return [x.broker==="Balanz"?1:0,x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,x.source==="manual"?1:0,x.manualPrice||0,x.note||""]; })};
+  }
+  // Devuelve {id,name,t,positions,dropped} o lanza error. Todo lo que viene del link se trata como no confiable.
+  function parsePayload(o){
+    if(!o || o.v!==2 || !Array.isArray(o.p)) throw new Error("formato");
+    var id=String(o.i||""); if(!ID_RE.test(id)) throw new Error("formato");
+    var t=+o.t; if(!isFinite(t)||t<0||t>Date.now()+DAY_MS) t=Date.now();
+    var raw=o.p.slice(0,300), dropped=Math.max(0,o.p.length-300);
+    var out=[];
+    raw.forEach(function(r){
+      if(!Array.isArray(r)){ dropped++; return; }
+      var c=cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:t,note:r[7]},true);
+      if(c) out.push(c); else dropped++;
+    });
+    if(!out.length) throw new Error("vacío");
+    return {id:id,name:cleanName(o.n)||"Perfil compartido",t:t,positions:out,dropped:dropped};
+  }
+
+  var pendingShare=null;
+  function offerShare(d){
+    var own=profData.profiles.filter(function(x){return x.shareKey===d.id;})[0];
+    if(own){ alert("Ese link es de tu propio perfil “"+own.name+"”."); return; }
+    var exist=profData.profiles.filter(function(x){return x.shareId===d.id;})[0];
+    pendingShare={d:d,exist:exist||null};
+    $("shTitle").textContent=exist?"Actualizar perfil compartido":"Perfil compartido";
+    $("shInfo").textContent=d.positions.length+" posiciones, foto del "+new Date(d.t).toLocaleDateString("es-AR")+
+      (d.dropped?" ("+d.dropped+" fila(s) inválidas se ignoraron)":"")+". Es solo lectura: no se puede editar.";
+    $("shName").value=exist?exist.name:d.name;
+    $("shOk").textContent=exist?"Actualizar":"Agregar";
+    if(dlgProf.open) dlgProf.close();
+    dlgShare.showModal();
+  }
+  $("shCancel").addEventListener("click",function(){ pendingShare=null; dlgShare.close(); });
+  $("formShare").addEventListener("submit",function(ev){
+    ev.preventDefault();
+    if(!pendingShare) return;
+    var d=pendingShare.d, ex=pendingShare.exist, name=cleanName($("shName").value)||d.name;
+    pendingShare=null;
+    cur().positions=positions;
+    if(ex){ ex.positions=d.positions; ex.name=name; ex.sharedAt=d.t; profData.active=ex.id; }
+    else {
+      if(profData.profiles.length>=20){ alert("Llegaste al máximo de 20 perfiles."); return; }
+      var np={id:rid(),name:name,positions:d.positions,readOnly:true,shareId:d.id,sharedAt:d.t};
+      profData.profiles.push(np); profData.active=np.id;
+    }
+    positions=cur().positions; openId=null;
+    save(LS_PROF,profData); dlgShare.close(); render(); refresh(false);
+  });
+
+  function handleHash(){
+    var m=/^#share=(.+)$/.exec(location.hash||"");
+    if(!m) return;
+    var tok=m[1];
+    try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+    decodeToken(tok).then(parsePayload).then(offerShare).catch(function(e){
+      alert(e&&e.message==="nosoportado"?"Este navegador no puede abrir el link. Probá con uno más nuevo.":"El link no es válido o está incompleto.");
+    });
+  }
+  window.addEventListener("hashchange",handleHash);
+
+  function renderProfList(){
+    var box=$("profList"); box.textContent="";
+    profData.profiles.forEach(function(pr){
+      var it=el("div","prof-item");
+      var nm=el("span","nm",pr.name+(pr.id===profData.active?" ✓":""));
+      it.appendChild(nm);
+      if(pr.readOnly) it.appendChild(el("span","chip","solo lectura"));
+      function btn(txt,cls2,fn){ var b=el("button",cls2,txt); b.type="button"; b.addEventListener("click",fn); it.appendChild(b); }
+      if(pr.id!==profData.active) btn("Ver",null,function(){ dlgProf.close(); setActive(pr.id); });
+      btn("Renombrar",null,function(){
+        var n=prompt("Nuevo nombre",pr.name); if(n===null) return;
+        n=cleanName(n); if(!n) return; pr.name=n; save(LS_PROF,profData); render(); renderProfList();
+      });
+      if(!pr.readOnly) btn("Compartir",null,function(){ showShare(pr); });
+      if(profData.profiles.length>1) btn("Eliminar","danger",function(){
+        if(!confirm("¿Eliminar el perfil “"+pr.name+"” y sus "+pr.positions.length+" posiciones?")) return;
+        var wasActive=pr.id===profData.active;
+        cur().positions=positions;
+        profData.profiles=profData.profiles.filter(function(x){return x!==pr;});
+        if(wasActive){ profData.active=profData.profiles[0].id; }
+        positions=cur().positions; openId=null; save(LS_PROF,profData); render(); renderProfList(); $("shareBox").hidden=true;
+      });
+      box.appendChild(it);
+    });
+  }
+  function showShare(pr){
+    if(pr.id===profData.active) pr.positions=positions;
+    encodeToken(buildPayload(pr)).then(function(tok){
+      var link=location.origin+location.pathname+"#share="+tok;
+      $("shareTitle").textContent="Link de “"+pr.name+"”";
+      $("shareLink").value=link;
+      var note="Es una foto de hoy: quien abra el link ve tus cantidades y precios de compra, y no se actualiza solo. Para que vea cambios, mandale un link nuevo.";
+      if(link.length>8000) note+=" Atención: el link es muy largo y algunas apps pueden cortarlo; probá mandarlo por mail.";
+      $("shareNote").textContent=note;
+      $("shareNative").hidden=!navigator.share;
+      $("shareBox").hidden=false;
+    }).catch(function(){ alert("No se pudo generar el link."); });
+  }
+  $("shareCopy").addEventListener("click",function(){
+    var inp=$("shareLink"); inp.focus(); inp.select();
+    var done=function(){ $("shareCopy").textContent="Copiado ✓"; setTimeout(function(){ $("shareCopy").textContent="Copiar"; },1800); };
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(inp.value).then(done,function(){ try{ if(document.execCommand("copy")) done(); }catch(e){} });
+    else { try{ if(document.execCommand("copy")) done(); }catch(e){} }
+  });
+  $("shareNative").addEventListener("click",function(){
+    try{ navigator.share({title:"Holdy",text:"Mi cartera en Holdy",url:$("shareLink").value}).catch(function(){}); }catch(e){}
+  });
+  $("btnProf").addEventListener("click",function(){ $("shareBox").hidden=true; $("pfName").value=""; $("pfLink").value=""; renderProfList(); dlgProf.showModal(); });
+  $("pfClose").addEventListener("click",function(){ dlgProf.close(); });
+  $("pfAdd").addEventListener("click",function(){
+    var n=cleanName($("pfName").value); if(!n){ alert("Escribí un nombre."); return; }
+    if(profData.profiles.length>=20){ alert("Llegaste al máximo de 20 perfiles."); return; }
+    cur().positions=positions;
+    var np={id:rid(),name:n,positions:[],readOnly:false};
+    profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null;
+    save(LS_PROF,profData); dlgProf.close(); render();
+  });
+  $("pfImport").addEventListener("click",function(){
+    var v=$("pfLink").value.trim(), i=v.indexOf("#share=");
+    if(i<0){ alert("Pegá el link completo que te pasaron (tiene que incluir #share=…)."); return; }
+    decodeToken(v.slice(i+7)).then(parsePayload).then(offerShare).catch(function(e){
+      alert(e&&e.message==="nosoportado"?"Este navegador no puede abrir el link.":"El link no es válido o está incompleto.");
+    });
+  });
 
   // ---------- Recordatorio de respaldo ----------
   function renderNotice(){
@@ -692,6 +1015,7 @@
 
   render();
   refresh(false);
+  handleHash();
 
   if("serviceWorker" in navigator){
     window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
