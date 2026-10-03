@@ -38,3 +38,10 @@ Para que quien use Holdy no tenga que crear cuenta en Finnhub, los precios puede
 - El código está en `worker/worker.js`. Hay que crear un Worker en Cloudflare, pegar ese código y guardar la clave de Finnhub como secreto con el nombre `FINNHUB_KEY`.
 - Después se pone la dirección del Worker en `PROXY_URL` (arriba del script de `index.html`; hoy apunta a lingering-wind-a188.hernan-ss.workers.dev).
 - Todos los usuarios comparten el límite del plan gratuito de Finnhub. Si Holdy tiene muchos usuarios, cada uno puede usar su propia clave desde Ajustes.
+
+## Funciones de la app
+- **Variación del día** por posición y en el total de cada moneda (para acciones con precio automático).
+- **Filtro por broker** (Todos / IBKR / Balanz) y **orden** (mayor valor, ganancia % o $, variación del día, ticker). Las monedas nunca se mezclan.
+- **Ocultar montos**: tapa importes y cantidades (los porcentajes siguen visibles). Queda guardado en el dispositivo.
+- **Migración a Balanz**: porcentaje del valor ya migrado y botón "Pasar a Balanz" en cada posición de IBKR (mantiene cantidad y precio de compra).
+- **Recordatorio de respaldo** si pasaron más de 2 semanas sin exportar, y botón **Instalar app** en Ajustes cuando el navegador lo permite (Android/Chrome).

@@ -102,7 +102,19 @@
   .btns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
   .help{font-size:12px; color:var(--muted)}
   a{color:var(--brand)}
-  @media (min-width:700px){ .summary{grid-template-columns:1fr 1fr} .row-grid{grid-template-columns:repeat(6,1fr)} }
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:0 0 10px}
+  .chips{display:flex; gap:6px}
+  .toolbar button{border-radius:999px; min-height:36px; padding:6px 14px; font-size:13px}
+  .toolbar button[aria-pressed="true"]{background:var(--brand); color:var(--brand-ink); border-color:var(--brand); font-weight:600}
+  .toolbar .sortlbl{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted)}
+  .toolbar select{width:auto; min-height:36px; padding:6px 10px; font-size:13px}
+  .toolbar .spacer{flex:1}
+  .sub{font-size:13px; margin-top:2px}
+  .mig-block{margin-top:10px; padding-top:8px; border-top:1px solid var(--line)}
+  .progress{height:8px; border-radius:999px; background:var(--chip); overflow:hidden; margin-top:6px}
+  .progress>i{display:block; height:100%; background:var(--brand); border-radius:999px}
+  .row-actions{flex-wrap:wrap}
+  @media (min-width:700px){ .summary{grid-template-columns:1fr 1fr} .row-grid{grid-template-columns:repeat(7,1fr)} }
 </style>
 </head>
 <body>
@@ -114,8 +126,27 @@
 
 <main>
   <div id="banners"></div>
-  <div class="status" id="status">Sin actualizar todavía.</div>
+  <div id="notice"></div>
+  <div class="status" id="status" role="status" aria-live="polite">Sin actualizar todavía.</div>
   <section class="summary" id="summary" aria-label="Resumen"></section>
+  <div class="toolbar" id="toolbar" hidden>
+    <div class="chips" role="group" aria-label="Filtrar por broker">
+      <button type="button" id="fltAll" data-filter="all" aria-pressed="true">Todos</button>
+      <button type="button" id="fltIBKR" data-filter="IBKR" aria-pressed="false">IBKR</button>
+      <button type="button" id="fltBalanz" data-filter="Balanz" aria-pressed="false">Balanz</button>
+    </div>
+    <label class="sortlbl">Ordenar
+      <select id="sortSel" aria-label="Ordenar posiciones">
+        <option value="value">Mayor valor</option>
+        <option value="plpct">Ganancia %</option>
+        <option value="pl">Ganancia $</option>
+        <option value="day">Variación del día</option>
+        <option value="ticker">Ticker A–Z</option>
+      </select>
+    </label>
+    <span class="spacer"></span>
+    <button type="button" id="btnHide" aria-pressed="false">Ocultar montos</button>
+  </div>
   <section class="list" id="list" aria-label="Posiciones"></section>
 </main>
 
@@ -187,6 +218,9 @@
       <input type="file" id="sFile" accept="application/json,.json" hidden>
     </div>
     <div class="btns">
+      <button type="button" id="sInstall" hidden>Instalar app</button>
+    </div>
+    <div class="btns">
       <button type="button" id="sClose">Cerrar</button>
       <button type="submit" class="primary" id="sSave">Guardar</button>
     </div>
@@ -197,6 +231,8 @@
 (function(){
   "use strict";
   var LS_POS="cartera.positions.v1", LS_PRICES="cartera.prices.v1", LS_KEY="cartera.finnhubKey.v1";
+  var LS_UI="cartera.ui.v1", LS_BACKUP="cartera.lastBackup.v1", LS_CREATED="cartera.created.v1", LS_SNOOZE="cartera.snooze.v1";
+  var DAY_MS=86400000;
   var REFRESH_MS=60000;
   // Servidor de precios compartido (Cloudflare Worker). Si está vacío, cada persona usa su propia API key.
   var PROXY_URL="https://lingering-wind-a188.hernan-ss.workers.dev";
@@ -204,12 +240,20 @@
   function load(k,def){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
   function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ showBanner("No se pudo guardar en este navegador (modo privado o sin espacio).",true); } }
   function loadKey(){ try{ return localStorage.getItem(LS_KEY)||""; }catch(e){ return ""; } }
+  function safeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function safeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
   var positions=load(LS_POS,[]);
   var prices=load(LS_PRICES,{});      // { TICKER: {price, t(ms de la cotización), fetched(ms)} }
   var apiKey=loadKey();
   var errors={};                       // { TICKER: mensaje }
   var refreshing=false, lastRefresh=0, editingId=null;
+  var uiRaw=load(LS_UI,{});
+  var ui={
+    filter:["all","IBKR","Balanz"].indexOf(uiRaw.filter)>=0?uiRaw.filter:"all",
+    sort:["value","plpct","pl","day","ticker"].indexOf(uiRaw.sort)>=0?uiRaw.sort:"value",
+    hide:!!uiRaw.hide
+  };
 
   var $=function(id){ return document.getElementById(id); };
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text!==undefined) e.textContent=text; return e; }
@@ -233,6 +277,11 @@
   function arrow(n){ return n>0?"▲ ":(n<0?"▼ ":""); }
   function cls(n){ return n>0?"pos":(n<0?"neg":""); }
   function qtyFmt(q){ return new Intl.NumberFormat("es-AR",{maximumFractionDigits:6}).format(q); }
+  // Con "Ocultar montos" se tapan importes y cantidades; los porcentajes siguen visibles.
+  var MASK="••••••";
+  function mm(n,ccy){ return ui.hide?MASK:fmt(n,ccy); }
+  function mms(n,ccy){ return ui.hide?MASK:fmtSigned(n,ccy); }
+  function qq(q){ return ui.hide?MASK:qtyFmt(q); }
   function timeAgo(ms){
     if(!ms) return "";
     var s=Math.max(0,Math.round((Date.now()-ms)/1000));
@@ -246,6 +295,13 @@
     if(p.source==="manual") return (p.manualPrice>0)?p.manualPrice:null;
     var c=prices[p.ticker]; return c&&c.price>0?c.price:null;
   }
+  // Variación del día de una posición con precio automático (Finnhub: d = cambio por acción vs. cierre previo).
+  function dayInfo(p){
+    if(p.source==="manual") return null;
+    var c=prices[p.ticker];
+    if(!c || !(c.price>0) || typeof c.d!=="number" || !isFinite(c.d)) return null;
+    return {amt:p.qty*c.d, base:p.qty*(c.price-c.d)};
+  }
   function priceStamp(p){
     if(p.source==="manual") return p.manualTs||0;
     var c=prices[p.ticker]; return c?(c.t||c.fetched||0):0;
@@ -258,7 +314,19 @@
   function clearBanner(){ $("banners").textContent=""; }
 
   // ---------- Render ----------
+  function syncToolbar(){
+    $("toolbar").hidden=!positions.length;
+    $("fltAll").setAttribute("aria-pressed",String(ui.filter==="all"));
+    $("fltIBKR").setAttribute("aria-pressed",String(ui.filter==="IBKR"));
+    $("fltBalanz").setAttribute("aria-pressed",String(ui.filter==="Balanz"));
+    $("sortSel").value=ui.sort;
+    $("btnHide").setAttribute("aria-pressed",String(ui.hide));
+    $("btnHide").textContent=ui.hide?"Mostrar montos":"Ocultar montos";
+  }
+
   function render(){
+    syncToolbar();
+    renderNotice();
     renderSummary();
     renderList();
     renderStatus();
@@ -280,13 +348,14 @@
     var byCcy={};
     positions.forEach(function(p){
       var cp=currentPrice(p);
-      var g=byCcy[p.ccy]||(byCcy[p.ccy]={cost:0,value:0,missing:0,brokers:{}});
+      var g=byCcy[p.ccy]||(byCcy[p.ccy]={cost:0,value:0,missing:0,brokers:{},day:0,dayBase:0,dayN:0});
       var cost=p.qty*p.buy;
       g.cost+=cost;
       var b=g.brokers[p.broker]||(g.brokers[p.broker]={cost:0,value:0,missing:0});
       b.cost+=cost;
       if(cp===null){ g.missing++; b.missing++; }
       else { g.value+=p.qty*cp; b.value+=p.qty*cp; }
+      var di=dayInfo(p); if(di){ g.day+=di.amt; g.dayBase+=di.base; g.dayN++; }
     });
     Object.keys(byCcy).sort().forEach(function(ccy){
       var g=byCcy[ccy];
@@ -297,13 +366,17 @@
 
       var card=el("div","sum-card");
       card.appendChild(el("h2",null,"Total en "+ccy));
-      card.appendChild(el("div","big",fmt(g.value,ccy)));
+      card.appendChild(el("div","big",mm(g.value,ccy)));
       var plLine=costPriced>0
-        ? el("div","v "+cls(pl),arrow(pl)+fmtSigned(pl,ccy)+"  ("+fmtPct(pct)+")")
+        ? el("div","v "+cls(pl),arrow(pl)+mms(pl,ccy)+"  ("+fmtPct(pct)+")")
         : el("div","v","Sin precios actuales todavía");
       card.appendChild(plLine);
+      if(g.dayN){
+        var dpc=g.dayBase>0?g.day/g.dayBase:null;
+        card.appendChild(el("div","sub "+cls(g.day),"Día: "+arrow(g.day)+mms(g.day,ccy)+" ("+fmtPct(dpc)+")"));
+      }
       var grid=el("div","grid2");
-      var a=el("div"); a.appendChild(el("div","k","Invertido")); a.appendChild(el("div","v",fmt(g.cost,ccy))); grid.appendChild(a);
+      var a=el("div"); a.appendChild(el("div","k","Invertido")); a.appendChild(el("div","v",mm(g.cost,ccy))); grid.appendChild(a);
       var b2=el("div"); b2.appendChild(el("div","k","Posiciones")); b2.appendChild(el("div","v",String(positions.filter(function(p){return p.ccy===ccy;}).length))); grid.appendChild(b2);
       card.appendChild(grid);
       if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
@@ -313,12 +386,21 @@
         var bpl=b.value-cpri, bpct=cpri>0?bpl/cpri:null;
         var line=el("div","broker-line");
         line.appendChild(el("span",null,(bn==="IBKR"?"Interactive Brokers":bn)));
-        line.appendChild(el("span",null,fmt(b.value,ccy)));
+        line.appendChild(el("span",null,mm(b.value,ccy)));
         line.appendChild(cpri>0
-          ? el("span",cls(bpl),arrow(bpl)+fmtSigned(bpl,ccy)+" ("+fmtPct(bpct)+")")
+          ? el("span",cls(bpl),arrow(bpl)+mms(bpl,ccy)+" ("+fmtPct(bpct)+")")
           : el("span",null,"sin precios"));
         card.appendChild(line);
       });
+      var ib=g.brokers.IBKR;
+      if(ib && g.value>0){
+        var moved=Math.round((1-ib.value/g.value)*100);
+        var mig=el("div","mig-block");
+        mig.appendChild(el("div","k","Migrado a Balanz: "+moved+"% del valor ("+(100-moved)+"% sigue en Interactive Brokers)"));
+        var bar=el("div","progress"); bar.setAttribute("role","img"); bar.setAttribute("aria-label","Migrado a Balanz: "+moved+"%");
+        var fill=document.createElement("i"); fill.style.width=moved+"%"; bar.appendChild(fill);
+        mig.appendChild(bar); card.appendChild(mig);
+      }
       box.appendChild(card);
     });
   }
@@ -335,9 +417,28 @@
     var totalByCcy={};
     positions.forEach(function(p){ var cp=currentPrice(p); if(cp!==null) totalByCcy[p.ccy]=(totalByCcy[p.ccy]||0)+p.qty*cp; });
 
-    var sorted=positions.slice().sort(function(a,b){
-      var va=(currentPrice(a)||0)*a.qty, vb=(currentPrice(b)||0)*b.qty;
-      return (a.ccy===b.ccy)?(vb-va):(a.ccy<b.ccy?-1:1);
+    function metric(p){
+      var c=currentPrice(p), cost=p.qty*p.buy, value=c===null?null:p.qty*c;
+      if(ui.sort==="value") return value;
+      if(ui.sort==="pl") return value===null?null:value-cost;
+      if(ui.sort==="plpct") return (value===null||cost<=0)?null:(value-cost)/cost;
+      if(ui.sort==="day"){ var d=dayInfo(p); return (d&&d.base>0)?d.amt/d.base:null; }
+      return null;
+    }
+    var filtered=positions.filter(function(p){ return ui.filter==="all"||p.broker===ui.filter; });
+    if(!filtered.length){
+      box.appendChild(el("div","empty","No hay posiciones en "+(ui.filter==="IBKR"?"Interactive Brokers":ui.filter)+"."));
+      return;
+    }
+    // Siempre agrupado por moneda (no se mezclan USD y ARS); dentro de cada moneda, según el orden elegido.
+    var sorted=filtered.slice().sort(function(a,b){
+      if(a.ccy!==b.ccy) return a.ccy<b.ccy?-1:1;
+      if(ui.sort==="ticker") return a.ticker<b.ticker?-1:(a.ticker>b.ticker?1:0);
+      var ma=metric(a), mb=metric(b);
+      if(ma===null&&mb===null) return 0;
+      if(ma===null) return 1;
+      if(mb===null) return -1;
+      return mb-ma;
     });
     sorted.forEach(function(p){
       var cp=currentPrice(p);
@@ -357,11 +458,13 @@
 
       var g=el("div","row-grid");
       function cell(k,v,c){ var d=el("div"); d.appendChild(el("div","k",k)); d.appendChild(el("div","v"+(c?" "+c:""),v)); g.appendChild(d); }
-      cell("Cantidad",qtyFmt(p.qty));
-      cell("Compra",fmt(p.buy,p.ccy));
+      var di=dayInfo(p), dpct=(di&&di.base>0)?di.amt/di.base:null;
+      cell("Cantidad",qq(p.qty));
+      cell("Compra",mm(p.buy,p.ccy));
       cell("Actual",cp===null?"—":fmt(cp,p.ccy));
-      cell("Valor",value===null?"—":fmt(value,p.ccy));
-      cell("Ganancia",pl===null?"—":fmtSigned(pl,p.ccy),cls(pl));
+      cell("Día",dpct===null?"—":arrow(dpct)+fmtPct(dpct),dpct===null?"":cls(dpct));
+      cell("Valor",value===null?"—":mm(value,p.ccy));
+      cell("Ganancia",pl===null?"—":mms(pl,p.ccy),cls(pl));
       cell("Peso",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       row.appendChild(g);
 
@@ -377,7 +480,18 @@
       var bd=el("button","danger","Eliminar"); bd.type="button"; bd.addEventListener("click",function(){
         if(confirm("¿Eliminar "+p.ticker+" ("+p.broker+")?")){ positions=positions.filter(function(x){return x.id!==p.id;}); save(LS_POS,positions); render(); }
       });
-      acts.appendChild(be); acts.appendChild(bd);
+      acts.appendChild(be);
+      if(p.broker==="IBKR"){
+        var bm=el("button",null,"Pasar a Balanz"); bm.type="button";
+        bm.addEventListener("click",function(){
+          if(confirm("¿"+p.ticker+" ya está en Balanz? Se mantienen la cantidad y el precio de compra.")){
+            positions=positions.map(function(x){ return x.id===p.id?Object.assign({},x,{broker:"Balanz"}):x; });
+            save(LS_POS,positions); render();
+          }
+        });
+        acts.appendChild(bm);
+      }
+      acts.appendChild(bd);
       row.appendChild(acts);
       box.appendChild(row);
     });
@@ -397,7 +511,7 @@
       return r.json();
     }).then(function(j){
       if(!j || typeof j.c!=="number" || j.c<=0) throw new Error("Finnhub no devolvió precio para "+ticker+" (¿ticker de EE.UU.?).");
-      return {price:j.c, t:(j.t?j.t*1000:0), fetched:Date.now()};
+      return {price:j.c, t:(j.t?j.t*1000:0), fetched:Date.now(), d:(typeof j.d==="number"?j.d:null)};
     });
   }
 
@@ -497,12 +611,14 @@
       .catch(function(e){ out.textContent="No funcionó: "+((e&&e.message)||"error de red o bloqueo del navegador."); })
       .then(function(){ apiKey=prev; });
   });
-  $("sExport").addEventListener("click",function(){
+  function doExport(){
     var blob=new Blob([JSON.stringify({version:1,exported:new Date().toISOString(),positions:positions},null,2)],{type:"application/json"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download="holdy-"+new Date().toISOString().slice(0,10)+".json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
-  });
+    safeSet(LS_BACKUP,String(Date.now())); renderNotice();
+  }
+  $("sExport").addEventListener("click",doExport);
   $("sImport").addEventListener("click",function(){ $("sFile").click(); });
   $("sFile").addEventListener("change",function(ev){
     var f=ev.target.files[0]; if(!f) return;
@@ -521,7 +637,7 @@
         });
         if(!clean.length) throw new Error("vacío");
         if(confirm("Se van a reemplazar tus posiciones actuales por "+clean.length+" del archivo. ¿Seguir?")){
-          positions=clean; save(LS_POS,positions); render(); refresh(true); dlgSet.close();
+          positions=clean; save(LS_POS,positions); safeSet(LS_BACKUP,String(Date.now())); render(); refresh(true); dlgSet.close();
         }
       }catch(e){ alert("El archivo no tiene el formato esperado."); }
       ev.target.value="";
@@ -530,6 +646,42 @@
   });
 
   $("btnRefresh").addEventListener("click",function(){ clearBanner(); refresh(true); });
+
+  // ---------- Filtros, orden y modo privado ----------
+  $("toolbar").addEventListener("click",function(e){
+    var f=e.target.getAttribute&&e.target.getAttribute("data-filter");
+    if(f){ ui.filter=f; save(LS_UI,ui); render(); }
+  });
+  $("sortSel").addEventListener("change",function(){ ui.sort=$("sortSel").value; save(LS_UI,ui); render(); });
+  $("btnHide").addEventListener("click",function(){ ui.hide=!ui.hide; save(LS_UI,ui); render(); });
+
+  // ---------- Recordatorio de respaldo ----------
+  function renderNotice(){
+    var box=$("notice"); box.textContent="";
+    if(!positions.length) return;
+    var now=Date.now();
+    var created=+safeGet(LS_CREATED)||0;
+    if(!created){ created=now; safeSet(LS_CREATED,String(now)); }
+    var ref=Math.max(+safeGet(LS_BACKUP)||0,created);
+    if(now-ref<14*DAY_MS || now<(+safeGet(LS_SNOOZE)||0)) return;
+    var b=el("div","banner");
+    b.appendChild(el("div",null,"Hace más de 2 semanas que no exportás un respaldo. Tus posiciones viven solo en este dispositivo."));
+    var act=el("div","btns"); act.style.marginTop="8px"; act.style.justifyContent="flex-start";
+    var be=el("button","primary","Exportar ahora"); be.type="button"; be.addEventListener("click",doExport);
+    var bl=el("button",null,"Más tarde"); bl.type="button";
+    bl.addEventListener("click",function(){ safeSet(LS_SNOOZE,String(Date.now()+7*DAY_MS)); renderNotice(); });
+    act.appendChild(be); act.appendChild(bl); b.appendChild(act); box.appendChild(b);
+  }
+
+  // ---------- Instalar como app (Android/Chrome) ----------
+  var deferredInstall=null;
+  window.addEventListener("beforeinstallprompt",function(e){ e.preventDefault(); deferredInstall=e; $("sInstall").hidden=false; });
+  window.addEventListener("appinstalled",function(){ deferredInstall=null; $("sInstall").hidden=true; });
+  $("sInstall").addEventListener("click",function(){
+    if(!deferredInstall) return;
+    deferredInstall.prompt();
+    Promise.resolve(deferredInstall.userChoice).then(function(){ deferredInstall=null; $("sInstall").hidden=true; });
+  });
 
   // ---------- Auto-actualización ----------
   setInterval(function(){ if(document.visibilityState==="visible") refresh(false); },REFRESH_MS);
