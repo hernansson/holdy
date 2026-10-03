@@ -199,7 +199,7 @@
   var LS_POS="cartera.positions.v1", LS_PRICES="cartera.prices.v1", LS_KEY="cartera.finnhubKey.v1";
   var REFRESH_MS=60000;
   // Servidor de precios compartido (Cloudflare Worker). Si está vacío, cada persona usa su propia API key.
-  var PROXY_URL="";
+  var PROXY_URL="https://lingering-wind-a188.hernan-ss.workers.dev";
 
   function load(k,def){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
   function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ showBanner("No se pudo guardar en este navegador (modo privado o sin espacio).",true); } }

@@ -36,5 +36,5 @@ Si algún paso cambió en esos sitios, avisame y lo ajustamos.
 ## Servidor de precios compartido (Cloudflare Worker)
 Para que quien use Holdy no tenga que crear cuenta en Finnhub, los precios pueden pasar por un Worker propio que guarda la clave como secreto.
 - El código está en `worker/worker.js`. Hay que crear un Worker en Cloudflare, pegar ese código y guardar la clave de Finnhub como secreto con el nombre `FINNHUB_KEY`.
-- Después se pone la dirección del Worker en `PROXY_URL` (arriba del script de `index.html`).
+- Después se pone la dirección del Worker en `PROXY_URL` (arriba del script de `index.html`; hoy apunta a lingering-wind-a188.hernan-ss.workers.dev).
 - Todos los usuarios comparten el límite del plan gratuito de Finnhub. Si Holdy tiene muchos usuarios, cada uno puede usar su propia clave desde Ajustes.
