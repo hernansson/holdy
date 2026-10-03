@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Holdy</title>
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Holdy">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root{
+    --bg:#f4f6f7; --card:#ffffff; --text:#14201f; --muted:#5b6b69; --line:#dfe5e4;
+    --brand:#0f766e; --brand-ink:#ffffff; --pos:#0a7a3d; --neg:#b42318; --warn:#9a6700;
+    --chip:#e7f1ef; --shadow:0 1px 2px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1514; --card:#162120; --text:#e8f0ef; --muted:#9bb0ad; --line:#263634;
+      --brand:#2dd4bf; --brand-ink:#04211e; --pos:#4ade80; --neg:#f87171; --warn:#fbbf24;
+      --chip:#1d3330; --shadow:none;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); font-size:15px; line-height:1.4;
+    padding-bottom:calc(88px + env(safe-area-inset-bottom));
+  }
+  header{
+    position:sticky; top:0; z-index:5; background:var(--brand); color:var(--brand-ink);
+    padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+    display:flex; align-items:center; gap:10px;
+  }
+  header h1{font-size:18px; margin:0; flex:1}
+  header button{background:transparent; color:inherit; border:1px solid currentColor; opacity:.95}
+  main{max-width:860px; margin:0 auto; padding:14px 16px}
+  button{
+    font:inherit; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--text);
+    padding:9px 14px; cursor:pointer; min-height:40px;
+  }
+  button.primary{background:var(--brand); color:var(--brand-ink); border-color:var(--brand); font-weight:600}
+  button.danger{color:var(--neg)}
+  button:disabled{opacity:.55; cursor:default}
+  .status{font-size:13px; color:var(--muted); margin:2px 0 12px}
+  .banner{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--warn); border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:14px}
+  .banner.err{border-left-color:var(--neg)}
+  .summary{display:grid; gap:12px; margin-bottom:16px}
+  .sum-card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:var(--shadow)}
+  .sum-card h2{margin:0 0 8px; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
+  .big{font-size:26px; font-weight:700}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; margin-top:8px}
+  .k{font-size:12px; color:var(--muted)}
+  .v{font-weight:600}
+  .broker-line{display:flex; justify-content:space-between; gap:8px; font-size:14px; padding:6px 0; border-top:1px solid var(--line); flex-wrap:wrap}
+  .pos{color:var(--pos)} .neg{color:var(--neg)}
+  .list{display:grid; gap:10px}
+  .row{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; box-shadow:var(--shadow)}
+  .row-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .tick{font-weight:700; font-size:17px}
+  .chip{font-size:11px; padding:2px 8px; border-radius:999px; background:var(--chip); color:var(--text)}
+  .chip.mig{background:transparent; border:1px dashed var(--warn); color:var(--warn)}
+  .spacer{flex:1}
+  .row-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px 10px; margin-top:10px}
+  .row-actions{display:flex; gap:8px; margin-top:10px}
+  .row-actions button{padding:6px 12px; min-height:34px; font-size:13px}
+  .note{font-size:12px; color:var(--muted); margin-top:6px}
+  .empty{text-align:center; color:var(--muted); padding:36px 12px; background:var(--card); border:1px dashed var(--line); border-radius:14px}
+  .fab{
+    position:fixed; right:16px; bottom:calc(16px + env(safe-area-inset-bottom));
+    border-radius:999px; padding:14px 20px; box-shadow:0 4px 14px rgba(0,0,0,.25); z-index:6;
+  }
+  dialog{border:1px solid var(--line); border-radius:16px; background:var(--card); color:var(--text); padding:0; width:min(480px,94vw); max-height:92vh}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  form{padding:18px; display:grid; gap:12px}
+  form h3{margin:0 0 2px; font-size:18px}
+  label{display:grid; gap:4px; font-size:13px; color:var(--muted)}
+  input,select{
+    font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line);
+    border-radius:10px; padding:10px; min-height:42px; width:100%;
+  }
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .btns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
+  .help{font-size:12px; color:var(--muted)}
+  a{color:var(--brand)}
+  @media (min-width:700px){ .summary{grid-template-columns:1fr 1fr} .row-grid{grid-template-columns:repeat(6,1fr)} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Holdy</h1>
+  <button id="btnRefresh" aria-label="Actualizar precios">Actualizar</button>
+  <button id="btnSettings" aria-label="Ajustes">Ajustes</button>
+</header>
+
+<main>
+  <div id="banners"></div>
+  <div class="status" id="status">Sin actualizar todavía.</div>
+  <section class="summary" id="summary" aria-label="Resumen"></section>
+  <section class="list" id="list" aria-label="Posiciones"></section>
+</main>
+
+<button class="primary fab" id="btnAdd">+ Posición</button>
+
+<dialog id="dlgPos">
+  <form method="dialog" id="formPos">
+    <h3 id="posTitle">Nueva posición</h3>
+    <div class="two">
+      <label>Broker
+        <select id="fBroker">
+          <option value="IBKR">Interactive Brokers</option>
+          <option value="Balanz">Balanz</option>
+        </select>
+      </label>
+      <label>Moneda
+        <select id="fCcy">
+          <option value="USD">USD</option>
+          <option value="ARS">ARS</option>
+        </select>
+      </label>
+    </div>
+    <label>Ticker
+      <input id="fTicker" autocapitalize="characters" autocomplete="off" placeholder="AAPL" required>
+    </label>
+    <div class="two">
+      <label>Cantidad
+        <input id="fQty" type="number" inputmode="decimal" step="any" min="0" required placeholder="10">
+      </label>
+      <label>Precio de compra
+        <input id="fBuy" type="number" inputmode="decimal" step="any" min="0" required placeholder="170.50">
+      </label>
+    </div>
+    <label>Fuente del precio actual
+      <select id="fSource">
+        <option value="auto">Automática (Finnhub, acciones de EE.UU.)</option>
+        <option value="manual">Manual (lo cargo yo)</option>
+      </select>
+    </label>
+    <label id="fManualWrap" hidden>Precio actual (manual)
+      <input id="fManual" type="number" inputmode="decimal" step="any" min="0" placeholder="225.00">
+    </label>
+    <label>Nota (opcional)
+      <input id="fNote" placeholder="Ej: migrar a Balanz en noviembre">
+    </label>
+    <div class="btns">
+      <button type="button" id="posCancel">Cancelar</button>
+      <button type="submit" class="primary" id="posSave">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgSet">
+  <form method="dialog" id="formSet">
+    <h3>Ajustes</h3>
+    <label>API key de Finnhub
+      <input id="sKey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pegá tu clave acá">
+    </label>
+    <div class="help">Gratis en <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a>. Se guarda solo en este dispositivo.</div>
+    <div class="btns">
+      <button type="button" id="sTest">Probar clave</button>
+    </div>
+    <div class="help" id="sTestOut" aria-live="polite"></div>
+    <hr style="border:0;border-top:1px solid var(--line);width:100%">
+    <div class="help">Copia de seguridad: tus posiciones viven solo en este dispositivo. Exportá un archivo para no perderlas o para pasarlas a otro celu.</div>
+    <div class="btns">
+      <button type="button" id="sExport">Exportar</button>
+      <button type="button" id="sImport">Importar</button>
+      <input type="file" id="sFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="btns">
+      <button type="button" id="sClose">Cerrar</button>
+      <button type="submit" class="primary" id="sSave">Guardar clave</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function(){
+  "use strict";
+  var LS_POS="cartera.positions.v1", LS_PRICES="cartera.prices.v1", LS_KEY="cartera.finnhubKey.v1";
+  var REFRESH_MS=60000;
+
+  function load(k,def){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
+  function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ showBanner("No se pudo guardar en este navegador (modo privado o sin espacio).",true); } }
+  function loadKey(){ try{ return localStorage.getItem(LS_KEY)||""; }catch(e){ return ""; } }
+
+  var positions=load(LS_POS,[]);
+  var prices=load(LS_PRICES,{});      // { TICKER: {price, t(ms de la cotización), fetched(ms)} }
+  var apiKey=loadKey();
+  var errors={};                       // { TICKER: mensaje }
+  var refreshing=false, lastRefresh=0, editingId=null;
+
+  var $=function(id){ return document.getElementById(id); };
+  function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text!==undefined) e.textContent=text; return e; }
+
+  var nfCache={};
+  function fmt(n,ccy){
+    if(n===null||n===undefined||!isFinite(n)) return "—";
+    var key=ccy||"x";
+    if(!nfCache[key]) nfCache[key]=new Intl.NumberFormat("es-AR",{style:"currency",currency:ccy||"USD",minimumFractionDigits:2,maximumFractionDigits:2});
+    return nfCache[key].format(n);
+  }
+  function fmtPct(p){
+    if(p===null||p===undefined||!isFinite(p)) return "—";
+    var s=(p>=0?"+":"−")+Math.abs(p*100).toFixed(2).replace(".",",")+"%";
+    return s;
+  }
+  function fmtSigned(n,ccy){
+    if(n===null||!isFinite(n)) return "—";
+    return (n>=0?"+":"−")+fmt(Math.abs(n),ccy);
+  }
+  function arrow(n){ return n>0?"▲ ":(n<0?"▼ ":""); }
+  function cls(n){ return n>0?"pos":(n<0?"neg":""); }
+  function qtyFmt(q){ return new Intl.NumberFormat("es-AR",{maximumFractionDigits:6}).format(q); }
+  function timeAgo(ms){
+    if(!ms) return "";
+    var s=Math.max(0,Math.round((Date.now()-ms)/1000));
+    if(s<60) return "hace instantes";
+    var m=Math.round(s/60); if(m<60) return "hace "+m+" min";
+    var h=Math.round(m/60); if(h<48) return "hace "+h+" h";
+    return "hace "+Math.round(h/24)+" días";
+  }
+
+  function currentPrice(p){
+    if(p.source==="manual") return (p.manualPrice>0)?p.manualPrice:null;
+    var c=prices[p.ticker]; return c&&c.price>0?c.price:null;
+  }
+  function priceStamp(p){
+    if(p.source==="manual") return p.manualTs||0;
+    var c=prices[p.ticker]; return c?(c.t||c.fetched||0):0;
+  }
+
+  function showBanner(msg,isErr){
+    var b=el("div","banner"+(isErr?" err":""),msg);
+    var box=$("banners"); box.textContent=""; box.appendChild(b);
+  }
+  function clearBanner(){ $("banners").textContent=""; }
+
+  // ---------- Render ----------
+  function render(){
+    renderSummary();
+    renderList();
+    renderStatus();
+  }
+
+  function renderStatus(){
+    var s=$("status");
+    var autoCount=positions.filter(function(p){return p.source!=="manual";}).length;
+    if(!positions.length){ s.textContent=""; return; }
+    if(autoCount && !apiKey){ s.textContent="Falta la API key de Finnhub (Ajustes) para actualizar precios automáticos."; return; }
+    if(refreshing){ s.textContent="Actualizando precios…"; return; }
+    if(lastRefresh){ s.textContent="Última consulta: "+new Date(lastRefresh).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})+". Se actualiza sola cada minuto mientras la app está abierta."; }
+    else s.textContent="Sin consultar todavía en esta sesión.";
+  }
+
+  function renderSummary(){
+    var box=$("summary"); box.textContent="";
+    if(!positions.length) return;
+    var byCcy={};
+    positions.forEach(function(p){
+      var cp=currentPrice(p);
+      var g=byCcy[p.ccy]||(byCcy[p.ccy]={cost:0,value:0,missing:0,brokers:{}});
+      var cost=p.qty*p.buy;
+      g.cost+=cost;
+      var b=g.brokers[p.broker]||(g.brokers[p.broker]={cost:0,value:0,missing:0});
+      b.cost+=cost;
+      if(cp===null){ g.missing++; b.missing++; }
+      else { g.value+=p.qty*cp; b.value+=p.qty*cp; }
+    });
+    Object.keys(byCcy).sort().forEach(function(ccy){
+      var g=byCcy[ccy];
+      // Solo comparamos costo vs valor de las posiciones que tienen precio actual
+      var costPriced=0;
+      positions.forEach(function(p){ if(p.ccy===ccy && currentPrice(p)!==null) costPriced+=p.qty*p.buy; });
+      var pl=g.value-costPriced, pct=costPriced>0?pl/costPriced:null;
+
+      var card=el("div","sum-card");
+      card.appendChild(el("h2",null,"Total en "+ccy));
+      card.appendChild(el("div","big",fmt(g.value,ccy)));
+      var plLine=costPriced>0
+        ? el("div","v "+cls(pl),arrow(pl)+fmtSigned(pl,ccy)+"  ("+fmtPct(pct)+")")
+        : el("div","v","Sin precios actuales todavía");
+      card.appendChild(plLine);
+      var grid=el("div","grid2");
+      var a=el("div"); a.appendChild(el("div","k","Invertido")); a.appendChild(el("div","v",fmt(g.cost,ccy))); grid.appendChild(a);
+      var b2=el("div"); b2.appendChild(el("div","k","Posiciones")); b2.appendChild(el("div","v",String(positions.filter(function(p){return p.ccy===ccy;}).length))); grid.appendChild(b2);
+      card.appendChild(grid);
+      if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
+      Object.keys(g.brokers).sort().forEach(function(bn){
+        var b=g.brokers[bn];
+        var cpri=0; positions.forEach(function(p){ if(p.ccy===ccy&&p.broker===bn&&currentPrice(p)!==null) cpri+=p.qty*p.buy; });
+        var bpl=b.value-cpri, bpct=cpri>0?bpl/cpri:null;
+        var line=el("div","broker-line");
+        line.appendChild(el("span",null,(bn==="IBKR"?"Interactive Brokers":bn)));
+        line.appendChild(el("span",null,fmt(b.value,ccy)));
+        line.appendChild(cpri>0
+          ? el("span",cls(bpl),arrow(bpl)+fmtSigned(bpl,ccy)+" ("+fmtPct(bpct)+")")
+          : el("span",null,"sin precios"));
+        card.appendChild(line);
+      });
+      box.appendChild(card);
+    });
+  }
+
+  function renderList(){
+    var box=$("list"); box.textContent="";
+    if(!positions.length){
+      var e=el("div","empty");
+      e.appendChild(el("div",null,"Todavía no cargaste ninguna posición."));
+      e.appendChild(el("div","help","Tocá “+ Posición” y cargá ticker, cantidad y precio de compra. El precio actual se completa solo."));
+      box.appendChild(e); return;
+    }
+    // total por moneda para el peso
+    var totalByCcy={};
+    positions.forEach(function(p){ var cp=currentPrice(p); if(cp!==null) totalByCcy[p.ccy]=(totalByCcy[p.ccy]||0)+p.qty*cp; });
+
+    var sorted=positions.slice().sort(function(a,b){
+      var va=(currentPrice(a)||0)*a.qty, vb=(currentPrice(b)||0)*b.qty;
+      return (a.ccy===b.ccy)?(vb-va):(a.ccy<b.ccy?-1:1);
+    });
+    sorted.forEach(function(p){
+      var cp=currentPrice(p);
+      var cost=p.qty*p.buy, value=cp===null?null:p.qty*cp;
+      var pl=value===null?null:value-cost, pct=(pl===null||cost<=0)?null:pl/cost;
+      var weight=(value===null||!totalByCcy[p.ccy])?null:value/totalByCcy[p.ccy];
+
+      var row=el("div","row");
+      var top=el("div","row-top");
+      top.appendChild(el("span","tick",p.ticker));
+      top.appendChild(el("span","chip",p.broker==="IBKR"?"IBKR":"Balanz"));
+      if(p.broker==="IBKR") top.appendChild(el("span","chip mig","a migrar a Balanz"));
+      top.appendChild(el("span","spacer"));
+      var plBox=el("span","v "+cls(pl),pl===null?"Sin precio":arrow(pl)+fmtPct(pct));
+      top.appendChild(plBox);
+      row.appendChild(top);
+
+      var g=el("div","row-grid");
+      function cell(k,v,c){ var d=el("div"); d.appendChild(el("div","k",k)); d.appendChild(el("div","v"+(c?" "+c:""),v)); g.appendChild(d); }
+      cell("Cantidad",qtyFmt(p.qty));
+      cell("Compra",fmt(p.buy,p.ccy));
+      cell("Actual",cp===null?"—":fmt(cp,p.ccy));
+      cell("Valor",value===null?"—":fmt(value,p.ccy));
+      cell("Ganancia",pl===null?"—":fmtSigned(pl,p.ccy),cls(pl));
+      cell("Peso",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
+      row.appendChild(g);
+
+      var stamp=priceStamp(p);
+      var notes=[];
+      if(errors[p.ticker] && p.source!=="manual") notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
+      if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
+      if(p.note) notes.push(p.note);
+      if(notes.length) row.appendChild(el("div","note",notes.join(" ")));
+
+      var acts=el("div","row-actions");
+      var be=el("button",null,"Editar"); be.type="button"; be.addEventListener("click",function(){ openPos(p.id); });
+      var bd=el("button","danger","Eliminar"); bd.type="button"; bd.addEventListener("click",function(){
+        if(confirm("¿Eliminar "+p.ticker+" ("+p.broker+")?")){ positions=positions.filter(function(x){return x.id!==p.id;}); save(LS_POS,positions); render(); }
+      });
+      acts.appendChild(be); acts.appendChild(bd);
+      row.appendChild(acts);
+      box.appendChild(row);
+    });
+  }
+
+  // ---------- Precios ----------
+  function fetchQuote(ticker){
+    var url="https://finnhub.io/api/v1/quote?symbol="+encodeURIComponent(ticker)+"&token="+encodeURIComponent(apiKey);
+    return fetch(url,{cache:"no-store"}).then(function(r){
+      if(r.status===401||r.status===403) throw new Error("La API key no es válida o no tiene permiso.");
+      if(r.status===429) throw new Error("Se superó el límite de consultas gratuitas. Probá de nuevo en un minuto.");
+      if(!r.ok) throw new Error("El servicio de precios respondió con error ("+r.status+").");
+      return r.json();
+    }).then(function(j){
+      if(!j || typeof j.c!=="number" || j.c<=0) throw new Error("Finnhub no devolvió precio para "+ticker+" (¿ticker de EE.UU.?).");
+      return {price:j.c, t:(j.t?j.t*1000:0), fetched:Date.now()};
+    });
+  }
+
+  function refresh(manual){
+    if(refreshing) return Promise.resolve();
+    var tickers=[]; positions.forEach(function(p){ if(p.source!=="manual" && tickers.indexOf(p.ticker)<0) tickers.push(p.ticker); });
+    if(!tickers.length){ render(); return Promise.resolve(); }
+    if(!apiKey){ showBanner("Para traer precios automáticos pegá tu API key de Finnhub en Ajustes. Mientras tanto podés cargar precios manuales.",false); render(); return Promise.resolve(); }
+    if(!navigator.onLine){ showBanner("Sin conexión: se muestran los últimos precios guardados.",false); render(); return Promise.resolve(); }
+    refreshing=true; $("btnRefresh").disabled=true; renderStatus();
+    var queue=tickers.slice(), fatal=null;
+    function worker(){
+      if(!queue.length || fatal) return Promise.resolve();
+      var t=queue.shift();
+      return fetchQuote(t).then(function(q){ prices[t]=q; delete errors[t]; })
+        .catch(function(e){
+          errors[t]=(e&&e.message)?e.message:"No se pudo consultar el precio.";
+          if(/API key|límite/.test(errors[t])) fatal=errors[t];
+        }).then(worker);
+    }
+    return Promise.all([worker(),worker(),worker()]).then(function(){
+      lastRefresh=Date.now(); save(LS_PRICES,prices);
+      if(fatal) showBanner(fatal,true); else { clearBanner(); var bad=Object.keys(errors).filter(function(k){return tickers.indexOf(k)>=0;}); if(bad.length) showBanner("No se pudo obtener precio de: "+bad.join(", ")+". Si no son acciones de EE.UU., usá precio manual.",false); }
+    }).catch(function(){ showBanner("No se pudo consultar el servicio de precios. Revisá tu conexión.",true); })
+      .then(function(){ refreshing=false; $("btnRefresh").disabled=false; render(); });
+  }
+
+  // ---------- Formularios ----------
+  var dlgPos=$("dlgPos"), dlgSet=$("dlgSet");
+  function syncSource(){ $("fManualWrap").hidden=($("fSource").value!=="manual"); }
+  $("fSource").addEventListener("change",syncSource);
+
+  function openPos(id){
+    editingId=id||null;
+    var p=id?positions.filter(function(x){return x.id===id;})[0]:null;
+    $("posTitle").textContent=p?"Editar posición":"Nueva posición";
+    $("fBroker").value=p?p.broker:"IBKR";
+    $("fCcy").value=p?p.ccy:"USD";
+    $("fTicker").value=p?p.ticker:"";
+    $("fQty").value=p?p.qty:"";
+    $("fBuy").value=p?p.buy:"";
+    $("fSource").value=p?(p.source||"auto"):"auto";
+    $("fManual").value=(p&&p.manualPrice)?p.manualPrice:"";
+    $("fNote").value=p?(p.note||""):"";
+    syncSource();
+    dlgPos.showModal();
+  }
+  $("btnAdd").addEventListener("click",function(){ openPos(null); });
+  $("posCancel").addEventListener("click",function(){ dlgPos.close(); });
+
+  $("formPos").addEventListener("submit",function(ev){
+    ev.preventDefault();
+    var ticker=$("fTicker").value.trim().toUpperCase();
+    var qty=parseFloat($("fQty").value), buy=parseFloat($("fBuy").value);
+    var source=$("fSource").value, manual=parseFloat($("fManual").value);
+    if(!ticker){ alert("Falta el ticker."); return; }
+    if(!(qty>0)){ alert("La cantidad tiene que ser mayor a 0."); return; }
+    if(!(buy>0)){ alert("El precio de compra tiene que ser mayor a 0."); return; }
+    if(source==="manual" && !(manual>0)){ alert("Cargá el precio actual manual."); return; }
+    var data={
+      broker:$("fBroker").value, ccy:$("fCcy").value, ticker:ticker, qty:qty, buy:buy,
+      source:source, manualPrice:source==="manual"?manual:0, note:$("fNote").value.trim()
+    };
+    if(editingId){
+      positions=positions.map(function(x){
+        if(x.id!==editingId) return x;
+        var ts=x.manualTs||0;
+        if(source==="manual" && manual!==x.manualPrice) ts=Date.now();
+        return Object.assign({},x,data,{manualTs:source==="manual"?(ts||Date.now()):0});
+      });
+    } else {
+      data.id="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      data.manualTs=source==="manual"?Date.now():0;
+      positions.push(data);
+    }
+    save(LS_POS,positions);
+    dlgPos.close(); render();
+    if(source==="auto") refresh(true);
+  });
+
+  // ---------- Ajustes ----------
+  $("btnSettings").addEventListener("click",function(){ $("sKey").value=apiKey; $("sTestOut").textContent=""; dlgSet.showModal(); });
+  $("sClose").addEventListener("click",function(){ dlgSet.close(); });
+  $("formSet").addEventListener("submit",function(ev){
+    ev.preventDefault();
+    apiKey=$("sKey").value.trim();
+    try{ localStorage.setItem(LS_KEY,apiKey); }catch(e){}
+    dlgSet.close(); clearBanner(); refresh(true);
+  });
+  $("sTest").addEventListener("click",function(){
+    var k=$("sKey").value.trim(), out=$("sTestOut");
+    if(!k){ out.textContent="Pegá primero la clave."; return; }
+    out.textContent="Probando…";
+    var prev=apiKey; apiKey=k;
+    fetchQuote("AAPL").then(function(q){ out.textContent="Funciona. Precio de prueba (AAPL): "+q.price+" USD."; })
+      .catch(function(e){ out.textContent="No funcionó: "+((e&&e.message)||"error de red o bloqueo del navegador."); })
+      .then(function(){ apiKey=prev; });
+  });
+  $("sExport").addEventListener("click",function(){
+    var blob=new Blob([JSON.stringify({version:1,exported:new Date().toISOString(),positions:positions},null,2)],{type:"application/json"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download="holdy-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+  });
+  $("sImport").addEventListener("click",function(){ $("sFile").click(); });
+  $("sFile").addEventListener("change",function(ev){
+    var f=ev.target.files[0]; if(!f) return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var j=JSON.parse(r.result);
+        var arr=Array.isArray(j)?j:j.positions;
+        if(!Array.isArray(arr)) throw new Error("formato");
+        var clean=arr.filter(function(p){ return p && typeof p.ticker==="string" && p.qty>0 && p.buy>0; }).map(function(p){
+          return { id:p.id||("p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
+            broker:p.broker==="Balanz"?"Balanz":"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
+            ticker:String(p.ticker).toUpperCase().slice(0,20), qty:+p.qty, buy:+p.buy,
+            source:p.source==="manual"?"manual":"auto", manualPrice:+p.manualPrice||0, manualTs:+p.manualTs||0,
+            note:String(p.note||"").slice(0,200) };
+        });
+        if(!clean.length) throw new Error("vacío");
+        if(confirm("Se van a reemplazar tus posiciones actuales por "+clean.length+" del archivo. ¿Seguir?")){
+          positions=clean; save(LS_POS,positions); render(); refresh(true); dlgSet.close();
+        }
+      }catch(e){ alert("El archivo no tiene el formato esperado."); }
+      ev.target.value="";
+    };
+    r.readAsText(f);
+  });
+
+  $("btnRefresh").addEventListener("click",function(){ clearBanner(); refresh(true); });
+
+  // ---------- Auto-actualización ----------
+  setInterval(function(){ if(document.visibilityState==="visible") refresh(false); },REFRESH_MS);
+  document.addEventListener("visibilitychange",function(){
+    if(document.visibilityState==="visible" && Date.now()-lastRefresh>30000) refresh(false);
+  });
+  window.addEventListener("online",function(){ refresh(false); });
+
+  render();
+  refresh(false);
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
+  }
+})();
+</script>
+</body>
+</html>
