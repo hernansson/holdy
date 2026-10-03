@@ -32,3 +32,9 @@ Si algún paso cambió en esos sitios, avisame y lo ajustamos.
 - Si tu API key queda guardada en el navegador del celu, cualquiera que use ese celu desbloqueado podría verla. La clave gratuita no da acceso a dinero ni a cuentas, solo a cotizaciones.
 - Si borrás los datos del navegador se pierden las posiciones: exportá un respaldo de vez en cuando.
 - El plan gratuito de Finnhub tiene límite de consultas por minuto; con una cartera chica alcanza de sobra.
+
+## Servidor de precios compartido (Cloudflare Worker)
+Para que quien use Holdy no tenga que crear cuenta en Finnhub, los precios pueden pasar por un Worker propio que guarda la clave como secreto.
+- El código está en `worker/worker.js`. Hay que crear un Worker en Cloudflare, pegar ese código y guardar la clave de Finnhub como secreto con el nombre `FINNHUB_KEY`.
+- Después se pone la dirección del Worker en `PROXY_URL` (arriba del script de `index.html`).
+- Todos los usuarios comparten el límite del plan gratuito de Finnhub. Si Holdy tiene muchos usuarios, cada uno puede usar su propia clave desde Ajustes.

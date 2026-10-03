@@ -77,6 +77,19 @@
   }
   dialog{border:1px solid var(--line); border-radius:16px; background:var(--card); color:var(--text); padding:0; width:min(480px,94vw); max-height:92vh}
   dialog::backdrop{background:rgba(0,0,0,.45)}
+  @media (max-width:699px){
+    dialog.sheet{
+      margin:auto 0 0 0; width:100%; max-width:none; max-height:92dvh;
+      border-radius:20px 20px 0 0; border-bottom:0; overflow-y:auto; overscroll-behavior:contain;
+    }
+    dialog.sheet[open]{animation:sheet-up .26s cubic-bezier(.2,.8,.2,1)}
+    dialog.sheet[open]::backdrop{animation:sheet-fade .26s ease-out}
+    dialog.sheet::before{content:""; display:block; width:40px; height:4px; border-radius:2px; background:var(--line); margin:10px auto 0}
+    dialog.sheet form{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+  }
+  @keyframes sheet-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  @keyframes sheet-fade{from{opacity:0}to{opacity:1}}
+  @media (prefers-reduced-motion:reduce){ dialog.sheet[open], dialog.sheet[open]::backdrop{animation:none} }
   form{padding:18px; display:grid; gap:12px}
   form h3{margin:0 0 2px; font-size:18px}
   label{display:grid; gap:4px; font-size:13px; color:var(--muted)}
@@ -107,7 +120,7 @@
 
 <button class="primary fab" id="btnAdd">+ Posición</button>
 
-<dialog id="dlgPos">
+<dialog id="dlgPos" class="sheet">
   <form method="dialog" id="formPos">
     <h3 id="posTitle">Nueva posición</h3>
     <div class="two">
@@ -154,13 +167,13 @@
   </form>
 </dialog>
 
-<dialog id="dlgSet">
+<dialog id="dlgSet" class="sheet">
   <form method="dialog" id="formSet">
     <h3>Ajustes</h3>
-    <label>API key de Finnhub
+    <label>Tu propia API key de Finnhub (opcional)
       <input id="sKey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pegá tu clave acá">
     </label>
-    <div class="help">Gratis en <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a>. Se guarda solo en este dispositivo.</div>
+    <div class="help">Si la dejás vacía, Holdy usa el servidor de precios compartido y no necesitás cuenta. Si querés usar la tuya, es gratis en <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a> y se guarda solo en este dispositivo.</div>
     <div class="btns">
       <button type="button" id="sTest">Probar clave</button>
     </div>
@@ -174,7 +187,7 @@
     </div>
     <div class="btns">
       <button type="button" id="sClose">Cerrar</button>
-      <button type="submit" class="primary" id="sSave">Guardar clave</button>
+      <button type="submit" class="primary" id="sSave">Guardar</button>
     </div>
   </form>
 </dialog>
@@ -184,6 +197,8 @@
   "use strict";
   var LS_POS="cartera.positions.v1", LS_PRICES="cartera.prices.v1", LS_KEY="cartera.finnhubKey.v1";
   var REFRESH_MS=60000;
+  // Servidor de precios compartido (Cloudflare Worker). Si está vacío, cada persona usa su propia API key.
+  var PROXY_URL="";
 
   function load(k,def){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
   function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ showBanner("No se pudo guardar en este navegador (modo privado o sin espacio).",true); } }
@@ -252,7 +267,7 @@
     var s=$("status");
     var autoCount=positions.filter(function(p){return p.source!=="manual";}).length;
     if(!positions.length){ s.textContent=""; return; }
-    if(autoCount && !apiKey){ s.textContent="Falta la API key de Finnhub (Ajustes) para actualizar precios automáticos."; return; }
+    if(autoCount && !apiKey && !PROXY_URL){ s.textContent="Falta la API key de Finnhub (Ajustes) para actualizar precios automáticos."; return; }
     if(refreshing){ s.textContent="Actualizando precios…"; return; }
     if(lastRefresh){ s.textContent="Última consulta: "+new Date(lastRefresh).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})+". Se actualiza sola cada minuto mientras la app está abierta."; }
     else s.textContent="Sin consultar todavía en esta sesión.";
@@ -369,11 +384,15 @@
 
   // ---------- Precios ----------
   function fetchQuote(ticker){
-    var url="https://finnhub.io/api/v1/quote?symbol="+encodeURIComponent(ticker)+"&token="+encodeURIComponent(apiKey);
+    var url=apiKey
+      ? "https://finnhub.io/api/v1/quote?symbol="+encodeURIComponent(ticker)+"&token="+encodeURIComponent(apiKey)
+      : PROXY_URL.replace(/\/+$/,"")+"/quote?symbol="+encodeURIComponent(ticker);
     return fetch(url,{cache:"no-store"}).then(function(r){
+      if(!apiKey && (r.status===401||r.status===403||r.status===503)) throw new Error("El servidor de precios no está disponible por ahora.");
       if(r.status===401||r.status===403) throw new Error("La API key no es válida o no tiene permiso.");
       if(r.status===429) throw new Error("Se superó el límite de consultas gratuitas. Probá de nuevo en un minuto.");
-      if(!r.ok) throw new Error("El servicio de precios respondió con error ("+r.status+").");
+      if(!r.ok) throw new Error(apiKey?"El servicio de precios respondió con error ("+r.status+")."
+        :"El servidor de precios no está disponible por ahora.");
       return r.json();
     }).then(function(j){
       if(!j || typeof j.c!=="number" || j.c<=0) throw new Error("Finnhub no devolvió precio para "+ticker+" (¿ticker de EE.UU.?).");
@@ -385,7 +404,7 @@
     if(refreshing) return Promise.resolve();
     var tickers=[]; positions.forEach(function(p){ if(p.source!=="manual" && tickers.indexOf(p.ticker)<0) tickers.push(p.ticker); });
     if(!tickers.length){ render(); return Promise.resolve(); }
-    if(!apiKey){ showBanner("Para traer precios automáticos pegá tu API key de Finnhub en Ajustes. Mientras tanto podés cargar precios manuales.",false); render(); return Promise.resolve(); }
+    if(!apiKey && !PROXY_URL){ showBanner("Para traer precios automáticos pegá tu API key de Finnhub en Ajustes. Mientras tanto podés cargar precios manuales.",false); render(); return Promise.resolve(); }
     if(!navigator.onLine){ showBanner("Sin conexión: se muestran los últimos precios guardados.",false); render(); return Promise.resolve(); }
     refreshing=true; $("btnRefresh").disabled=true; renderStatus();
     var queue=tickers.slice(), fatal=null;
@@ -395,7 +414,7 @@
       return fetchQuote(t).then(function(q){ prices[t]=q; delete errors[t]; })
         .catch(function(e){
           errors[t]=(e&&e.message)?e.message:"No se pudo consultar el precio.";
-          if(/API key|límite/.test(errors[t])) fatal=errors[t];
+          if(/API key|límite|servidor de precios/.test(errors[t])) fatal=errors[t];
         }).then(worker);
     }
     return Promise.all([worker(),worker(),worker()]).then(function(){
@@ -407,6 +426,7 @@
 
   // ---------- Formularios ----------
   var dlgPos=$("dlgPos"), dlgSet=$("dlgSet");
+  [dlgPos,dlgSet].forEach(function(d){ d.addEventListener("click",function(e){ if(e.target===d) d.close(); }); });
   function syncSource(){ $("fManualWrap").hidden=($("fSource").value!=="manual"); }
   $("fSource").addEventListener("change",syncSource);
 
