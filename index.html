@@ -136,7 +136,16 @@
   .prof-item:first-of-type{border-top:0}
   .prof-item .nm{flex:1; min-width:120px; font-weight:600}
   .prof-item button{padding:5px 10px; min-height:32px; font-size:13px}
-  .sharebox{display:grid; gap:8px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--bg)}
+  .sharebox{display:grid; gap:12px; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--bg)}
+  .codebig{font-size:28px; letter-spacing:.1em; text-align:center; user-select:all; -webkit-user-select:all; padding:4px 0}
+  .btns.split{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .btns.split button{width:100%}
+  .sec{display:grid; gap:8px; padding-top:14px; border-top:1px solid var(--line)}
+  .sec-t{font-size:13px; font-weight:600; color:var(--muted)}
+  .inrow{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center}
+  button.wide{width:100%}
+  #profList{display:grid}
+  #formProf{gap:14px}
   @media (min-width:700px){ .summary{grid-template-columns:1fr 1fr} .row-grid{grid-template-columns:repeat(7,1fr)} }
 </style>
 </head>
@@ -230,15 +239,11 @@
   <form method="dialog" id="formProf">
     <h3>Perfiles</h3>
     <div id="profList"></div>
-    <label>Crear perfil nuevo
-      <input id="pfName" maxlength="40" placeholder="Ej: Cartera de mamá">
-    </label>
-    <div class="btns"><button type="button" id="pfAdd">Crear perfil</button></div>
     <div class="sharebox" id="shareBox" hidden>
       <strong id="shareTitle"></strong>
       <div id="codeWrap" hidden>
-        <div class="big" id="shareCode" style="letter-spacing:.08em;user-select:all;-webkit-user-select:all"></div>
-        <div class="btns">
+        <div class="big codebig" id="shareCode"></div>
+        <div class="btns split">
           <button type="button" id="codeCopy">Copiar código</button>
           <button type="button" id="codeStop" class="danger">Dejar de compartir</button>
         </div>
@@ -254,13 +259,21 @@
         <div class="help" id="shareNote"></div>
       </div>
     </div>
-    <label>Agregar el perfil de otra persona (código o link)
-      <input id="pfLink" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Código (ABCDE-FGHJK) o link">
-    </label>
-    <div class="btns">
-      <button type="button" id="pfImport">Agregar perfil</button>
+    <div class="sec">
+      <div class="sec-t">Agregar el perfil de otra persona</div>
+      <div class="inrow">
+        <input id="pfLink" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Código (ABCDE-FGHJK) o link" aria-label="Código o link del perfil">
+        <button type="button" id="pfImport">Agregar</button>
+      </div>
     </div>
-    <div class="btns"><button type="button" id="pfClose" class="primary">Cerrar</button></div>
+    <div class="sec">
+      <div class="sec-t">Crear un perfil nuevo</div>
+      <div class="inrow">
+        <input id="pfName" maxlength="40" placeholder="Ej: Cartera de mamá" aria-label="Nombre del perfil nuevo">
+        <button type="button" id="pfAdd">Crear</button>
+      </div>
+    </div>
+    <div class="btns"><button type="button" id="pfClose" class="primary wide">Cerrar</button></div>
   </form>
 </dialog>
 
