@@ -1,6 +1,0 @@
-{
-  "name": "holdy-sync",
-  "main": "worker.js",
-  "compatibility_date": "2025-01-01",
-  "kv_namespaces": [{ "binding": "HOLDY_KV" }]
-}
