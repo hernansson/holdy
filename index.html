@@ -236,18 +236,28 @@
     <div class="btns"><button type="button" id="pfAdd">Crear perfil</button></div>
     <div class="sharebox" id="shareBox" hidden>
       <strong id="shareTitle"></strong>
-      <input id="shareLink" readonly aria-label="Link para compartir">
-      <div class="btns">
-        <button type="button" id="shareCopy">Copiar</button>
-        <button type="button" id="shareNative" hidden>Compartir…</button>
+      <div id="codeWrap" hidden>
+        <div class="big" id="shareCode" style="letter-spacing:.08em"></div>
+        <div class="btns">
+          <button type="button" id="codeCopy">Copiar código</button>
+          <button type="button" id="codeStop" class="danger">Dejar de compartir</button>
+        </div>
+        <div class="help">Tu amigo abre Holdy, entra a Perfiles y pega este código. Cada vez que cambies algo, se actualiza solo en su celu. Ve tus cantidades y precios de compra, y cualquiera que tenga el código puede verlos.</div>
       </div>
-      <div class="help" id="shareNote">Es una foto de hoy: quien abra el link ve tus cantidades y precios de compra, y no se actualiza solo. Para que vea cambios, mandale un link nuevo.</div>
+      <div id="linkWrap">
+        <input id="shareLink" readonly aria-label="Link para compartir">
+        <div class="btns">
+          <button type="button" id="shareCopy">Copiar</button>
+          <button type="button" id="shareNative" hidden>Compartir…</button>
+        </div>
+        <div class="help" id="shareNote"></div>
+      </div>
     </div>
-    <label>Agregar el perfil de otra persona (pegá su link)
-      <input id="pfLink" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…#share=…">
+    <label>Agregar el perfil de otra persona (código o link)
+      <input id="pfLink" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Código (ABCDE-FGHJK) o link">
     </label>
     <div class="btns">
-      <button type="button" id="pfImport">Agregar desde link</button>
+      <button type="button" id="pfImport">Agregar perfil</button>
     </div>
     <div class="btns"><button type="button" id="pfClose" class="primary">Cerrar</button></div>
   </form>
@@ -343,7 +353,7 @@
   function cur(){ return profData.profiles.filter(function(x){return x.id===profData.active;})[0]; }
   var positions=cur().positions;
   function isRO(){ return !!cur().readOnly; }
-  function saveProfiles(){ cur().positions=positions; save(LS_PROF,profData); }
+  function saveProfiles(){ cur().positions=positions; save(LS_PROF,profData); if(typeof queuePush==="function") queuePush(cur()); }
   var openId=null;
   var prices=load(LS_PRICES,{});      // { TICKER: {price, t(ms de la cotización), fetched(ms)} }
   var apiKey=loadKey();
@@ -431,6 +441,10 @@
     var info="";
     if(c.readOnly){
       info=(c.owner?"De "+c.owner+". ":"")+(c.sharedAt?"Foto del "+new Date(c.sharedAt).toLocaleDateString("es-AR")+". ":"")+"Para actualizarla, pedí un link nuevo.";
+      if(c.syncCode) info=(c.syncGone?"Dejó de compartirse; se ve la última versión.":"Se actualiza sola"+(c.sharedAt?" · datos del "+new Date(c.sharedAt).toLocaleString("es-AR",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}):"")+".");
+    } else if(c.sync){
+      var sm=syncMsg[c.id];
+      info="Compartido con código "+fmtCode(c.sync.code)+(sm?(sm.ok?" · sincronizado ✓":" · ⚠ "+sm.err):(c.syncDirty?" · pendiente de sincronizar":""));
     } else if(profData.profiles.length>1) info="Tu perfil";
     $("profInfo").textContent=info;
     $("btnAdd").hidden=!!c.readOnly;
@@ -799,7 +813,7 @@
     r.readAsText(f);
   });
 
-  $("btnRefresh").addEventListener("click",function(){ clearBanner(); refresh(true); });
+  $("btnRefresh").addEventListener("click",function(){ clearBanner(); refresh(true); pullFollowers(); });
 
   // ---------- Filtros, orden y modo privado ----------
   $("toolbar").addEventListener("click",function(e){
@@ -871,6 +885,83 @@
     return {id:id,name:cleanName(o.n)||"Perfil compartido",t:t,positions:out,dropped:dropped};
   }
 
+  // ---------- Sincronización por código (requiere KV en el Worker) ----------
+  var SYNC_BASE=PROXY_URL.replace(/\/+$/,"");
+  var CODE_CH="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  function randStr(n,alpha){ var a=new Uint8Array(n); crypto.getRandomValues(a); var o=""; for(var i=0;i<n;i++) o+=alpha.charAt(a[i]%alpha.length); return o; }
+  function fmtCode(c){ return c.slice(0,5)+"-"+c.slice(5); }
+  function normCode(v){ return String(v).toUpperCase().replace(/[^A-Z0-9]/g,""); }
+  var syncMsg={};
+  var pushTimers={};
+  function syncErr(status){
+    if(status===501) return "El servidor todavía no tiene activada la sincronización.";
+    if(status===403) return "Este código ya lo usa otra persona.";
+    if(status===413) return "El perfil es demasiado grande para sincronizar.";
+    return "No se pudo sincronizar ("+status+").";
+  }
+  function pushSync(pr){
+    if(!pr.sync || !SYNC_BASE) return Promise.resolve(false);
+    var body=JSON.stringify(buildPayload(pr));
+    return fetch(SYNC_BASE+"/p/"+pr.sync.code,{method:"PUT",headers:{"Content-Type":"application/json","X-Holdy-Secret":pr.sync.secret},body:body})
+      .then(function(r){
+        if(!r.ok){ syncMsg[pr.id]={ok:false,err:syncErr(r.status)}; return false; }
+        pr.syncDirty=false; save(LS_PROF,profData); syncMsg[pr.id]={ok:true,at:Date.now()}; return true;
+      }).catch(function(){ syncMsg[pr.id]={ok:false,err:"Sin conexión: se sincroniza cuando vuelva."}; return false; })
+      .then(function(ok){ renderProfile(); return ok; });
+  }
+  function queuePush(pr){
+    if(!pr.sync) return;
+    pr.syncDirty=true;
+    clearTimeout(pushTimers[pr.id]);
+    pushTimers[pr.id]=setTimeout(function(){ pushSync(pr); },1500);
+  }
+  function flushDirty(){ profData.profiles.forEach(function(pr){ if(pr.sync && pr.syncDirty) pushSync(pr); }); }
+  function ensureSync(pr){
+    if(!pr.sync){
+      var code=randStr(10,CODE_CH);
+      pr.sync={code:code,secret:randStr(32,"abcdefghijklmnopqrstuvwxyz0123456789")};
+      pr.shareKey=code; save(LS_PROF,profData);
+    }
+    return pushSync(pr);
+  }
+  function pullFollowers(){
+    if(!SYNC_BASE || !navigator.onLine) return Promise.resolve();
+    var list=profData.profiles.filter(function(pr){ return pr.syncCode && pr.readOnly; });
+    if(!list.length) return Promise.resolve();
+    return Promise.all(list.map(function(pr){
+      return fetch(SYNC_BASE+"/p/"+pr.syncCode,{cache:"no-store"}).then(function(r){
+        if(r.status===404){ if(!pr.syncGone){ pr.syncGone=true; save(LS_PROF,profData); } return; }
+        if(!r.ok) return;
+        return r.json().then(function(j){
+          pr.syncGone=false;
+          if(!j || !(j.updated>(pr.syncUpdated||0))) return;
+          var d=parsePayload(j.data);
+          pr.positions=d.positions; pr.sharedAt=d.t; pr.syncUpdated=j.updated;
+          if(pr.id===profData.active) positions=pr.positions;
+          save(LS_PROF,profData);
+        });
+      }).catch(function(){});
+    })).then(function(){ render(); });
+  }
+  function importCode(code){
+    return fetch(SYNC_BASE+"/p/"+code,{cache:"no-store"}).then(function(r){
+      if(r.status===404) throw new Error("nocode");
+      if(r.status===501) throw new Error("nosync");
+      if(!r.ok) throw new Error("red");
+      return r.json();
+    }).then(function(j){
+      var d=parsePayload(j.data); d.syncCode=code; d.syncUpdated=+j.updated||0; return d;
+    });
+  }
+  function importErrMsg(e){
+    var m=e&&e.message;
+    if(m==="nocode") return "No existe ese código. Revisalo con quien te lo pasó.";
+    if(m==="nosync") return "El servidor todavía no tiene activada la sincronización.";
+    if(m==="nosoportado") return "Este navegador no puede abrir el link.";
+    if(m==="red"||(e&&e.name==="TypeError")) return "No se pudo conectar. Probá de nuevo.";
+    return "El código o el link no es válido.";
+  }
+
   var pendingShare=null;
   function offerShare(d){
     var own=profData.profiles.filter(function(x){return x.shareKey===d.id;})[0];
@@ -879,7 +970,7 @@
     pendingShare={d:d,exist:exist||null};
     $("shTitle").textContent=exist?"Actualizar perfil compartido":"Perfil compartido";
     $("shInfo").textContent=d.positions.length+" posiciones, foto del "+new Date(d.t).toLocaleDateString("es-AR")+
-      (d.dropped?" ("+d.dropped+" fila(s) inválidas se ignoraron)":"")+". Es solo lectura: no se puede editar.";
+      (d.dropped?" ("+d.dropped+" fila(s) inválidas se ignoraron)":"")+". "+(d.syncCode?"Se va a actualizar sola cuando su dueño cambie algo. ":"")+"Es solo lectura: no se puede editar.";
     $("shName").value=exist?exist.name:d.name;
     $("shOk").textContent=exist?"Actualizar":"Agregar";
     if(dlgProf.open) dlgProf.close();
@@ -892,10 +983,11 @@
     var d=pendingShare.d, ex=pendingShare.exist, name=cleanName($("shName").value)||d.name;
     pendingShare=null;
     cur().positions=positions;
-    if(ex){ ex.positions=d.positions; ex.name=name; ex.sharedAt=d.t; profData.active=ex.id; }
+    if(ex){ ex.positions=d.positions; ex.name=name; ex.sharedAt=d.t; if(d.syncCode){ ex.syncCode=d.syncCode; ex.syncUpdated=d.syncUpdated; ex.syncGone=false; } profData.active=ex.id; }
     else {
       if(profData.profiles.length>=20){ alert("Llegaste al máximo de 20 perfiles."); return; }
       var np={id:rid(),name:name,positions:d.positions,readOnly:true,shareId:d.id,sharedAt:d.t};
+      if(d.syncCode){ np.syncCode=d.syncCode; np.syncUpdated=d.syncUpdated; }
       profData.profiles.push(np); profData.active=np.id;
     }
     positions=cur().positions; openId=null;
@@ -924,11 +1016,12 @@
       if(pr.id!==profData.active) btn("Ver",null,function(){ dlgProf.close(); setActive(pr.id); });
       btn("Renombrar",null,function(){
         var n=prompt("Nuevo nombre",pr.name); if(n===null) return;
-        n=cleanName(n); if(!n) return; pr.name=n; save(LS_PROF,profData); render(); renderProfList();
+        n=cleanName(n); if(!n) return; pr.name=n; save(LS_PROF,profData); queuePush(pr); render(); renderProfList();
       });
       if(!pr.readOnly) btn("Compartir",null,function(){ showShare(pr); });
       if(profData.profiles.length>1) btn("Eliminar","danger",function(){
         if(!confirm("¿Eliminar el perfil “"+pr.name+"” y sus "+pr.positions.length+" posiciones?")) return;
+        if(pr.sync && SYNC_BASE){ fetch(SYNC_BASE+"/p/"+pr.sync.code,{method:"DELETE",headers:{"X-Holdy-Secret":pr.sync.secret}}).catch(function(){}); }
         var wasActive=pr.id===profData.active;
         cur().positions=positions;
         profData.profiles=profData.profiles.filter(function(x){return x!==pr;});
@@ -940,17 +1033,43 @@
   }
   function showShare(pr){
     if(pr.id===profData.active) pr.positions=positions;
-    encodeToken(buildPayload(pr)).then(function(tok){
-      var link=location.origin+location.pathname+"#share="+tok;
-      $("shareTitle").textContent="Link de “"+pr.name+"”";
-      $("shareLink").value=link;
-      var note="Es una foto de hoy: quien abra el link ve tus cantidades y precios de compra, y no se actualiza solo. Para que vea cambios, mandale un link nuevo.";
-      if(link.length>8000) note+=" Atención: el link es muy largo y algunas apps pueden cortarlo; probá mandarlo por mail.";
-      $("shareNote").textContent=note;
-      $("shareNative").hidden=!navigator.share;
-      $("shareBox").hidden=false;
-    }).catch(function(){ alert("No se pudo generar el link."); });
+    $("shareTitle").textContent="Compartir “"+pr.name+"”";
+    $("shareBox").hidden=false; $("codeWrap").hidden=true; $("linkWrap").hidden=true;
+    ensureSync(pr).then(function(ok){
+      if(ok){
+        $("shareCode").textContent=fmtCode(pr.sync.code);
+        $("codeWrap").hidden=false; renderProfile(); return;
+      }
+      // Sin sincronización: se ofrece el link con una foto fija
+      return encodeToken(buildPayload(pr)).then(function(tok){
+        var link=location.origin+location.pathname+"#share="+tok;
+        $("shareLink").value=link;
+        var why=(syncMsg[pr.id]&&syncMsg[pr.id].err)||"";
+        var note=(why?why+" ":"")+"Mientras tanto podés mandar este link: es una foto de hoy (cantidades y precios de compra) y no se actualiza solo.";
+        if(link.length>8000) note+=" Atención: es muy largo y algunas apps pueden cortarlo.";
+        $("shareNote").textContent=note;
+        $("shareNative").hidden=!navigator.share;
+        $("linkWrap").hidden=false;
+      });
+    }).catch(function(){ alert("No se pudo generar el código."); });
+    // si el perfil ya tenía código pero falló, no lo borramos: se reintenta solo
   }
+  $("codeCopy").addEventListener("click",function(){
+    var c=$("shareCode").textContent, b=$("codeCopy");
+    var done=function(){ b.textContent="Copiado ✓"; setTimeout(function(){ b.textContent="Copiar código"; },1800); };
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c).then(done,function(){});
+  });
+  $("codeStop").addEventListener("click",function(){
+    var pr=cur(), target=profData.profiles.filter(function(x){return x.sync && fmtCode(x.sync.code)===$("shareCode").textContent;})[0]||pr;
+    if(!target.sync) return;
+    if(!confirm("¿Dejar de compartir “"+target.name+"”? Quienes tengan el código dejan de recibir cambios y no podrán volver a cargarlo.")) return;
+    var sy=target.sync;
+    fetch(SYNC_BASE+"/p/"+sy.code,{method:"DELETE",headers:{"X-Holdy-Secret":sy.secret}}).then(function(r){
+      if(!r.ok && r.status!==404) throw new Error("x");
+      target.sync=null; target.syncDirty=false; target.shareKey=undefined; save(LS_PROF,profData);
+      $("shareBox").hidden=true; render(); renderProfList();
+    }).catch(function(){ alert("No se pudo dejar de compartir. Probá de nuevo con conexión."); });
+  });
   $("shareCopy").addEventListener("click",function(){
     var inp=$("shareLink"); inp.focus(); inp.select();
     var done=function(){ $("shareCopy").textContent="Copiado ✓"; setTimeout(function(){ $("shareCopy").textContent="Copiar"; },1800); };
@@ -972,10 +1091,14 @@
   });
   $("pfImport").addEventListener("click",function(){
     var v=$("pfLink").value.trim(), i=v.indexOf("#share=");
-    if(i<0){ alert("Pegá el link completo que te pasaron (tiene que incluir #share=…)."); return; }
-    decodeToken(v.slice(i+7)).then(parsePayload).then(offerShare).catch(function(e){
-      alert(e&&e.message==="nosoportado"?"Este navegador no puede abrir el link.":"El link no es válido o está incompleto.");
-    });
+    var p;
+    if(i>=0) p=decodeToken(v.slice(i+7)).then(parsePayload);
+    else {
+      var code=normCode(v);
+      if(code.length<8){ alert("Pegá el código completo (por ejemplo ABCDE-FGHJK) o el link que te pasaron."); return; }
+      p=importCode(code);
+    }
+    p.then(offerShare).catch(function(e){ alert(importErrMsg(e)); });
   });
 
   // ---------- Recordatorio de respaldo ----------
@@ -1009,13 +1132,16 @@
   // ---------- Auto-actualización ----------
   setInterval(function(){ if(document.visibilityState==="visible") refresh(false); },REFRESH_MS);
   document.addEventListener("visibilitychange",function(){
+    if(document.visibilityState==="visible"){ pullFollowers(); flushDirty(); }
     if(document.visibilityState==="visible" && Date.now()-lastRefresh>30000) refresh(false);
   });
-  window.addEventListener("online",function(){ refresh(false); });
+  window.addEventListener("online",function(){ refresh(false); flushDirty(); pullFollowers(); });
+  setInterval(function(){ if(document.visibilityState==="visible") pullFollowers(); },60000);
 
   render();
   refresh(false);
   handleHash();
+  pullFollowers(); flushDirty();
 
   if("serviceWorker" in navigator){
     window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });

@@ -45,5 +45,13 @@ Para que quien use Holdy no tenga que crear cuenta en Finnhub, los precios puede
 - **Ocultar montos**: tapa importes y cantidades (los porcentajes siguen visibles). Queda guardado en el dispositivo.
 - **Lista en acordeón**: cada acción es una fila simple (valor y ganancia %); al tocarla se abre el detalle (cantidad, compra, actual, día, valor, ganancia, peso) y las acciones. Se abre una a la vez.
 - **Migración a IBKR**: porcentaje del valor ya en Interactive Brokers y botón "Pasar a IBKR" en cada posición de Balanz (mantiene cantidad y precio de compra).
-- **Perfiles**: podés tener varios (botón con el nombre arriba). "Compartir" genera un link con una foto de ese perfil; quien lo abre (o lo pega en Perfiles) lo agrega en solo lectura. No hay servidor: el link contiene los datos (cantidades y precios de compra) y no se actualiza solo; para mostrar cambios hay que mandar un link nuevo.
+- **Perfiles y código para compartir**: podés tener varios perfiles (botón con el nombre arriba). "Compartir" genera un código (ej. ABCDE-FGHJK). Tu amigo lo pega en Perfiles → "Agregar perfil" y ve tu cartera en solo lectura; cada vez que cambies algo en la tuya se actualiza sola en la suya. "Dejar de compartir" borra el código. Quien tiene el código ve cantidades y precios de compra.
+- Si el servidor todavía no tiene la sincronización activada, "Compartir" ofrece un link con una foto fija (no se actualiza).
 - **Recordatorio de respaldo** si pasaron más de 2 semanas sin exportar, y botón **Instalar app** en Ajustes cuando el navegador lo permite (Android/Chrome).
+
+
+## Activar la sincronización por código (una sola vez, en Cloudflare)
+1. Cloudflare → Storage & databases → KV → **Create a namespace** (nombre: `holdy-profiles`).
+2. Workers & Pages → tu Worker → Settings → Bindings → **Add** → KV namespace → variable name `HOLDY_KV`, elegí `holdy-profiles` → Deploy.
+3. Edit code → pegá el contenido actual de `worker/worker.js` → Deploy.
+Plan gratuito de KV: unas 1.000 escrituras por día; Holdy agrupa los cambios para gastar pocas.
