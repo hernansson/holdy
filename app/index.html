@@ -97,6 +97,8 @@
   .calgrid button.sel{background:var(--brand);color:var(--brand-ink);font-weight:700}
   .calgrid button:disabled{opacity:.3}
   .datebtn{cursor:pointer;text-align:left;background:var(--card)}
+  .updbar{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:50;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--brand);color:var(--brand-ink);padding:10px 12px 10px 16px;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-weight:600}
+  .updbar button{border-radius:999px;background:#fff;color:#0b5d55;border:0;font-weight:700;min-height:36px}
   .scr{max-width:860px;margin:0 auto;padding:14px 0 40px;display:grid;gap:4px}
   .scr[hidden]{display:none}
   .scr .cmphdr{padding:0 16px}
@@ -2104,7 +2106,17 @@
   pullFollowers(); flushDirty(); cloudSync();
 
   if("serviceWorker" in navigator){
-    window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
+    var hadCtl=!!navigator.serviceWorker.controller, swReg=null;
+    window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").then(function(r){ swReg=r; }).catch(function(){}); });
+    document.addEventListener("visibilitychange",function(){ if(!document.hidden && swReg){ try{ swReg.update(); }catch(e){} } });
+    navigator.serviceWorker.addEventListener("controllerchange",function(){
+      if(!hadCtl){ hadCtl=true; return; }
+      if($("updBar")) return;
+      var bar=el("div","updbar"); bar.id="updBar";
+      bar.appendChild(el("span",null,"Hay una versión nueva de Holdy"));
+      var b=el("button",null,"Actualizar"); b.type="button"; b.addEventListener("click",function(){ location.reload(); });
+      bar.appendChild(b); document.body.appendChild(bar);
+    });
   }
 })();
 </script>
