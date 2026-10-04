@@ -16,7 +16,7 @@
   .wrap{max-width:980px; margin:0 auto; padding:0 20px}
   nav{display:flex; align-items:center; justify-content:space-between; padding:12px max(20px,calc((100vw - 980px)/2)); margin:0; position:sticky; top:0; z-index:10; background:color-mix(in srgb,var(--bg) 82%,transparent); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); border-bottom:1px solid transparent}
   nav .btn{padding:9px 18px}
-  html{scroll-behavior:smooth} #como{scroll-margin-top:80px}
+  #como{scroll-margin-top:80px}
   .logo{font-weight:800; font-size:20px; letter-spacing:-.02em; display:flex; align-items:center; gap:8px}
   .logo i{width:26px; height:26px; border-radius:8px; background:var(--brand); display:inline-block}
   .btn{display:inline-block; font:inherit; font-weight:600; text-decoration:none; padding:12px 22px; border-radius:12px; background:var(--brand); color:var(--brand-ink); border:1px solid var(--brand)}
@@ -66,7 +66,8 @@
   .js .hero h1,.js .hero .lead,.js .hero .cta{animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
   .js .hero .lead{animation-delay:.08s}.js .hero .cta{animation-delay:.16s}
   @media (prefers-reduced-motion:reduce){ *,::backdrop{animation:none!important} }
-  .story{height:520vh;position:relative;margin:0 calc(50% - 50vw) 24px;width:100vw}
+  html{scroll-behavior:auto!important;overflow-anchor:none}
+  .story{height:400vh;position:relative;margin:0 calc(50% - 50vw) 24px;width:100vw}
   .story-in{position:sticky;top:64px;height:calc(100vh - 64px);height:calc(100svh - 64px);display:flex;flex-direction:column;overflow:hidden}
   .story-top{padding:10px 20px 0;max-width:980px;width:100%;margin:0 auto;display:grid;gap:6px;z-index:2}
   @media (min-width:820px){ .story-top{grid-template-columns:1fr auto;align-items:end;gap:24px} }
@@ -253,7 +254,7 @@
   function ease(x){ return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2; }
   function draw(p){
     if(!els.g) return;
-    var q=Math.max(0,Math.min(1,p)), t=Math.max(0,Math.min(1,(q-.07)/.76));
+    var q=Math.max(0,Math.min(1,p)), t=Math.max(0,Math.min(1,q/.85));
     var ptA=els.lA.getPointAtLength(els.pA*t), ptB=els.lB.getPointAtLength(els.pB*t);
     var zk=ease(Math.min(1,t/.88)), s=1+(S0-1)*(1-zk), w=(s-1)/(S0-1);
     var tipx=(ptA.x+ptB.x)/2, tipy=(ptA.y+ptB.y)/2;
@@ -286,13 +287,29 @@
     steps.forEach(function(e,i){ e.classList.toggle("on",i===k); });
   }
   var cur=0,target=0;
-  var done=false;
-  function calc(){ var r=sec.getBoundingClientRect(), tot=r.height-(innerHeight-64); target=Math.max(0,Math.min(1,-(r.top-64)/Math.max(1,tot))); if(target>=.985) done=true; if(done) target=1; }
-  function loop(){ calc(); cur+=(target-cur)*.14; if(Math.abs(target-cur)<.0005) cur=target; draw(cur); requestAnimationFrame(loop); }
+  var done=false, VMAX=.07, LEAD=.025, last=0, want=0, lastSet=null;
+  function metrics(){ var r=sec.getBoundingClientRect(); var range=Math.max(1,r.height-(innerHeight-64)); var startY=scrollY+r.top-64; return {startY:startY,range:range,q:Math.max(0,Math.min(1,(scrollY-startY)/range))}; }
+  function loop(ts){
+    if(done) return;
+    var dt=Math.min(.05,last?(ts-last)/1000:.016); last=ts;
+    var m=metrics();
+    if(!(lastSet!==null && Math.abs(scrollY-lastSet)<1.5)) want=m.q;
+    var pos=Math.min(want,cur+LEAD), desired=m.startY+pos*m.range;
+    if((m.q>cur+LEAD+.002 || want>m.q+.002) && Math.abs(scrollY-desired)>1){ window.scrollTo({top:desired,behavior:"instant"}); lastSet=scrollY; }
+    var d=want-cur, st=VMAX*dt; cur+= Math.abs(d)<st ? d : (d>0?st:-st);
+    draw(cur);
+    if(cur>=.999 && want>=.97){
+      done=true; cur=1; draw(1);
+      var oldH=sec.offsetHeight, newH=innerHeight-64;
+      if(oldH>newH){ sec.style.height=newH+"px"; window.scrollTo({top:scrollY-(oldH-newH),behavior:"instant"}); }
+      return;
+    }
+    requestAnimationFrame(loop);
+  }
   build();
   if(reduce){ draw(1); steps.forEach(function(e,i){e.classList.toggle("on",i===3);}); }
   else { draw(0); requestAnimationFrame(loop); }
-  var rt; addEventListener("resize",function(){ clearTimeout(rt); rt=setTimeout(function(){ build(); draw(reduce?1:cur); },150); });
+  var rt; addEventListener("resize",function(){ clearTimeout(rt); rt=setTimeout(function(){ build(); draw(reduce||done?1:cur); },150); });
 })();
 </script>
 <script>
