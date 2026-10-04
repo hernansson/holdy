@@ -204,6 +204,15 @@
   .list-head{display:flex; justify-content:flex-end; font-size:11px; color:var(--muted); padding:0 12px; margin-bottom:-4px}
   .list{gap:6px}
   .acc-body{padding:0 14px 12px; border-top:1px solid var(--line)}
+  .pcards{display:grid;gap:10px}
+  .pcard{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card);min-height:60px}
+  .pcard:active{background:var(--chip)}
+  .pcard .pn{flex:1;min-width:0}
+  .pcard .pn b{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pcard .pn span{font-size:13px;color:var(--muted)}
+  .pcard .go{color:var(--muted);font-size:20px}
+  .pacts{display:grid;gap:8px}
+  .pacts button,#pvNew .sec button,#pvImp>button,#pfNew{width:100%}
   .prof-item{display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--line); flex-wrap:wrap}
   .prof-item:first-of-type{border-top:0}
   .prof-item .nm{flex:1; min-width:120px; font-weight:600}
@@ -381,9 +390,25 @@
 </dialog>
 
 <section id="dlgProf" class="scr" hidden>
-  <div class="cmphdr"><button type="button" id="pfClose" aria-label="Volver">←</button><h2>Administrar perfiles</h2></div>
+  <div class="cmphdr"><button type="button" id="pfClose" aria-label="Volver">←</button><h2 id="pvTitle">Perfiles</h2></div>
   <div id="formProf" style="padding:8px 16px 18px;display:grid;gap:14px">
-    <div id="profList"></div>
+
+    <div id="pvList" style="display:grid;gap:12px">
+      <div id="profList" class="pcards"></div>
+      <button type="button" id="pfNew" class="primary">+ Nuevo perfil</button>
+    </div>
+
+    <div id="pvEdit" style="display:grid;gap:14px" hidden>
+      <label>Nombre del perfil
+        <div class="inrow"><input id="peName" maxlength="40" aria-label="Nombre del perfil"><button type="button" id="peSave">Guardar</button></div>
+      </label>
+      <div class="help" id="peInfo"></div>
+      <div class="pacts">
+        <button type="button" id="peUse" class="primary">Usar este perfil</button>
+        <button type="button" id="peImport">Importar operaciones de IBKR o Balanz</button>
+        <button type="button" id="peShare">Compartir con un amigo</button>
+        <button type="button" id="peDel" class="danger">Eliminar perfil</button>
+      </div>
     <div class="sharebox" id="shareBox" hidden>
       <strong id="shareTitle"></strong>
       <div id="codeWrap" hidden>
@@ -404,35 +429,39 @@
         <div class="help" id="shareNote"></div>
       </div>
     </div>
-    <div class="sec">
-      <div class="sec-t">Agregar el perfil de otra persona</div>
-      <div class="inrow">
-        <input id="pfLink" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Código (ABCDE-FGHJK) o link" aria-label="Código o link del perfil">
-        <button type="button" id="pfImport">Agregar</button>
+    </div>
+
+    <div id="pvNew" style="display:grid;gap:14px" hidden>
+      <label>Nombre del perfil nuevo
+        <div class="inrow"><input id="pfName" maxlength="40" placeholder="Ej: Cartera de mamá" aria-label="Nombre del perfil nuevo"><button type="button" id="pfAdd" class="primary">Crear</button></div>
+      </label>
+      <div class="sec">
+        <div class="sec-t">O armalo de otra forma</div>
+        <button type="button" id="pnImport">Importar desde IBKR o Balanz</button>
+        <button type="button" id="pfDemo">Crear con datos de ejemplo</button>
+        <div class="help" id="pfDemoMsg" hidden></div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">Agregar el perfil de otra persona</div>
+        <div class="inrow">
+          <input id="pfLink" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Código (ABCDE-FGHJK) o link" aria-label="Código o link del perfil">
+          <button type="button" id="pfImport">Agregar</button>
+        </div>
       </div>
     </div>
-    <div class="sec">
-      <div class="sec-t">Importar operaciones (IBKR o Balanz)</div>
-      <div class="help">IBKR: el CSV de un Flex Query con la sección Trades. Balanz: el Excel “Resultados por info completa”. Se arma un perfil nuevo con tus compras y ventas, con fechas.</div>
+
+    <div id="pvImp" style="display:grid;gap:12px" hidden>
+      <div class="help">IBKR: el CSV de un Flex Query con la sección Trades. Balanz: el Excel “Resultados por info completa”. Se cargan tus compras y ventas con sus fechas.</div>
       <input type="file" id="ibFile" accept=".csv,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Archivo de IBKR o Balanz">
       <textarea id="ibText" rows="3" placeholder="…o pegá acá el contenido del CSV" aria-label="Contenido del CSV"></textarea>
       <button type="button" id="ibRead">Leer lo pegado</button>
       <div class="help" id="ibMsg" role="status" aria-live="polite" hidden></div>
-      <div id="ibAct" hidden>
-        <label>Dónde guardarlo<select id="ibTarget"></select></label>
+      <div id="ibAct" hidden style="display:grid;gap:8px">
         <div class="inrow"><input id="ibName" maxlength="40" value="IBKR" aria-label="Nombre del perfil nuevo"><button type="button" id="ibCreate" class="primary">Guardar</button></div>
         <div class="help" id="ibNote" hidden></div>
       </div>
     </div>
-    <div class="sec">
-      <div class="sec-t">Crear un perfil nuevo</div>
-      <div class="inrow">
-        <input id="pfName" maxlength="40" placeholder="Ej: Cartera de mamá" aria-label="Nombre del perfil nuevo">
-        <button type="button" id="pfAdd">Crear</button>
-      </div>
-      <button type="button" id="pfDemo">Crear perfil de ejemplo (datos ficticios)</button>
-      <div class="help" id="pfDemoMsg" hidden></div>
-    </div>
+
   </div>
 </section>
 
@@ -765,6 +794,21 @@
       return null;
     }
     var filtered=positions.filter(function(p){ return ui.filter==="all"||p.broker===ui.filter; });
+    // Mismas acciones en distintos brokers: una sola fila, con el detalle por broker al abrirla.
+    (function(){
+      var gm={}, out=[], done={};
+      filtered.forEach(function(p){ if(p.fi||p.source==="manual") return; var k=p.ccy+"|"+p.ticker; (gm[k]||(gm[k]=[])).push(p); });
+      filtered.forEach(function(p){
+        var k=p.ccy+"|"+p.ticker, g=gm[k];
+        if(p.fi||p.source==="manual"||!g||g.length<2){ out.push(p); return; }
+        if(done[k]) return; done[k]=1;
+        var lots=[], tq=0, tc=0, br={};
+        g.forEach(function(x){ tq+=x.qty; tc+=x.qty*x.buy; br[x.broker]=1; (x.lots&&x.lots.length?x.lots:[{q:x.qty,b:x.buy,d:""}]).forEach(function(l){ lots.push({q:l.q,b:l.b,d:l.d||""}); }); });
+        lots.sort(function(a,b){ return a.d<b.d?-1:(a.d>b.d?1:0); });
+        out.push(Object.assign({},g[0],{id:"g:"+k,qty:tq,buy:tc/tq,lots:lots.length>1?lots:[],broker:Object.keys(br).join(" + "),parts:g}));
+      });
+      filtered=out;
+    })();
     if(!filtered.length){
       box.appendChild(el("div","empty","No hay posiciones en "+(ui.filter==="IBKR"?"Interactive Brokers":ui.filter)+"."));
       return;
@@ -845,11 +889,26 @@
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
       if(p.fi) notes.push("Renta fija: valor estimado a partir del rendimiento anual"+(p.fi.m?" hasta el vencimiento":"")+", no es el precio de mercado de hoy.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
-      if(multiBroker||p.broker==="Balanz") notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
+      if(!p.parts && (multiBroker||p.broker==="Balanz")) notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
       if(p.note) notes.push(p.note);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
 
-      if(!isRO()){
+      if(p.parts){
+        var bk=el("div","lotlist"); bk.appendChild(el("div","k","Por broker"));
+        p.parts.forEach(function(x){
+          var ln=el("div","lotline");
+          ln.appendChild(el("span",null,x.broker+" · "+qq(x.qty)+" × "+mm(x.buy,x.ccy)));
+          if(!isRO()){
+            var sp=el("span"); sp.style.display="flex"; sp.style.gap="6px";
+            var b1=el("button",null,"Editar"); b1.type="button"; b1.style.minHeight="30px"; b1.addEventListener("click",function(){ openPos(x.id); });
+            var b2=el("button","danger","Eliminar"); b2.type="button"; b2.style.minHeight="30px"; b2.addEventListener("click",function(){ openSell(x); });
+            sp.appendChild(b1); sp.appendChild(b2); ln.appendChild(sp);
+          }
+          bk.appendChild(ln);
+        });
+        body.appendChild(bk);
+      }
+      if(!isRO() && !p.parts){
         var acts=el("div","row-actions");
         var be=el("button",null,"Editar"); be.type="button"; be.addEventListener("click",function(){ openPos(p.id); });
         acts.appendChild(be);
@@ -1734,33 +1793,60 @@
   }
   window.addEventListener("hashchange",handleHash);
 
+  var pvMode="list", pvProf=null, ibTargetId="new";
+  function pvShow(v,pr){
+    pvMode=v; if(pr) pvProf=pr;
+    $("pvList").hidden=v!=="list"; $("pvEdit").hidden=v!=="edit"; $("pvNew").hidden=v!=="new"; $("pvImp").hidden=v!=="imp";
+    $("pvTitle").textContent=v==="list"?"Perfiles":v==="new"?"Nuevo perfil":v==="imp"?"Importar operaciones":(pvProf?pvProf.name:"Perfil");
+    window.scrollTo(0,0);
+  }
   function renderProfList(){
     var box=$("profList"); box.textContent="";
     profData.profiles.forEach(function(pr){
-      var it=el("div","prof-item");
-      var nm=el("span","nm",pr.name+(pr.id===profData.active?" ✓":""));
-      it.appendChild(nm);
-      if(pr.readOnly) it.appendChild(el("span","chip","solo lectura"));
-      function btn(txt,cls2,fn){ var b=el("button",cls2,txt); b.type="button"; b.addEventListener("click",fn); it.appendChild(b); }
-      if(pr.id!==profData.active) btn("Ver",null,function(){ dlgProf.close(); setActive(pr.id); });
-      btn("Renombrar",null,function(){
-        var n=prompt("Nuevo nombre",pr.name); if(n===null) return;
-        n=cleanName(n); if(!n) return; pr.name=n; pr.mod=Date.now(); save(LS_PROF,profData); queuePush(pr); render(); renderProfList();
-      });
-      if(!pr.readOnly) btn("Compartir",null,function(){ showShare(pr); });
-      if(profData.profiles.length>1) btn("Eliminar","danger",function(){
-        if(!confirm("¿Eliminar el perfil “"+pr.name+"” y sus "+pr.positions.length+" posiciones?")) return;
-        if(pr.sync && SYNC_BASE){ fetch(SYNC_BASE+"/p/"+pr.sync.code,{method:"DELETE",headers:{"X-Holdy-Secret":pr.sync.secret}}).catch(function(){}); }
-        var wasActive=pr.id===profData.active;
-        profData.tomb[pr.id]=Date.now();
-        cur().positions=positions;
-        profData.profiles=profData.profiles.filter(function(x){return x!==pr;});
-        if(wasActive){ profData.active=profData.profiles[0].id; }
-        positions=cur().positions; openId=null; save(LS_PROF,profData); render(); renderProfList(); $("shareBox").hidden=true;
-      });
-      box.appendChild(it);
+      var n=(pr.id===profData.active?positions:pr.positions).length;
+      var b=el("button","pcard"); b.type="button";
+      var pn=el("div","pn"); pn.appendChild(el("b",null,pr.name));
+      pn.appendChild(el("span",null,n+(n===1?" posición":" posiciones")+(pr.owner?" · de "+pr.owner:"")));
+      b.appendChild(pn);
+      if(pr.id===profData.active) b.appendChild(el("span","chip","en uso"));
+      if(pr.readOnly) b.appendChild(el("span","chip","solo lectura"));
+      else if(pr.sync) b.appendChild(el("span","chip","compartido"));
+      b.appendChild(el("span","go","›"));
+      b.addEventListener("click",function(){ openProfEdit(pr); });
+      box.appendChild(b);
     });
   }
+  function openProfEdit(pr){
+    $("shareBox").hidden=true; shareMsg("");
+    $("peName").value=pr.name;
+    $("peInfo").textContent=pr.readOnly?"Es un perfil de otra persona: lo podés ver y renombrar, pero no cambiar sus posiciones.":"";
+    $("peInfo").hidden=!pr.readOnly;
+    $("peUse").hidden=pr.id===profData.active;
+    $("peImport").hidden=!!pr.readOnly; $("peShare").hidden=!!pr.readOnly;
+    $("peDel").hidden=profData.profiles.length<2;
+    pvShow("edit",pr);
+  }
+  $("peSave").addEventListener("click",function(){
+    var n=cleanName($("peName").value); if(!n||!pvProf){ alert("Escribí un nombre."); return; }
+    pvProf.name=n; pvProf.mod=Date.now(); save(LS_PROF,profData); queuePush(pvProf); render(); renderProfList(); $("pvTitle").textContent=n;
+    var b=$("peSave"); b.textContent="Guardado ✓"; setTimeout(function(){ b.textContent="Guardar"; },1500);
+  });
+  $("peUse").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); setActive(id); });
+  $("peShare").addEventListener("click",function(){ if(pvProf) showShare(pvProf); });
+  $("peImport").addEventListener("click",function(){ if(!pvProf) return; ibTargetId=pvProf.id; ibReset(); pvShow("imp"); });
+  $("pnImport").addEventListener("click",function(){ ibTargetId="new"; ibReset(); pvShow("imp"); });
+  $("peDel").addEventListener("click",function(){
+    var pr=pvProf; if(!pr||profData.profiles.length<2) return;
+    if(!confirm("¿Eliminar el perfil “"+pr.name+"” y sus "+pr.positions.length+" posiciones?")) return;
+    if(pr.sync && SYNC_BASE){ fetch(SYNC_BASE+"/p/"+pr.sync.code,{method:"DELETE",headers:{"X-Holdy-Secret":pr.sync.secret}}).catch(function(){}); }
+    var wasActive=pr.id===profData.active;
+    profData.tomb[pr.id]=Date.now();
+    cur().positions=positions;
+    profData.profiles=profData.profiles.filter(function(x){return x!==pr;});
+    if(wasActive){ profData.active=profData.profiles[0].id; }
+    positions=cur().positions; openId=null; save(LS_PROF,profData); render(); renderProfList(); pvProf=null; pvShow("list");
+  });
+  $("pfNew").addEventListener("click",function(){ $("pfName").value=""; $("pfLink").value=""; $("pfDemoMsg").hidden=true; pvShow("new"); });
   function showShare(pr){
     if(pr.id===profData.active) pr.positions=positions;
     $("shareTitle").textContent="Compartir “"+pr.name+"”";
@@ -1845,15 +1931,19 @@
     box.appendChild(m);
     dlgPick.showModal();
   });
-  $("btnProfAdm").addEventListener("click",function(){ $("shareBox").hidden=true; $("pfName").value=""; $("pfLink").value=""; renderProfList(); dlgProf.showModal(); });
-  $("pfClose").addEventListener("click",function(){ dlgProf.close(); });
+  $("btnProfAdm").addEventListener("click",function(){ $("shareBox").hidden=true; renderProfList(); pvShow("list"); dlgProf.showModal(); });
+  $("pfClose").addEventListener("click",function(){
+    if(pvMode==="imp"){ if(ibTargetId==="new") pvShow("new"); else { var p=profData.profiles.filter(function(x){return x.id===ibTargetId;})[0]; if(p) openProfEdit(p); else pvShow("list"); } }
+    else if(pvMode==="edit"||pvMode==="new"){ renderProfList(); pvShow("list"); }
+    else dlgProf.close();
+  });
   $("pfAdd").addEventListener("click",function(){
     var n=cleanName($("pfName").value); if(!n){ alert("Escribí un nombre."); return; }
     if(profData.profiles.length>=20){ alert("Llegaste al máximo de 20 perfiles."); return; }
     cur().positions=positions;
     var np={id:rid(),name:n,positions:[],readOnly:false,mod:Date.now()};
     profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null;
-    save(LS_PROF,profData); dlgProf.close(); render();
+    save(LS_PROF,profData); render(); renderProfList(); openProfEdit(np);
   });
   $("pfDemo").addEventListener("click",function(){
     var msg=$("pfDemoMsg"), btn=$("pfDemo");
@@ -2228,27 +2318,24 @@
   });
   $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } ibRead(t); });
   function isImp(x,br){ return x.broker===br && /^Importado de /.test(x.note||""); }
+  function ibReset(){ ibState=null; $("ibAct").hidden=true; $("ibText").value=""; $("ibFile").value=""; ibMsg(""); }
   function ibShowAct(){
-    var t=$("ibTarget"); t.textContent="";
-    function opt(v,txt){ var o=document.createElement("option"); o.value=v; o.textContent=txt; t.appendChild(o); }
-    opt("new","Un perfil nuevo");
-    profData.profiles.forEach(function(pr){ if(!pr.readOnly) opt(pr.id,"Actualizar “"+pr.name+"”"); });
-    t.value="new"; $("ibName").value=ibState.broker==="Balanz"?"Balanz":"IBKR";
-    ibTargetChange(); $("ibAct").hidden=false;
+    var nw=ibTargetId==="new", n=$("ibNote");
+    $("ibName").hidden=!nw; $("ibName").value=ibState.broker==="Balanz"?"Balanz":"IBKR";
+    if(nw){ n.hidden=true; }
+    else {
+      var pr=profData.profiles.filter(function(x){return x.id===ibTargetId;})[0];
+      if(pr&&ibState){
+        var ps=(pr.id===profData.active?positions:pr.positions).filter(function(x){return isImp(x,ibState.broker);}).length, cs=(pr.closed||[]).filter(function(x){return isImp(x,ibState.broker);}).length;
+        n.textContent=(ps||cs)?"Reemplaza las "+ps+" posiciones y "+cs+" ventas que importaste antes de "+(ibState.broker==="Balanz"?"Balanz":"IBKR")+" en este perfil. Lo que cargaste a mano no se toca. Si el archivo no cubre todo tu historial, lo anterior se pierde.":"Suma las operaciones importadas a este perfil. Lo que ya tenías cargado a mano no se toca, así que si es lo mismo puede quedar repetido.";
+        n.hidden=false;
+      }
+    }
+    $("ibAct").hidden=false; $("ibAct").style.display="grid";
   }
-  function ibTargetChange(){
-    var v=$("ibTarget").value, nw=v==="new", n=$("ibNote");
-    $("ibName").hidden=nw?false:true;
-    if(nw){ n.hidden=true; return; }
-    var pr=profData.profiles.filter(function(x){return x.id===v;})[0]; if(!pr||!ibState) return;
-    var ps=(pr.id===profData.active?positions:pr.positions).filter(function(x){return isImp(x,ibState.broker);}).length, cs=(pr.closed||[]).filter(function(x){return isImp(x,ibState.broker);}).length;
-    n.textContent=(ps||cs)?"Reemplaza las "+ps+" posiciones y "+cs+" ventas que importaste antes de "+(ibState.broker==="Balanz"?"Balanz":"IBKR")+" en este perfil. Lo que cargaste a mano no se toca. Si el archivo no cubre todo tu historial, lo anterior se pierde.":"Suma las operaciones importadas a este perfil. Lo que ya tenías cargado a mano no se toca, así que si es lo mismo puede quedar repetido.";
-    n.hidden=false;
-  }
-  $("ibTarget").addEventListener("change",ibTargetChange);
   $("ibCreate").addEventListener("click",function(){
     if(!ibState) return;
-    var v=$("ibTarget").value;
+    var v=ibTargetId;
     cur().positions=positions;
     if(v==="new"){
       if(profData.profiles.length>=20){ ibMsg("Llegaste al máximo de 20 perfiles."); return; }
@@ -2264,7 +2351,7 @@
       pr.mod=Date.now(); profData.active=pr.id;
     }
     positions=cur().positions; openId=null; ibState=null;
-    save(LS_PROF,profData); $("ibAct").hidden=true; $("ibText").value=""; $("ibFile").value=""; ibMsg("");
+    save(LS_PROF,profData); ibReset();
     dlgProf.close(); render(); refresh(true);
     try{ if(cur().sync||cur().id) queuePush(cur()); }catch(e){}
   });
