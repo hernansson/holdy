@@ -100,6 +100,13 @@
   .chip.mig{background:transparent; border:1px dashed var(--warn); color:var(--warn)}
   .spacer{flex:1}
   .row-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px 10px; margin-top:10px}
+  .dgrid{display:grid; gap:14px; margin-top:12px}
+  .dsec-t{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; margin-bottom:2px}
+  .drows{display:grid}
+  .drow{display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:7px 0; border-bottom:1px solid var(--line)}
+  .drow:last-child{border-bottom:0}
+  .drow .k{font-size:13.5px}
+  .drow .v{font-size:14.5px; font-weight:600; text-align:right}
   .row-actions{display:flex; gap:8px; margin-top:10px}
   .row-actions button{padding:6px 12px; min-height:34px; font-size:13px}
   dialog#dlgCal{width:min(380px,100%)}
@@ -119,6 +126,13 @@
   .updbar button{border-radius:999px;background:#fff;color:#0b5d55;border:0;font-weight:700;min-height:36px}
   .scr{max-width:860px;margin:0 auto;padding:14px 0 40px;display:grid;gap:4px}
   .scr[hidden]{display:none}
+  @keyframes scrIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+  @keyframes scrOut{from{transform:none}to{transform:translateX(100%)}}
+  @keyframes mainBack{from{opacity:.35;transform:translateX(-18px)}to{opacity:1;transform:none}}
+  .scr.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
+  .scr.leave{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
+  main.enter-back{animation:mainBack .28s cubic-bezier(.2,.8,.2,1)}
+  @media (prefers-reduced-motion:reduce){.scr.enter,main.enter-back{animation:none}.scr.leave{animation:none;display:none}}
   .scr .cmphdr{padding:0 16px}
   .scr form{padding:8px 16px 18px}
   #cmpView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px}
@@ -210,22 +224,22 @@
   .profinfo{font-size:12px; color:var(--muted)}
   .grp{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:8px 2px 0}
   details.acc{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); overflow:hidden}
-  details.acc>summary{list-style:none; display:flex; align-items:center; gap:12px; padding:10px 12px; cursor:pointer; min-height:52px}
+  details.acc>summary{list-style:none; display:flex; align-items:center; gap:10px; padding:6px 12px; cursor:pointer; min-height:46px}
   details.acc>summary::-webkit-details-marker{display:none}
   details.acc>summary::after{content:"▾"; color:var(--muted); transition:transform .15s}
   details.acc[open]>summary::after{transform:rotate(180deg)}
-  .acc-l{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
-  .acc-l .tick{font-size:16px}
+  .acc-l{flex:1; min-width:0; display:flex; flex-direction:column; gap:0}
+  .acc-l .tick{font-size:15.5px; line-height:1.15}
   .sub-line{display:flex; gap:5px; align-items:center; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden}
   .sub-line .bk{text-transform:uppercase; letter-spacing:.04em; font-size:10px; opacity:.85}
-  .acc-r{display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex:0 0 auto}
-  .acc-pl{font-weight:600; font-size:12.5px; white-space:nowrap}
+  .acc-r{display:flex; flex-direction:column; align-items:flex-end; gap:0; flex:0 0 auto}
+  .acc-pl{font-weight:600; font-size:12px; white-space:nowrap; line-height:1.25}
   #list{padding-bottom:96px}
   .acc-l .sub{margin:0; font-size:12px; white-space:nowrap; min-width:64px; overflow:hidden; text-overflow:ellipsis}
-  .acc-val{font-size:15px; font-weight:700; text-align:right; white-space:nowrap}
+  .acc-val{font-size:14.5px; font-weight:700; line-height:1.25; text-align:right; white-space:nowrap}
   .acc-pct{font-weight:700; font-size:15px; min-width:78px; text-align:right; white-space:nowrap}
   .list-head{display:flex; justify-content:flex-end; font-size:11px; color:var(--muted); padding:0 12px; margin-bottom:-4px}
-  .list{gap:6px}
+  .list{gap:5px}
   .acc-body{padding:0 14px 12px; border-top:1px solid var(--line)}
   .pcards{display:grid;gap:10px}
   .pcard{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card);min-height:60px}
@@ -819,31 +833,6 @@
       var t2=el("div"); t2.appendChild(el("div","k","Posiciones")); t2.appendChild(el("div","v",String(positions.filter(function(p){return p.ccy===ccy;}).length))); tiles.appendChild(t2);
       card.appendChild(tiles);
       if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
-      var bks=Object.keys(g.brokers).sort();
-      if(bks.length>1||bks[0]==="Balanz"){
-        var bx=el("div","bk-block");
-        if(bks.length>1 && g.value>0){
-          var bar=el("div","bk-bar"); bar.setAttribute("role","img");
-          bks.forEach(function(bn,ix){ var sh=g.brokers[bn].value/g.value*100; var seg=el("i","bk"+(bn==="IBKR"?" ib":" bz")); seg.style.width=sh+"%"; bar.appendChild(seg); });
-          bx.appendChild(bar);
-        }
-        bks.forEach(function(bn){
-          var b=g.brokers[bn];
-          var cpri=0; positions.forEach(function(p){ if(p.ccy===ccy&&p.broker===bn&&currentPrice(p)!==null) cpri+=p.qty*p.buy; });
-          var bpl=b.value-cpri+(b.inc||0), bpct=cpri>0?bpl/cpri:null;
-          var line=el("div","bk-line");
-          var nm=el("span","bk-name"); nm.appendChild(el("i","bkdot"+(bn==="IBKR"?" ib":" bz"))); nm.appendChild(el("span",null,(bn==="IBKR"?"Interactive Brokers":bn))); line.appendChild(nm);
-          var rt=el("span","bk-val"); rt.appendChild(el("span",null,mR(b.value,ccy)));
-          rt.appendChild(cpri>0?el("span","bk-pct "+cls(bpl),fmtPct(bpct)):el("span","bk-pct","sin precios"));
-          line.appendChild(rt); bx.appendChild(line);
-        });
-        var bz=g.brokers.Balanz;
-        if(bz && g.value>0 && !isRO()){
-          var ibv=g.brokers.IBKR?g.brokers.IBKR.value:0, moved=Math.round(ibv/g.value*100);
-          bx.appendChild(el("div","k mig-cap","Migrado a IBKR: "+moved+"% del valor"));
-        }
-        card.appendChild(bx);
-      }
       box.appendChild(card);
     });
   }
@@ -924,7 +913,6 @@
       l.appendChild(tk);
       var subTxt="", subCls="";
       if(p.fi) subTxt="≈"+p.fi.r.toFixed(1).replace(".",",")+"% anual";
-      else if(p.source==="manual") subTxt="manual";
       else if(dpct!==null){ subTxt="hoy "+fmtPct(dpct); subCls=cls(dpct); }
       else if(cp===null) subTxt="sin precio";
       var sb=el("div","sub-line"); sb.appendChild(el("span","bk",p.broker.replace(" + "," · ")));
@@ -938,15 +926,20 @@
       det.appendChild(sum);
 
       var body=el("div","acc-body");
-      var g=el("div","row-grid");
-      function cell(k,v,c){ var d=el("div"); d.appendChild(el("div","k",k)); d.appendChild(el("div","v"+(c?" "+c:""),v)); g.appendChild(d); }
+      var g=el("div","dgrid"), rowsEl=null;
+      function sec(title){ var d=el("div","dsec"); d.appendChild(el("div","dsec-t",title)); rowsEl=el("div","drows"); d.appendChild(rowsEl); g.appendChild(d); }
+      function cell(k,v,c){ var d=el("div","drow"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); rowsEl.appendChild(d); }
+      sec("Resultado");
+      cell(p.fi?"Ganancia con cupones":"Ganancia desde la compra",pl===null?"—":mRs(pl,p.ccy)+" · "+fmtPct(pct),cls(pl));
+      if(dpct!==null) cell("Hoy",fmtPct(dpct),cls(dpct));
+      sec("Tu posición");
       cell("Cantidad",qq(p.qty));
-      cell(p.lots&&p.lots.length>1?"Compra promedio":"Compra",mm(p.buy,p.ccy));
-      cell("Actual",cp===null?"—":fmt(cp,p.ccy));
-      cell("Día",dpct===null?"—":arrow(dpct)+fmtPct(dpct),dpct===null?"":cls(dpct));
-      cell("Valor",value===null?"—":mm(value,p.ccy));
-      cell(p.fi?"Ganancia (precio + cupones)":"Ganancia desde compra",pl===null?"—":mms(pl,p.ccy)+" ("+fmtPct(pct)+")",cls(pl));
+      cell(p.lots&&p.lots.length>1?"Compra promedio":"Precio de compra",mm(p.buy,p.ccy));
+      cell(p.fi?"Se mide contra":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
+      cell("Valor",value===null?"—":mR(value,p.ccy));
+      cell("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(p.fi){
+        sec("Renta fija");
         cell("Rendimiento anual estimado",p.fi.r.toFixed(2).replace(".",",")+"%"); cell("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
         if(p.fi.cp){
           var tot=p.fi.cp.reduce(function(x,y){return x+y[1];},0), lc=p.fi.cp[p.fi.cp.length-1];
@@ -962,7 +955,6 @@
           } else cell("Cupones cobrados","Importá el Excel de Balanz o cargá cupón y vencimiento en Editar");
         }
       }
-      cell("Peso",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       body.appendChild(g);
       if(p.lots && p.lots.length){
         var ll=el("div","lotlist"); ll.appendChild(el("div","k","Tus compras"));
@@ -1416,11 +1408,19 @@
   var dlgProf=$("dlgProf"), dlgSet=$("dlgSet");
   var SCREENS=[cmpView,dlgProf,dlgSet];
   function setScr(el){
-    SCREENS.forEach(function(x){ x.hidden=x!==el; });
+    var prev=SCREENS.filter(function(x){ return !x.hidden; })[0]||null;
+    SCREENS.forEach(function(x){ x.hidden=x!==el; x.classList.remove("enter","leave"); });
     cmpOpen=!!el;
-    document.querySelector("main").hidden=!!el||(!!GOOGLE_CLIENT_ID&&!auth);
+    var mainEl=document.querySelector("main");
+    mainEl.hidden=!!el||(!!GOOGLE_CLIENT_ID&&!auth);
     $("btnAdd").hidden=!!el||!!cur().readOnly;
     window.scrollTo(0,0);
+    // Transiciones: al entrar la pantalla llega desde la derecha; al volver sale hacia la derecha y la principal vuelve.
+    if(el&&el!==prev){ void el.offsetWidth; el.classList.add("enter"); }
+    else if(!el&&prev&&!mainEl.hidden){
+      prev.hidden=false; prev.classList.add("leave"); mainEl.classList.remove("enter-back"); void mainEl.offsetWidth; mainEl.classList.add("enter-back");
+      setTimeout(function(){ if(prev.classList.contains("leave")){ prev.hidden=true; prev.classList.remove("leave"); } mainEl.classList.remove("enter-back"); },270);
+    }
   }
   function setCmp(on){ setScr(on?cmpView:null); }
   [dlgProf,dlgSet].forEach(function(x){
