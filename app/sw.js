@@ -1,6 +1,6 @@
 // Service worker: guarda la app para que abra sin conexión.
 // Las consultas de precios (otro dominio) NO se guardan: siempre van a la red.
-const CACHE = "holdy-v39";
+const CACHE = "holdy-v40";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {

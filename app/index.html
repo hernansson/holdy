@@ -419,7 +419,9 @@
       <button type="button" id="ibRead">Leer lo pegado</button>
       <div class="help" id="ibMsg" role="status" aria-live="polite" hidden></div>
       <div id="ibAct" hidden>
-        <div class="inrow"><input id="ibName" maxlength="40" value="IBKR" aria-label="Nombre del perfil nuevo"><button type="button" id="ibCreate" class="primary">Crear perfil</button></div>
+        <label>Dónde guardarlo<select id="ibTarget"></select></label>
+        <div class="inrow"><input id="ibName" maxlength="40" value="IBKR" aria-label="Nombre del perfil nuevo"><button type="button" id="ibCreate" class="primary">Guardar</button></div>
+        <div class="help" id="ibNote" hidden></div>
       </div>
     </div>
     <div class="sec">
@@ -2166,19 +2168,19 @@
     B.open.forEach(function(x){ var c=cleanPos({broker:"IBKR",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de IBKR"},false); if(c) pos.push(c); });
     B.closed.forEach(function(x){ var c=cleanPos({broker:"IBKR",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de IBKR"},false); if(c&&c.sold) closed.push(c); });
     if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."); return; }
-    ibState={pos:pos,closed:closed};
+    ibState={pos:pos,closed:closed,broker:"IBKR"};
     var tks={}; pos.concat(closed).forEach(function(c){ tks[c.ticker]=1; });
     function fd(s){ return s.split("-").reverse().join("/"); }
     var msg="Encontré "+B.fills+" operaciones de "+Object.keys(tks).length+" acciones, entre el "+fd(B.dmin)+" y el "+fd(B.dmax)+": "+pos.length+" posiciones abiertas y "+closed.length+" ventas.";
     if(P.nonUsd||P.other) msg+=" Quedaron afuera "+(P.nonUsd+P.other)+" operaciones en otra moneda o que no son acciones.";
     if(B.orphan) msg+=" "+B.orphan+" venta(s) no tienen compra previa en el archivo (quizás compraste antes del rango) y se ignoraron.";
-    ibMsg(msg); $("ibAct").hidden=false;
+    ibMsg(msg); ibShowAct();
   }
   function ibFinish(pos,closed,extra){
     if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."+(extra||"")); return; }
-    ibState={pos:pos,closed:closed};
+    ibState={pos:pos,closed:closed,broker:"Balanz"};
     var tks={}; pos.concat(closed).forEach(function(c){ tks[c.ticker]=1; });
-    ibMsg("Armé "+pos.length+" posiciones abiertas y "+closed.length+" ventas de "+Object.keys(tks).length+" acciones."+(extra||"")); $("ibAct").hidden=false;
+    ibMsg("Armé "+pos.length+" posiciones abiertas y "+closed.length+" ventas de "+Object.keys(tks).length+" acciones."+(extra||"")); ibShowAct();
   }
   function balanzRead(buf){
     $("ibAct").hidden=true; ibState=null; ibMsg("Leyendo el archivo…");
@@ -2225,15 +2227,46 @@
     }
   });
   $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } ibRead(t); });
+  function isImp(x,br){ return x.broker===br && /^Importado de /.test(x.note||""); }
+  function ibShowAct(){
+    var t=$("ibTarget"); t.textContent="";
+    function opt(v,txt){ var o=document.createElement("option"); o.value=v; o.textContent=txt; t.appendChild(o); }
+    opt("new","Un perfil nuevo");
+    profData.profiles.forEach(function(pr){ if(!pr.readOnly) opt(pr.id,"Actualizar “"+pr.name+"”"); });
+    t.value="new"; $("ibName").value=ibState.broker==="Balanz"?"Balanz":"IBKR";
+    ibTargetChange(); $("ibAct").hidden=false;
+  }
+  function ibTargetChange(){
+    var v=$("ibTarget").value, nw=v==="new", n=$("ibNote");
+    $("ibName").hidden=nw?false:true;
+    if(nw){ n.hidden=true; return; }
+    var pr=profData.profiles.filter(function(x){return x.id===v;})[0]; if(!pr||!ibState) return;
+    var ps=(pr.id===profData.active?positions:pr.positions).filter(function(x){return isImp(x,ibState.broker);}).length, cs=(pr.closed||[]).filter(function(x){return isImp(x,ibState.broker);}).length;
+    n.textContent=(ps||cs)?"Reemplaza las "+ps+" posiciones y "+cs+" ventas que importaste antes de "+(ibState.broker==="Balanz"?"Balanz":"IBKR")+" en este perfil. Lo que cargaste a mano no se toca. Si el archivo no cubre todo tu historial, lo anterior se pierde.":"Suma las operaciones importadas a este perfil. Lo que ya tenías cargado a mano no se toca, así que si es lo mismo puede quedar repetido.";
+    n.hidden=false;
+  }
+  $("ibTarget").addEventListener("change",ibTargetChange);
   $("ibCreate").addEventListener("click",function(){
     if(!ibState) return;
-    if(profData.profiles.length>=20){ ibMsg("Llegaste al máximo de 20 perfiles."); return; }
-    var n=cleanName($("ibName").value)||"IBKR";
+    var v=$("ibTarget").value;
     cur().positions=positions;
-    var np={id:rid(),name:n,positions:ibState.pos,closed:ibState.closed,readOnly:false,mod:Date.now()};
-    profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null; ibState=null;
+    if(v==="new"){
+      if(profData.profiles.length>=20){ ibMsg("Llegaste al máximo de 20 perfiles."); return; }
+      var n=cleanName($("ibName").value)||ibState.broker;
+      var np={id:rid(),name:n,positions:ibState.pos,closed:ibState.closed,readOnly:false,mod:Date.now()};
+      profData.profiles.push(np); profData.active=np.id;
+    } else {
+      var pr=profData.profiles.filter(function(x){return x.id===v;})[0]; if(!pr||pr.readOnly) return;
+      var br=ibState.broker;
+      if(!confirm("Se van a actualizar las operaciones importadas de "+br+" en “"+pr.name+"”. ¿Seguir?")) return;
+      pr.positions=pr.positions.filter(function(x){return !isImp(x,br);}).concat(ibState.pos);
+      pr.closed=(pr.closed||[]).filter(function(x){return !isImp(x,br);}).concat(ibState.closed);
+      pr.mod=Date.now(); profData.active=pr.id;
+    }
+    positions=cur().positions; openId=null; ibState=null;
     save(LS_PROF,profData); $("ibAct").hidden=true; $("ibText").value=""; $("ibFile").value=""; ibMsg("");
     dlgProf.close(); render(); refresh(true);
+    try{ if(cur().sync||cur().id) queuePush(cur()); }catch(e){}
   });
   $("pfImport").addEventListener("click",function(){
     var v=$("pfLink").value.trim(), i=v.indexOf("#share=");
