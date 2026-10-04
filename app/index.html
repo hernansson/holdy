@@ -185,9 +185,9 @@
   details.acc>summary::-webkit-details-marker{display:none}
   details.acc>summary::after{content:"▾"; color:var(--muted); transition:transform .15s}
   details.acc[open]>summary::after{transform:rotate(180deg)}
-  .acc-l{flex:1; min-width:0; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap}
-  .acc-l .tick{font-size:15px; display:flex; gap:6px; align-items:center}
-  .acc-l .sub{margin:0; font-size:12px}
+  .acc-l{flex:1; min-width:0; display:flex; align-items:baseline; gap:6px; flex-wrap:nowrap}
+  .acc-l .tick{font-size:15px; display:flex; gap:6px; align-items:center; flex:0 0 auto; min-width:68px}
+  .acc-l .sub{margin:0; font-size:12px; white-space:nowrap; min-width:64px}
   .acc-val{font-size:13px; color:var(--muted); text-align:right; white-space:nowrap}
   .acc-pct{font-weight:700; font-size:15px; min-width:78px; text-align:right; white-space:nowrap}
   .list-head{display:flex; justify-content:flex-end; font-size:11px; color:var(--muted); padding:0 12px; margin-bottom:-4px}
