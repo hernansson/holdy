@@ -635,12 +635,20 @@
 
   // Renta fija: valor estimado = lo invertido creciendo a la tasa anual (hasta el vencimiento).
   function fiPrice(p){
-    var ls=(p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}], tn=dayNum(todayStr()), cap=p.fi.m?dayNum(p.fi.m):1e9, v=0, q=0;
+    // Sin contar cupones: el precio converge de a poco desde lo que pagaste hasta 1 en el vencimiento (se devuelve a 1).
+    var ls=(p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}], tn=dayNum(todayStr()), M=p.fi.m?dayNum(p.fi.m):0, v=0, q=0;
     ls.forEach(function(l){
-      var days=l.d?Math.max(0,Math.min(tn,cap)-dayNum(l.d)):0;
-      v+=l.q*l.b*Math.pow(1+p.fi.r/100,days/365); q+=l.q;
+      var px=l.b;
+      if(M&&l.d){ var d0=dayNum(l.d), fr=M>d0?Math.max(0,Math.min(1,(tn-d0)/(M-d0))):1; px=l.b+(1-l.b)*fr; }
+      v+=l.q*px; q+=l.q;
     });
     return q>0?v/q:null;
+  }
+  // Cupones ya cobrados (reales del Excel; si no hay, estimados): se suman a la ganancia, aparte del precio.
+  function fiIncome(p){
+    if(!p||!p.fi) return 0;
+    if(p.fi.cp) return p.fi.cp.reduce(function(a,x){return a+x[1];},0);
+    var cu=fiCoupons(p); return cu?cu.total:0;
   }
   // Cupones de renta fija: pagan cada 6 meses hacia atrás desde el vencimiento; cobrás los posteriores a cada compra.
   function fiMonthsBack(iso,m){
@@ -756,11 +764,11 @@
       var cp=currentPrice(p);
       var g=byCcy[p.ccy]||(byCcy[p.ccy]={cost:0,value:0,missing:0,brokers:{},day:0,dayBase:0,dayN:0});
       var cost=p.qty*p.buy;
-      g.cost+=cost;
+      g.cost+=cost; if(p.fi&&cp!==null){ var inc=fiIncome(p); g.inc=(g.inc||0)+inc; }
       var b=g.brokers[p.broker]||(g.brokers[p.broker]={cost:0,value:0,missing:0});
       b.cost+=cost;
       if(cp===null){ g.missing++; b.missing++; }
-      else { g.value+=p.qty*cp; b.value+=p.qty*cp; }
+      else { g.value+=p.qty*cp; b.value+=p.qty*cp; if(p.fi){ b.inc=(b.inc||0)+fiIncome(p); } }
       var di=dayInfo(p); if(di){ g.day+=di.amt; g.dayBase+=di.base; g.dayN++; }
     });
     Object.keys(byCcy).sort().forEach(function(ccy){
@@ -768,7 +776,7 @@
       // Solo comparamos costo vs valor de las posiciones que tienen precio actual
       var costPriced=0;
       positions.forEach(function(p){ if(p.ccy===ccy && currentPrice(p)!==null) costPriced+=p.qty*p.buy; });
-      var pl=g.value-costPriced, pct=costPriced>0?pl/costPriced:null;
+      var pl=g.value-costPriced+(g.inc||0), pct=costPriced>0?pl/costPriced:null;
 
       var card=el("div","sum-card");
       card.appendChild(el("h2",null,"Total en "+ccy));
@@ -789,7 +797,7 @@
       Object.keys(g.brokers).sort().forEach(function(bn){
         var b=g.brokers[bn];
         var cpri=0; positions.forEach(function(p){ if(p.ccy===ccy&&p.broker===bn&&currentPrice(p)!==null) cpri+=p.qty*p.buy; });
-        var bpl=b.value-cpri, bpct=cpri>0?bpl/cpri:null;
+        var bpl=b.value-cpri+(b.inc||0), bpct=cpri>0?bpl/cpri:null;
         var line=el("div","broker-line");
         line.appendChild(el("span",null,(bn==="IBKR"?"Interactive Brokers":bn)));
         line.appendChild(el("span",null,mm(b.value,ccy)));
@@ -875,7 +883,8 @@
       if(multiCcy && !p.fi && p.ccy!==lastCcy){ box.appendChild(el("div","grp","En "+p.ccy)); lastCcy=p.ccy; }
       var cp=currentPrice(p);
       var cost=p.qty*p.buy, value=cp===null?null:p.qty*cp;
-      var pl=value===null?null:value-cost, pct=(pl===null||cost<=0)?null:pl/cost;
+      var inc=p.fi?fiIncome(p):0;
+      var pl=value===null?null:value-cost+inc, pct=(pl===null||cost<=0)?null:pl/cost;
       var weight=(value===null||!totalByCcy[p.ccy])?null:value/totalByCcy[p.ccy];
       var di=dayInfo(p), dpct=(di&&di.base>0)?di.amt/di.base:null;
 
@@ -908,7 +917,7 @@
       cell("Actual",cp===null?"—":fmt(cp,p.ccy));
       cell("Día",dpct===null?"—":arrow(dpct)+fmtPct(dpct),dpct===null?"":cls(dpct));
       cell("Valor",value===null?"—":mm(value,p.ccy));
-      cell("Ganancia desde compra",pl===null?"—":mms(pl,p.ccy)+" ("+fmtPct(pct)+")",cls(pl));
+      cell(p.fi?"Ganancia (precio + cupones)":"Ganancia desde compra",pl===null?"—":mms(pl,p.ccy)+" ("+fmtPct(pct)+")",cls(pl));
       if(p.fi){
         cell("Rendimiento anual estimado",p.fi.r.toFixed(2).replace(".",",")+"%"); cell("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
         if(p.fi.cp){
@@ -944,7 +953,7 @@
       var mm_=ccyMismatch(p);
       if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
-      if(p.fi) notes.push("Renta fija: el valor va creciendo con el rendimiento de tu precio de compra"+(p.fi.m?" hasta llegar a 1 en el vencimiento":"")+". No sigue el precio de mercado: si la mantenés hasta el final, eso es lo que cobrás.");
+      if(p.fi) notes.push("Renta fija: el precio va acercándose de a poco a 1"+(p.fi.m?" hasta el vencimiento":" (cargá el vencimiento en Editar para que se note)")+", porque ahí te devuelven 1. No sigue el precio de mercado. A esa diferencia se le suman los cupones que fuiste cobrando.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       if(!p.parts && (multiBroker||p.broker==="Balanz")) notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
       if(p.note) notes.push(p.note);
@@ -1362,7 +1371,7 @@
       if(it.closed){
         var pct=(p.sold.p-p.buy)/p.buy; rows.push({tk:p.ticker,pct:pct,closed:true,gain:(p.sold.p-p.buy)*p.qty,cost:p.buy*p.qty}); closedN++; if(pct>0) wins++;
       } else if(lastPx!==null){
-        var pc=(lastPx-p.buy)/p.buy, val=lastPx*p.qty; rows.push({tk:p.ticker,pct:pc,closed:false,gain:(lastPx-p.buy)*p.qty,cost:p.buy*p.qty}); openVal+=val; vals.push(val);
+        var inc=(p.fi&&typeof fiIncome==="function")?fiIncome(p):0, pc=((lastPx-p.buy)*p.qty+inc)/(p.buy*p.qty), val=lastPx*p.qty; rows.push({tk:p.ticker,pct:pc,closed:false,gain:(lastPx-p.buy)*p.qty+inc,cost:p.buy*p.qty}); openVal+=val; vals.push(val);
       }
     });
     var tc=0; rows.forEach(function(r){ tc+=r.cost; });
