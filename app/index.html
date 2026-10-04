@@ -84,6 +84,7 @@
   .rrow .rl{display:flex; flex-direction:column; font-size:14.5px}
   .rrow .rl small{font-size:11.5px; color:var(--muted); font-weight:400; margin-top:1px}
   .rrow .rv{font-size:15px; font-weight:700; white-space:nowrap; text-align:right}
+  .rnote{margin-top:8px; line-height:1.4}
   .rrow.strong{padding-top:12px}
   .rrow.strong .rl{font-weight:700; font-size:15.5px}
   .rrow.strong .rv{font-size:18px}
@@ -852,6 +853,7 @@
           rrow("Ganancia total",mRs(pl,ccy)+" · "+fmtPct(pct),cls(pl),true,"diferencia + cupones");
         }
         card.appendChild(rc);
+        if(inc>0) card.appendChild(el("div","k rnote","Los cupones ya los cobraste, por eso no están dentro de lo que tenés hoy. Sumados a lo que tenés hoy: "+mR(g.value+inc,ccy)+"."));
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
       box.appendChild(card);
