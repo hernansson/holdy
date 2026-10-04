@@ -1390,6 +1390,11 @@
   setInterval(function(){ if(document.visibilityState==="visible") cloudSync(); },60000);
   setInterval(function(){ if(document.visibilityState==="visible") pullFollowers(); },60000);
 
+  if(auth && profData.cloudUser!==auth.email){
+    if(profData.cloudUser && hasUserData() && !confirm("Este dispositivo tiene datos de "+profData.cloudUser+". ¿Subirlos también a la cuenta de "+auth.email+"?")){
+      auth=null; try{ localStorage.removeItem(LS_AUTH); }catch(e){}
+    } else { prepareLogin(auth.email); save(LS_PROF,profData); }
+  }
   render();
   refresh(false);
   updateGate();

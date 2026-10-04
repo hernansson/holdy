@@ -44,13 +44,21 @@
   .band h2{margin:0 0 8px; font-size:24px; letter-spacing:-.02em}
   .band p{margin:0 0 18px; color:var(--muted)}
   footer{padding:24px 0 40px; color:var(--muted); font-size:13px; border-top:1px solid var(--line)}
+  dialog.sheet{border:0;padding:24px 22px 28px;border-radius:22px 22px 0 0;background:var(--card);color:var(--text);width:100%;max-width:440px;margin:auto auto 0;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+  @media (min-width:600px){ dialog.sheet{margin:auto;border-radius:22px} }
+  dialog.sheet::backdrop{background:rgba(0,0,0,.45)}
+  dialog.sheet h2{margin:0 0 6px;font-size:22px;letter-spacing:-.02em}
+  dialog.sheet p{margin:0 0 16px;color:var(--muted);font-size:15px}
+  #gbtn{min-height:44px;display:flex;justify-content:center}
+  #gmsg{font-size:14px;margin:12px 0 0;text-align:center}
+  .x{display:block;margin:14px auto 0;background:none;border:0;color:var(--muted);font:inherit;cursor:pointer}
 </style>
 </head>
 <body>
 <div class="wrap">
   <nav>
     <div class="logo"><i aria-hidden="true"></i>Holdy</div>
-    <a class="btn ghost" href="app/">Abrir</a>
+    <a class="btn ghost" href="app/" data-open>Abrir</a>
   </nav>
 
   <header class="hero">
@@ -58,7 +66,7 @@
       <h1>Tus acciones, <em>claras</em>.</h1>
       <p class="lead">Cargá lo que compraste y Holdy te muestra cuánto ganás o perdés en cada acción desde tu precio de compra, con precios al día. Gratis, en el celu y en la compu.</p>
       <div class="cta">
-        <a class="btn" href="app/">Abrir Holdy</a>
+        <a class="btn" href="app/" data-open>Abrir Holdy</a>
         <a class="btn ghost" href="#como">Cómo funciona</a>
       </div>
     </div>
@@ -84,13 +92,50 @@
   <section class="band">
     <h2>Empezá en un minuto</h2>
     <p>No hay que conectar ningún broker: cargás tus posiciones a mano y listo.</p>
-    <a class="btn" href="app/">Abrir Holdy</a>
+    <a class="btn" href="app/" data-open>Abrir Holdy</a>
   </section>
 
   <footer>
     Holdy es una herramienta de seguimiento personal y no ofrece asesoramiento financiero. Los precios pueden tener demora.
   </footer>
 </div>
+<dialog class="sheet" id="dlgLogin">
+  <h2>Entrá a Holdy</h2>
+  <p>Con tu cuenta de Google guardás tu cartera y la ves en todos tus dispositivos.</p>
+  <div id="gbtn"></div>
+  <p id="gmsg" hidden></p>
+  <button class="x" type="button" id="gclose">Cerrar</button>
+</dialog>
+<script>
+(function(){
+  var CID="554911510319-s9etahete05ilh86dd2r2bfnilq1jgkm.apps.googleusercontent.com", API="https://lingering-wind-a188.hernan-ss.workers.dev";
+  var dlg=document.getElementById("dlgLogin"), msg=document.getElementById("gmsg"), mounted=false;
+  function say(t){ msg.textContent=t; msg.hidden=!t; }
+  function cred(r){
+    if(!r||!r.credential) return; say("Entrando…");
+    fetch(API+"/auth/google",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({credential:r.credential})})
+      .then(function(x){ return x.json().then(function(j){ if(!x.ok) throw 0; return j; }); })
+      .then(function(j){ localStorage.setItem("cartera.auth.v1",JSON.stringify({session:j.session,email:j.email,name:j.name})); location.href="app/"; })
+      .catch(function(){ say("No se pudo entrar con Google. Probá de nuevo."); });
+  }
+  function mount(){
+    if(mounted) return; mounted=true;
+    var s=document.createElement("script"); s.src="https://accounts.google.com/gsi/client"; s.async=true;
+    s.onload=function(){ try{ google.accounts.id.initialize({client_id:CID,callback:cred,auto_select:false}); google.accounts.id.renderButton(document.getElementById("gbtn"),{theme:"outline",size:"large",text:"continue_with",shape:"pill",locale:"es",width:260}); }catch(e){ mounted=false; say("No se pudo cargar el ingreso."); } };
+    s.onerror=function(){ mounted=false; say("No se pudo cargar el ingreso. Revisá tu conexión."); };
+    document.body.appendChild(s);
+  }
+  document.querySelectorAll("[data-open]").forEach(function(a){
+    a.addEventListener("click",function(e){
+      var logged=false; try{ logged=!!localStorage.getItem("cartera.auth.v1"); }catch(x){}
+      if(logged||!dlg.showModal) return;
+      e.preventDefault(); say(""); dlg.showModal(); mount();
+    });
+  });
+  document.getElementById("gclose").addEventListener("click",function(){ dlg.close(); });
+  dlg.addEventListener("click",function(e){ if(e.target===dlg) dlg.close(); });
+})();
+</script>
 <script>
 (function(){
   try{
