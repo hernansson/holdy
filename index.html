@@ -133,14 +133,14 @@
           <h2>Quién <em>rinde mejor</em>, a la vista.</h2>
           <div class="steps" id="steps">
             <p class="on">Dos personas, el mismo capital y un año por delante. ¡Listos, largan!</p>
-            <p>Tomás arranca fuerte y se pone adelante.</p>
-            <p>Martina mantiene la calma y lo alcanza a mitad de año.</p>
-            <p>Fin del año: Martina le ganó a Tomás por 23 puntos.</p>
+            <p>Hernan arranca fuerte y se pone adelante.</p>
+            <p>Juanjo mantiene la calma y lo alcanza a mitad de año.</p>
+            <p>Fin del año: Juanjo le ganó a Hernan por 23 puntos.</p>
           </div>
         </div>
-        <div class="legend"><span><i style="background:#0f9488"></i>Martina <b id="vA">0,0%</b></span><span><i style="background:#f08a24"></i>Tomás <b id="vB">0,0%</b></span></div>
+        <div class="legend"><span><i style="background:#0f9488"></i>Juanjo <b id="vA">0,0%</b></span><span><i style="background:#f08a24"></i>Hernan <b id="vB">0,0%</b></span></div>
       </div>
-      <div class="stage" id="stage"><div class="winner" id="winner">🏆 <em>Martina</em> ganó la carrera: +34% vs +11%</div><svg id="svg" role="img" aria-label="Gráfico de ejemplo con dos líneas de rendimiento"></svg><div class="story-note">Datos de ejemplo con nombres ficticios.</div></div>
+      <div class="stage" id="stage"><div class="winner" id="winner">🏆 <em>Juanjo</em> ganó en rendimiento: +34% vs +11%</div><svg id="svg" role="img" aria-label="Gráfico de ejemplo con dos líneas de rendimiento"></svg><div class="story-note">Datos de ejemplo.</div></div>
     </div>
   </section>
   <div class="wrap">
@@ -216,7 +216,7 @@
     els.g=mk("g",{});
     els.lB=mk("path",{d:pathD(B),"class":"lnB",pathLength:1},els.g); els.lA=mk("path",{d:pathD(A),"class":"lnA",pathLength:1},els.g);
     els.dB=mk("circle",{r:7,"class":"dotB"}); els.dA=mk("circle",{r:7,"class":"dotA"});
-    els.tB=mk("text",{"class":"tagB"}); els.tA=mk("text",{"class":"tagA"}); els.tA.textContent="Martina"; els.tB.textContent="Tomás";
+    els.tB=mk("text",{"class":"tagB"}); els.tA=mk("text",{"class":"tagA"}); els.tA.textContent="Juanjo"; els.tB.textContent="Hernan";
     els.pA=els.lA.getTotalLength(); els.pB=els.lB.getTotalLength();
   }
   function fmt(n){ return (n>=0?"+":"−")+Math.abs(n).toLocaleString("es-AR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%"; }
