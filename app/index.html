@@ -633,7 +633,7 @@
     return q>0?v/q:null;
   }
   function currentPrice(p){
-    if(p.fi) return fiPrice(p);
+    if(p.fi) return (p.source==="manual"&&p.manualPrice>0)?p.manualPrice:fiPrice(p);
     if(p.source==="manual") return (p.manualPrice>0)?p.manualPrice:null;
     var c=prices[p.ticker]; if(c && c.cur && c.cur!==p.ccy) return null;
     return c&&c.price>0?c.price:null;
@@ -648,7 +648,7 @@
     return {amt:p.qty*c.d, base:p.qty*(c.price-c.d)};
   }
   function priceStamp(p){
-    if(p.fi) return 0;
+    if(p.fi) return p.source==="manual"?(p.manualTs||0):0;
     if(p.source==="manual") return p.manualTs||0;
     var c=prices[p.ticker]; return c?(c.t||c.fetched||0):0;
   }
@@ -848,7 +848,7 @@
       if(multiBroker) tk.appendChild(el("span","chip",p.broker));
       l.appendChild(tk);
       var subTxt="", subCls="";
-      if(p.fi) subTxt="≈"+p.fi.r.toFixed(1).replace(".",",")+"% anual";
+      if(p.fi) subTxt=p.source==="manual"?"precio manual":"≈"+p.fi.r.toFixed(1).replace(".",",")+"% anual";
       else if(p.source==="manual") subTxt="manual";
       else if(dpct!==null){ subTxt="hoy "+fmtPct(dpct); subCls=cls(dpct); }
       else if(cp===null) subTxt="sin precio";
@@ -887,7 +887,7 @@
       var mm_=ccyMismatch(p);
       if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
-      if(p.fi) notes.push("Renta fija: valor estimado a partir del rendimiento anual"+(p.fi.m?" hasta el vencimiento":"")+", no es el precio de mercado de hoy.");
+      if(p.fi&&p.source!=="manual") notes.push("Renta fija: valor estimado a partir del rendimiento anual"+(p.fi.m?" hasta el vencimiento":"")+", no es el precio de mercado de hoy. Si conocés el precio actual, cargalo en Editar (precio manual).");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       if(!p.parts && (multiBroker||p.broker==="Balanz")) notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
       if(p.note) notes.push(p.note);
@@ -1246,7 +1246,19 @@
     function add(p,closed){
       var ls=lotsOf(p);
       if(p.ccy!=="USD" || ls.some(function(l){return !l.d;}) || (closed && !p.sold)){ skipped++; return; }
-      var key=p.ticker; if(p.fi){ key="FI:"+p.ticker+":"+p.fi.r+":"+(p.fi.m||""); fis[key]={r:p.fi.r,m:p.fi.m||""}; }
+      var key=p.ticker;
+      if(p.fi){
+        var fr=p.fi.r;
+        if(!closed && p.source==="manual" && p.manualPrice>0 && typeof todayStr==="function"){
+          // Con precio de mercado cargado a mano: la tasa efectiva es la que lleva del costo a ese precio.
+          var tn_=dayNum(todayStr()), cw=0, dw=0; ls.forEach(function(l){ var c=l.q*l.b; cw+=c; dw+=c*Math.max(0,tn_-dayNum(l.d)); });
+          var ad=cw>0?dw/cw:0;
+          fr=ad>=3?Math.max(-90,Math.min(150,(Math.pow(p.manualPrice/p.buy,365/ad)-1)*100)):0;
+          fr=Math.round(fr*100)/100;
+        }
+        key="FI:"+p.ticker+":"+fr+":"+(fr===p.fi.r?(p.fi.m||""):"");
+        fis[key]={r:fr,m:fr===p.fi.r?(p.fi.m||""):""};
+      }
       ls.forEach(function(l){ ev.push({d:l.d,tk:key,q:l.q,p:l.b,t:"b"}); });
       if(closed) ev.push({d:p.sold.d,tk:key,q:p.qty,p:p.sold.p,t:"s"});
       used++; items.push({p:p,closed:closed});
@@ -1296,7 +1308,7 @@
     var rows=[], wins=0, closedN=0, openVal=0, vals=[];
     items.forEach(function(it){
       var p=it.p, h=hist[p.ticker], lastPx=(h&&h.pts.length)?h.pts[h.pts.length-1][1]:null;
-      if(p.fi&&!it.closed&&typeof fiPrice==="function") lastPx=fiPrice(p);
+      if(p.fi&&!it.closed&&typeof currentPrice==="function"){ var cpx=currentPrice(p); if(cpx!==null) lastPx=cpx; }
       if(it.closed){
         var pct=(p.sold.p-p.buy)/p.buy; rows.push({tk:p.ticker,pct:pct,closed:true,gain:(p.sold.p-p.buy)*p.qty,cost:p.buy*p.qty}); closedN++; if(pct>0) wins++;
       } else if(lastPx!==null){
