@@ -198,7 +198,7 @@
   details.acc[open]>summary::after{transform:rotate(180deg)}
   .acc-l{flex:1; min-width:0; display:flex; align-items:baseline; gap:6px; flex-wrap:nowrap}
   .acc-l .tick{font-size:15px; display:flex; gap:6px; align-items:center; flex:0 0 auto; min-width:68px}
-  .acc-l .sub{margin:0; font-size:12px; white-space:nowrap; min-width:64px}
+  .acc-l .sub{margin:0; font-size:12px; white-space:nowrap; min-width:64px; overflow:hidden; text-overflow:ellipsis}
   .acc-val{font-size:13px; color:var(--muted); text-align:right; white-space:nowrap}
   .acc-pct{font-weight:700; font-size:15px; min-width:78px; text-align:right; white-space:nowrap}
   .list-head{display:flex; justify-content:flex-end; font-size:11px; color:var(--muted); padding:0 12px; margin-bottom:-4px}
@@ -318,6 +318,12 @@
     </label>
     <label id="fManualWrap" hidden>Precio actual (manual)
       <input id="fManual" type="number" inputmode="decimal" step="any" min="0" placeholder="225.00">
+    </label>
+    <label>Renta fija: rendimiento anual estimado % (solo bonos y ONs, opcional)
+      <input id="fFiR" type="number" inputmode="decimal" step="any" min="-20" max="200" placeholder="Ej: 8,5">
+    </label>
+    <label id="fFiMWrap">Vencimiento (renta fija, opcional)
+      <input id="fFiM" type="text">
     </label>
     <label>Nota (opcional)
       <input id="fNote" placeholder="Ej: comprada en el dip de marzo">
@@ -512,11 +518,14 @@
     if(p.sold){ var sd=String(p.sold.d!==undefined?p.sold.d:p.sold[0]||""), sp=+(p.sold.p!==undefined?p.sold.p:p.sold[1]);
       if(/^\d{4}-\d{2}-\d{2}$/.test(sd)&&isFinite(sp)&&sp>0) so={d:sd,p:sp}; }
     if(!isFinite(qty)||!isFinite(buy)||!(qty>0)||!(buy>0)) return null;
+    var fi=null;
+    if(p.fi){ var fr=+(p.fi.r!==undefined?p.fi.r:p.fi[0]), fm=String((p.fi.m!==undefined?p.fi.m:p.fi[1])||"");
+      if(isFinite(fr)&&fr>-20&&fr<200) fi={r:fr,m:/^\d{4}-\d{2}-\d{2}$/.test(fm)?fm:""}; }
     var mp=+p.manualPrice; if(!isFinite(mp)||mp<0) mp=0;
     var src=p.source==="manual"?"manual":"auto";
     if(src==="manual" && !(mp>0)) src="auto";
     return { id:rid()+Math.random().toString(36).slice(2,4), broker:p.broker==="Balanz"?"Balanz":"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
-      ticker:t, qty:qty, buy:buy, lots:lots, sold:so, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
+      ticker:t, qty:qty, buy:buy, lots:lots, sold:so, fi:fi, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
       note:String(p.note||"").replace(/[\u0000-\u001f]/g," ").slice(0,200) };
   }
   function initProfiles(){
@@ -583,21 +592,32 @@
     return "hace "+Math.round(h/24)+" días";
   }
 
+  // Renta fija: valor estimado = lo invertido creciendo a la tasa anual (hasta el vencimiento).
+  function fiPrice(p){
+    var ls=(p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}], tn=dayNum(todayStr()), cap=p.fi.m?dayNum(p.fi.m):1e9, v=0, q=0;
+    ls.forEach(function(l){
+      var days=l.d?Math.max(0,Math.min(tn,cap)-dayNum(l.d)):0;
+      v+=l.q*l.b*Math.pow(1+p.fi.r/100,days/365); q+=l.q;
+    });
+    return q>0?v/q:null;
+  }
   function currentPrice(p){
+    if(p.fi) return fiPrice(p);
     if(p.source==="manual") return (p.manualPrice>0)?p.manualPrice:null;
     var c=prices[p.ticker]; if(c && c.cur && c.cur!==p.ccy) return null;
     return c&&c.price>0?c.price:null;
   }
-  function ccyMismatch(p){ var c=prices[p.ticker]; return (p.source!=="manual" && c && c.cur && c.cur!==p.ccy) ? c.cur : null; }
+  function ccyMismatch(p){ var c=prices[p.ticker]; return (p.source!=="manual" && !p.fi && c && c.cur && c.cur!==p.ccy) ? c.cur : null; }
   // Variación del día de una posición con precio automático (Finnhub: d = cambio por acción vs. cierre previo).
   function dayInfo(p){
-    if(p.source==="manual") return null;
+    if(p.source==="manual"||p.fi) return null;
     var c=prices[p.ticker];
     if(c && c.cur && c.cur!==p.ccy) return null;
     if(!c || !(c.price>0) || typeof c.d!=="number" || !isFinite(c.d)) return null;
     return {amt:p.qty*c.d, base:p.qty*(c.price-c.d)};
   }
   function priceStamp(p){
+    if(p.fi) return 0;
     if(p.source==="manual") return p.manualTs||0;
     var c=prices[p.ticker]; return c?(c.t||c.fetched||0):0;
   }
@@ -650,7 +670,7 @@
 
   function renderStatus(){
     var s=$("status");
-    var autoCount=positions.filter(function(p){return p.source!=="manual";}).length;
+    var autoCount=positions.filter(function(p){return p.source!=="manual"&&!p.fi;}).length;
     if(!positions.length){ s.textContent=""; return; }
     if(autoCount && !apiKey && !PROXY_URL){ s.textContent="Falta la API key de Finnhub (Ajustes) para actualizar precios automáticos."; return; }
     if(refreshing){ s.textContent="Actualizando precios…"; return; }
@@ -763,9 +783,11 @@
     var multiBroker=Object.keys(brokersUsed).length>1;
     if(openId && !sorted.some(function(p){return p.id===openId;})) openId=null;
     box.appendChild(el("div","list-head","Valor · ganancia/pérdida desde la compra"));
-    var detailEls=[], lastCcy=null;
+    var detailEls=[], lastCcy=null, lastFi=false;
+    sorted=sorted.filter(function(p){return !p.fi;}).concat(sorted.filter(function(p){return !!p.fi;}));
     sorted.forEach(function(p){
-      if(multiCcy && p.ccy!==lastCcy){ box.appendChild(el("div","grp","En "+p.ccy)); lastCcy=p.ccy; }
+      if(p.fi && !lastFi){ lastFi=true; lastCcy=null; box.appendChild(el("div","grp","Renta fija · valor estimado")); }
+      if(multiCcy && !p.fi && p.ccy!==lastCcy){ box.appendChild(el("div","grp","En "+p.ccy)); lastCcy=p.ccy; }
       var cp=currentPrice(p);
       var cost=p.qty*p.buy, value=cp===null?null:p.qty*cp;
       var pl=value===null?null:value-cost, pct=(pl===null||cost<=0)?null:pl/cost;
@@ -780,7 +802,8 @@
       if(multiBroker) tk.appendChild(el("span","chip",p.broker));
       l.appendChild(tk);
       var subTxt="", subCls="";
-      if(p.source==="manual") subTxt="manual";
+      if(p.fi) subTxt="≈"+p.fi.r.toFixed(1).replace(".",",")+"% anual";
+      else if(p.source==="manual") subTxt="manual";
       else if(dpct!==null){ subTxt="hoy "+fmtPct(dpct); subCls=cls(dpct); }
       else if(cp===null) subTxt="sin precio";
       if(subTxt) l.appendChild(el("span","sub k "+subCls,subTxt));
@@ -798,6 +821,7 @@
       cell("Día",dpct===null?"—":arrow(dpct)+fmtPct(dpct),dpct===null?"":cls(dpct));
       cell("Valor",value===null?"—":mm(value,p.ccy));
       cell("Ganancia desde compra",pl===null?"—":mms(pl,p.ccy)+" ("+fmtPct(pct)+")",cls(pl));
+      if(p.fi){ cell("Rendimiento anual estimado",p.fi.r.toFixed(2).replace(".",",")+"%"); cell("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—"); }
       cell("Peso",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       body.appendChild(g);
       if(p.lots && p.lots.length){
@@ -816,7 +840,8 @@
       var notes=[];
       var mm_=ccyMismatch(p);
       if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
-      if(errors[p.ticker] && p.source!=="manual") notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
+      if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
+      if(p.fi) notes.push("Renta fija: valor estimado a partir del rendimiento anual"+(p.fi.m?" hasta el vencimiento":"")+", no es el precio de mercado de hoy.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       if(multiBroker||p.broker==="Balanz") notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
       if(p.note) notes.push(p.note);
@@ -879,7 +904,7 @@
 
   function refresh(manual){
     if(refreshing) return Promise.resolve();
-    var tickers=[]; positions.forEach(function(p){ if(p.source!=="manual" && tickers.indexOf(p.ticker)<0) tickers.push(p.ticker); });
+    var tickers=[]; positions.forEach(function(p){ if(p.source!=="manual" && !p.fi && tickers.indexOf(p.ticker)<0) tickers.push(p.ticker); });
     if(!tickers.length){ render(); return Promise.resolve(); }
     if(!apiKey && !PROXY_URL){ showBanner("Para traer precios automáticos pegá tu API key de Finnhub en Ajustes. Mientras tanto podés cargar precios manuales.",false); render(); return Promise.resolve(); }
     if(!navigator.onLine){ showBanner("Sin conexión: se muestran los últimos precios guardados.",false); render(); return Promise.resolve(); }
@@ -912,8 +937,9 @@
   var dlgCal=$("dlgCal"), calCb=null, calSel="", calV={y:2026,m:0,mode:"d"}, calClearable=false;
   dlgCal.addEventListener("click",function(e){ if(e.target===dlgCal) dlgCal.close(); });
   function pad2(n){ return ("0"+n).slice(-2); }
-  function openCal(iso,cb,clearable){
-    calCb=cb; calSel=iso||""; calClearable=!!clearable;
+  var calFuture=false;
+  function openCal(iso,cb,clearable,future){
+    calFuture=!!future; calCb=cb; calSel=iso||""; calClearable=!!clearable;
     var t=(iso||todayStr()).split("-"); calV={y:+t[0],m:+t[1]-1,mode:"d"};
     $("calClear").hidden=!calClearable||!iso;
     drawCal(); dlgCal.showModal();
@@ -921,6 +947,7 @@
   function pickCal(iso){ var cb=calCb; calCb=null; dlgCal.close(); if(cb) cb(iso); }
   function drawCal(){
     var body=$("calBody"), today=todayStr(), ty=+today.slice(0,4), tm=+today.slice(5,7)-1; body.textContent="";
+    if(calFuture){ today="9999-12-31"; ty=new Date().getFullYear()+40; tm=11; }
     var title=$("calTitle");
     if(calV.mode==="d"){
       title.textContent=MESES[calV.m]+" "+calV.y;
@@ -931,7 +958,7 @@
       for(var d=1; d<=n; d++){
         (function(d){
           var iso=calV.y+"-"+pad2(calV.m+1)+"-"+pad2(d);
-          var b=el("button",(iso===today?"today ":"")+(iso===calSel?"sel":""),String(d)); b.type="button";
+          var b=el("button",(iso===todayStr()?"today ":"")+(iso===calSel?"sel":""),String(d)); b.type="button";
           if(iso>today||iso<"1990-01-01") b.disabled=true;
           b.addEventListener("click",function(){ pickCal(iso); });
           g.appendChild(b);
@@ -942,7 +969,7 @@
       title.textContent=String(calV.y);
       var gm=el("div","calgrid big");
       MESES.forEach(function(nm,mi){
-        var b=el("button",(calV.y===ty&&mi===tm?"today":""),nm.slice(0,3)); b.type="button"; b.style.textTransform="capitalize";
+        var b=el("button","",nm.slice(0,3)); b.type="button"; b.style.textTransform="capitalize";
         if(calV.y>ty||(calV.y===ty&&mi>tm)) b.disabled=true;
         b.addEventListener("click",function(){ calV.m=mi; calV.mode="d"; drawCal(); });
         gm.appendChild(b);
@@ -976,10 +1003,10 @@
   $("calToday").addEventListener("click",function(){ pickCal(todayStr()); });
   $("calClear").addEventListener("click",function(){ pickCal(""); });
   $("calCancel").addEventListener("click",function(){ calCb=null; dlgCal.close(); });
-  function dateField(inp,iso,clearable){
+  function dateField(inp,iso,clearable,future){
     inp.readOnly=true; inp.className+=" datebtn"; inp.placeholder="Elegir fecha"; inp.setAttribute("inputmode","none");
     inp.dataset.iso=iso||""; inp.value=fromISO(iso);
-    inp.addEventListener("click",function(){ openCal(inp.dataset.iso,function(v){ inp.dataset.iso=v; inp.value=fromISO(v); },clearable); });
+    inp.addEventListener("click",function(){ openCal(inp.dataset.iso,function(v){ inp.dataset.iso=v; inp.value=fromISO(v); },clearable,future); });
   }
   // Fechas como texto dd/mm/aaaa (el selector nativo no abre en algunos celulares).
   function toISO(v){
@@ -1028,6 +1055,7 @@
   }
   $("lotAdd").addEventListener("click",function(){ if(lotsBox.children.length<30){ addLotRow({q:"",b:"",d:""}); refreshLots(); var l=lotsBox.lastChild.querySelector(".lq"); l.focus(); } });
   $("fCcy").addEventListener("change",refreshLots);
+  dateField($("fFiM"),"",true,true);
   function openPos(id){
     editingId=id||null;
     var p=id?positions.filter(function(x){return x.id===id;})[0]:null;
@@ -1042,6 +1070,8 @@
     $("fSource").value=p?(p.source||"auto"):"auto";
     $("fManual").value=(p&&p.manualPrice)?p.manualPrice:"";
     $("fNote").value=p?(p.note||""):"";
+    $("fFiR").value=(p&&p.fi)?p.fi.r:"";
+    var fm_=(p&&p.fi&&p.fi.m)||""; $("fFiM").dataset.iso=fm_; $("fFiM").value=fromISO(fm_);
     syncSource();
     dlgPos.showModal();
   }
@@ -1068,6 +1098,9 @@
       broker:$("fBroker").value, ccy:$("fCcy").value, ticker:ticker, qty:qty, buy:buy, lots:keepLots,
       source:source, manualPrice:source==="manual"?manual:0, note:$("fNote").value.trim()
     };
+    var fiR=parseFloat($("fFiR").value), fiM=$("fFiM").dataset.iso||"";
+    if(fiM==="?"){ alert("El vencimiento no es válido. Escribilo como dd/mm/aaaa."); return; }
+    data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM}:null;
     if(editingId){
       positions=positions.map(function(x){
         if(x.id!==editingId) return x;
@@ -1151,7 +1184,7 @@
     function lotsOf(p){ return (p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}]; }
     function add(p,closed){
       var ls=lotsOf(p);
-      if(p.ccy!=="USD" || ls.some(function(l){return !l.d;}) || (closed && !p.sold)){ skipped++; return; }
+      if(p.fi || p.ccy!=="USD" || ls.some(function(l){return !l.d;}) || (closed && !p.sold)){ skipped++; return; }
       ls.forEach(function(l){ ev.push({d:l.d,tk:p.ticker,q:l.q,p:l.b,t:"b"}); });
       if(closed) ev.push({d:p.sold.d,tk:p.ticker,q:p.qty,p:p.sold.p,t:"s"});
       used++; items.push({p:p,closed:closed});
@@ -1310,7 +1343,7 @@
     tr("Posiciones activas",function(s){ return String(s.openN); });
     tr("Mayor peso",function(s){ return s.maxWeight===null?"—":(s.maxWeight*100).toFixed(0)+"%"; });
     body.appendChild(tb_);
-    var sk=[]; real.forEach(function(x){ if(x.e.skipped) sk.push(x.name+": "+x.e.skipped+" sin fecha de compra o en otra moneda"); });
+    var sk=[]; real.forEach(function(x){ if(x.e.skipped) sk.push(x.name+": "+x.e.skipped+" sin fecha de compra, en otra moneda o de renta fija"); });
     if(sk.length) body.appendChild(el("div","cmpnote","No entran en la comparación → "+sk.join(" · ")+". Cargá la fecha de compra para sumarlas."+(TR?" Los rendimientos incluyen dividendos reinvertidos.":" No se tienen en cuenta dividendos.")));
     drawCmp();
   }
@@ -1529,7 +1562,8 @@
   }
   function lotsT(p){
     var L=(p.lots&&p.lots.length)?p.lots.map(function(l){return [l.q,l.b,l.d||""];}):0, S=p.sold?[p.sold.d,p.sold.p]:0;
-    return S?[L,S]:(L?[L]:[]);
+    var F=p.fi?[p.fi.r,p.fi.m||""]:0;
+    return F?[L,S,F]:(S?[L,S]:(L?[L]:[]));
   }
   function buildPayload(pr){
     if(!pr.shareKey){ pr.shareKey=rid()+Math.random().toString(36).slice(2,8); save(LS_PROF,profData); }
@@ -1546,7 +1580,7 @@
     var out=[];
     raw.forEach(function(r){
       if(!Array.isArray(r)){ dropped++; return; }
-      var c=cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:t,note:r[7],lots:r[8]},true);
+      var c=cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:t,note:r[7],lots:r[8],fi:r[10]},true);
       if(c) out.push(c); else dropped++;
     });
     if(!out.length) throw new Error("vacío");
@@ -1988,9 +2022,35 @@
     var best=null, bd=1e9; CEDEAR_RATIOS.forEach(function(r){ var dd=Math.abs(r-x)/x; if(dd<bd){ bd=dd; best=r; } });
     return bd<=0.05?best:Math.max(1,Math.round(x));
   }
+  // Rendimiento anual estimado de un bono/ON de pago único al vencimiento, a partir de la descripción (tasa y vencimiento) y el precio por 1 de valor nominal.
+  function fiTerms(desc){
+    desc=String(desc||""); var c=null, m="", x;
+    if((x=/(\d{1,2}(?:[.,]\d{1,3})?)\s*%/.exec(desc))) c=parseFloat(x[1].replace(",","."));
+    else if((x=/(?:^|[\/\s])(\d{1,2}[.,]\d{1,3})(?=\s|$)/.exec(desc))) c=parseFloat(x[1].replace(",","."));
+    if((x=/\b(20\d{2})(\d{2})(\d{2})\b/.exec(desc))) m=x[1]+"-"+x[2]+"-"+x[3];
+    else if((x=/\b(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})\b/.exec(desc))){ var yy=x[3].length===2?"20"+x[3]:x[3]; m=yy+"-"+("0"+x[2]).slice(-2)+"-"+("0"+x[1]).slice(-2); }
+    if(m&&!(dayNum(m)>0)) m="";
+    return {c:c,m:m};
+  }
+  function fiYield(terms,price,buyIso){
+    var c=terms.c; if(!(c>0)||!(price>0.2)||!(price<2)) return null;
+    var cy=c/100, r=null;
+    if(terms.m && terms.m>buyIso){
+      var M=dayNum(terms.m), b=dayNum(buyIso), cf=[], k=0, d;
+      while((d=Math.round(M-k*365.25/2))>b){ cf.push(d); k++; }
+      cf.reverse();
+      var prev=Math.round(M-k*365.25/2), next=cf[0], acc=cy/2*(b-prev)/Math.max(1,next-prev), dirty=price+acc;
+      function pv(y){ var t=0; cf.forEach(function(dd,i){ t+=(cy/2+(i===cf.length-1?1:0))/Math.pow(1+y,(dd-b)/365); }); return t; }
+      var lo=-0.5, hi=3;
+      for(var it=0;it<80;it++){ var mid=(lo+hi)/2; if(pv(mid)>dirty) lo=mid; else hi=mid; }
+      r=(lo+hi)/2*100;
+    }
+    if(r===null||!isFinite(r)||r<-5||r>80) r=cy/price*100;
+    return Math.round(r*100)/100;
+  }
   // Lee el Excel "resultados por info completa" de Balanz: CEDEARs abiertos (lotes finales) y vendidos (realizado).
   function balanzParse(sheets){
-    var names=Object.keys(sheets), out={open:[],sold:[],skipped:{},zero:0,pesos:0};
+    var names=Object.keys(sheets), out={open:[],sold:[],fixed:[],fixedSold:[],skipped:{},zero:0,pesos:0};
     function sheet(re){ var k=names.filter(function(n){ return re.test(n.toLowerCase()); })[0]; return k?sheets[k]:null; }
     function table(rows){
       if(!rows||!rows.length) return [];
@@ -2008,7 +2068,14 @@
     if(!fin.length&&!rea.length){ out.error="hojas"; return out; }
     fin.forEach(function(r){
       if(!r.ticker) return;
-      if(String(r.tipo||"").toLowerCase()!=="cedears"){ skip(r.tipo); return; }
+      var tp=String(r.tipo||"").toLowerCase();
+      if(tp.indexOf("bonos")===0||tp.indexOf("corporativos")===0){
+        var qf=+r.cantidad, df=xlDate(r.fecha), pf=usd(r["precio compra"],r.moneda,r.dolarccl);
+        if(/step\s*up|amortiz/i.test(String(r.descripcion||""))){ skip("bonos que amortizan"); return; }
+        if(!(qf>0)||!df) return; if(pf===null){ out.zero++; return; }
+        out.fixed.push({tk:String(r.ticker).toUpperCase().trim(),q:qf,d:df,p:pf,desc:String(r.descripcion||"")}); return;
+      }
+      if(tp!=="cedears"){ skip(r.tipo==="Fondos"?"fondos":r.tipo); return; }
       var q=+r.cantidad, d=xlDate(r.fecha), p=usd(r["precio compra"],r.moneda,r.dolarccl);
       if(!(q>0)||!d) return;
       if(p===null){ out.zero++; return; }
@@ -2016,7 +2083,15 @@
     });
     rea.forEach(function(r){
       if(!r.ticker||String(r["tipo movimiento"]||"")!=="Orden") return;
-      if(String(r.tipo||"").toLowerCase()!=="cedears"){ skip(r.tipo); return; }
+      var tp2=String(r.tipo||"").toLowerCase();
+      if(tp2.indexOf("bonos")===0||tp2.indexOf("corporativos")===0){
+        if(/step\s*up|amortiz/i.test(String(r.descripcion||""))){ skip("bonos que amortizan"); return; }
+        var qb=+r.cantidad, dsb=xlDate(r.fecha), dbb=xlDate(r.fechacompra);
+        var pbb=usd(r["precio compra"],r["moneda compra"],r.operacioncompradolarccl), psb=usd(r.precioventa,r["moneda venta"],r.operacionventadolarccl);
+        if(!(qb>0)||!dsb||!dbb) return; if(pbb===null||psb===null){ out.zero++; return; }
+        out.fixedSold.push({tk:String(r.ticker).toUpperCase().trim(),q:qb,db:dbb,pb:pbb,ds:dsb,ps:psb}); return;
+      }
+      if(tp2!=="cedears"){ skip(r.tipo==="Fondos"?"fondos":r.tipo); return; }
       var q=+r.cantidad, ds=xlDate(r.fecha), db=xlDate(r.fechacompra);
       var pb=usd(r["precio compra"],r["moneda compra"],r.operacioncompradolarccl), ps=usd(r.precioventa,r["moneda venta"],r.operacionventadolarccl);
       if(!(q>0)||!ds||!db) return;
@@ -2039,7 +2114,20 @@
       var key=x.tk+"|"+x.ds+"|"+x.ps, c=closed[key]||(closed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*rs*10000)/10000},lots:[]});
       c.lots.push({q:x.q/rb,b:Math.round(x.pb*rb*10000)/10000,d:x.db}); ok++;
     });
-    return {open:Object.keys(open).map(function(tk){ return {tk:tk,lots:open[tk]}; }),closed:Object.keys(closed).map(function(k){ return closed[k]; }),noHist:Object.keys(noHist),ok:ok};
+    var fx={};
+    (P.fixed||[]).forEach(function(x){
+      var f=fx[x.tk]||(fx[x.tk]={tk:x.tk,lots:[],w:0,wr:0,terms:fiTerms(x.desc),noY:0});
+      f.lots.push({q:x.q,b:Math.round(x.p*1e6)/1e6,d:x.d});
+      var y=fiYield(f.terms,x.p,x.d); if(y===null) f.noY++; else { f.w+=x.q*x.p; f.wr+=x.q*x.p*y; }
+    });
+    var fixed=Object.keys(fx).map(function(k){ var f=fx[k]; return {tk:f.tk,lots:f.lots,fi:f.w>0?{r:Math.round(f.wr/f.w*100)/100,m:f.terms.m||""}:null}; });
+    var fclosed={};
+    (P.fixedSold||[]).forEach(function(x){
+      var key=x.tk+"|"+x.ds+"|"+x.ps, c=fclosed[key]||(fclosed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*1e6)/1e6},lots:[]});
+      c.lots.push({q:x.q,b:Math.round(x.pb*1e6)/1e6,d:x.db});
+    });
+    return {open:Object.keys(open).map(function(tk){ return {tk:tk,lots:open[tk]}; }),closed:Object.keys(closed).map(function(k){ return closed[k]; }),
+      fixed:fixed,fixedClosed:Object.keys(fclosed).map(function(k){ return fclosed[k]; }),noHist:Object.keys(noHist),ok:ok};
   }
   // </balanz-core>
 
@@ -2076,22 +2164,26 @@
     xlsxRead(buf).then(function(sheets){
       var P=balanzParse(sheets);
       if(P.error){ ibMsg("No encontré las hojas de lotes y realizado. Tiene que ser el Excel “Resultados por info completa” de Balanz."); return; }
-      if(!P.open.length&&!P.sold.length){ ibMsg("No encontré CEDEARs en ese archivo."); return; }
-      if(!navigator.onLine){ ibMsg("Necesito conexión para convertir los CEDEARs a acciones con el precio de cada fecha."); return; }
+      if(!P.open.length&&!P.sold.length&&!P.fixed.length&&!P.fixedSold.length){ ibMsg("No encontré CEDEARs ni bonos en ese archivo."); return; }
+      if(!navigator.onLine&&(P.open.length||P.sold.length)){ ibMsg("Necesito conexión para convertir los CEDEARs a acciones con el precio de cada fecha."); return; }
       var tks={}, from="9999-99-99";
       P.open.forEach(function(x){ tks[x.tk]=1; if(x.d<from) from=x.d; });
       P.sold.forEach(function(x){ tks[x.tk]=1; if(x.db<from) from=x.db; });
       var list=Object.keys(tks);
       if(list.length>20){ ibMsg("Son demasiadas acciones distintas (máximo 20)."); return; }
       ibMsg("Trayendo precios para convertir los CEDEARs…");
-      return fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(list.join(","))+"&from="+from,{cache:"no-store"})
-        .then(function(r){ if(!r.ok) throw new Error("http"); return r.json(); })
+      return (list.length?fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(list.join(","))+"&from="+from,{cache:"no-store"})
+        .then(function(r){ if(!r.ok) throw new Error("http"); return r.json(); }):Promise.resolve({data:{}}))
         .then(function(j){
           var B=balanzBuild(P,j.data||{}), pos=[], closed=[];
           B.open.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c) pos.push(c); });
           B.closed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c&&c.sold) closed.push(c); });
-          var extra="", sk=Object.keys(P.skipped);
-          if(sk.length){ var n=0; sk.forEach(function(k){ n+=P.skipped[k]; }); extra+=" Quedaron afuera "+n+" lotes que no son CEDEARs ("+sk.join(", ")+")."; }
+          B.fixed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,fi:x.fi,source:"auto",note:"Importado de Balanz. Renta fija: rendimiento estimado con la tasa y el vencimiento de la descripción; revisalo."},false); if(c) pos.push(c); });
+          B.fixedClosed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de Balanz"},false); if(c&&c.sold) closed.push(c); });
+          var nfx=B.fixed.length, nofi=B.fixed.filter(function(x){return !x.fi;}).map(function(x){return x.tk;});
+          var extra=nfx?" Incluí "+nfx+" bonos/ONs como renta fija con rendimiento estimado"+(nofi.length?" (sin tasa para estimar: "+nofi.join(", ")+")":"")+".":"";
+          var sk=Object.keys(P.skipped);
+          if(sk.length){ var n=0; sk.forEach(function(k){ n+=P.skipped[k]; }); extra+=" Quedaron afuera "+n+" lotes ("+sk.join(", ")+")."; }
           if(P.zero) extra+=" "+P.zero+" lote(s) sin costo o sin cotización quedaron afuera.";
           if(B.noHist.length) extra+=" Sin precio histórico: "+B.noHist.join(", ")+".";
           ibFinish(pos,closed,extra);
@@ -2144,7 +2236,7 @@
   function posTuple(p){ return [p.broker==="Balanz"?1:0,p.ccy==="ARS"?1:0,p.ticker,p.qty,p.buy,p.source==="manual"?1:0,p.manualPrice||0,p.manualTs||0,p.note||""].concat(lotsT(p)); }
   function posFromTuple(r){
     if(!Array.isArray(r)) return null;
-    return cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:r[7],note:r[8],lots:r[9],sold:r[10]},false);
+    return cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:r[7],note:r[8],lots:r[9],sold:r[10],fi:r[11]},false);
   }
   function serProfile(pr){
     var o={id:pr.id,name:pr.name,mod:pr.mod||0,readOnly:!!pr.readOnly,p:pr.syncCode?[]:pr.positions.map(posTuple)};
