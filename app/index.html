@@ -214,7 +214,8 @@
       </label>
     </div>
     <label>Ticker
-      <input id="fTicker" autocapitalize="characters" autocomplete="off" placeholder="AAPL" required>
+      <input id="fTicker" autocapitalize="characters" autocomplete="off" placeholder="AAPL, VUAA, EQAC" required>
+      <span class="hint" style="font-size:12px;color:var(--muted);font-weight:400">Acciones de EE.UU. y ETFs europeos (VUAA, EQAC: bolsa de Londres, en USD). Otra bolsa: agregá el sufijo, por ejemplo VUAA.DE.</span>
     </label>
     <div class="two">
       <label>Cantidad
@@ -431,12 +432,15 @@
 
   function currentPrice(p){
     if(p.source==="manual") return (p.manualPrice>0)?p.manualPrice:null;
-    var c=prices[p.ticker]; return c&&c.price>0?c.price:null;
+    var c=prices[p.ticker]; if(c && c.cur && c.cur!==p.ccy) return null;
+    return c&&c.price>0?c.price:null;
   }
+  function ccyMismatch(p){ var c=prices[p.ticker]; return (p.source!=="manual" && c && c.cur && c.cur!==p.ccy) ? c.cur : null; }
   // Variación del día de una posición con precio automático (Finnhub: d = cambio por acción vs. cierre previo).
   function dayInfo(p){
     if(p.source==="manual") return null;
     var c=prices[p.ticker];
+    if(c && c.cur && c.cur!==p.ccy) return null;
     if(!c || !(c.price>0) || typeof c.d!=="number" || !isFinite(c.d)) return null;
     return {amt:p.qty*c.d, base:p.qty*(c.price-c.d)};
   }
@@ -642,6 +646,8 @@
 
       var stamp=priceStamp(p);
       var notes=[];
+      var mm_=ccyMismatch(p);
+      if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
       if(errors[p.ticker] && p.source!=="manual") notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       if(multiBroker||p.broker==="Balanz") notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
@@ -698,8 +704,8 @@
         :"El servidor de precios no está disponible por ahora.");
       return r.json();
     }).then(function(j){
-      if(!j || typeof j.c!=="number" || j.c<=0) throw new Error("Finnhub no devolvió precio para "+ticker+" (¿ticker de EE.UU.?).");
-      return {price:j.c, t:(j.t?j.t*1000:0), fetched:Date.now(), d:(typeof j.d==="number"?j.d:null)};
+      if(!j || typeof j.c!=="number" || j.c<=0) throw new Error("No se encontró precio para "+ticker+". Si es de otra bolsa agregá el sufijo (por ejemplo "+ticker+".DE) o usá precio manual.");
+      return {price:j.c, t:(j.t?j.t*1000:0), fetched:Date.now(), d:(typeof j.d==="number"?j.d:null), cur:(typeof j.currency==="string"&&/^[A-Z]{3}$/.test(j.currency)?j.currency:"")};
     });
   }
 
@@ -722,7 +728,7 @@
     }
     return Promise.all([worker(),worker(),worker()]).then(function(){
       lastRefresh=Date.now(); save(LS_PRICES,prices);
-      if(fatal) showBanner(fatal,true); else { clearBanner(); var bad=Object.keys(errors).filter(function(k){return tickers.indexOf(k)>=0;}); if(bad.length) showBanner("No se pudo obtener precio de: "+bad.join(", ")+". Si no son acciones de EE.UU., usá precio manual.",false); }
+      if(fatal) showBanner(fatal,true); else { clearBanner(); var bad=Object.keys(errors).filter(function(k){return tickers.indexOf(k)>=0;}); if(bad.length) showBanner("No se pudo obtener precio de: "+bad.join(", ")+". Si no se encuentran, probá con el sufijo de la bolsa (VUAA.DE) o usá precio manual.",false); }
     }).catch(function(){ showBanner("No se pudo consultar el servicio de precios. Revisá tu conexión.",true); })
       .then(function(){ refreshing=false; $("btnRefresh").disabled=false; render(); });
   }

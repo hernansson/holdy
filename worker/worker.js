@@ -3,6 +3,7 @@
 // Recibe  GET /quote?symbol=AAPL  desde Holdy, consulta Finnhub con la clave guardada
 // como secreto (FINNHUB_KEY) y devuelve la misma respuesta de Finnhub: {c, d, dp, h, l, o, pc, t}.
 // La clave nunca viaja al navegador ni está en este archivo.
+// Si Finnhub no tiene el símbolo (ETFs europeos como VUAA o EQAC), se consulta Yahoo Finance como respaldo.
 
 // Páginas autorizadas a usar este proxy desde un navegador (CORS).
 // Si publicás Holdy en otra dirección, agregala acá.
@@ -50,27 +51,67 @@ export default {
     const hit = cache.get(symbol);
     if (hit && Date.now() - hit.at < TTL_MS) return json(hit.data, 200, cors, "HIT");
 
-    let upstream;
-    try {
-      upstream = await fetch(
-        "https://finnhub.io/api/v1/quote?symbol=" + encodeURIComponent(symbol) +
-        "&token=" + encodeURIComponent(env.FINNHUB_KEY)
-      );
-    } catch (e) {
-      return json({ error: "upstream_unreachable" }, 502, cors);
-    }
-    if (upstream.status === 429) return json({ error: "rate_limited" }, 429, cors);
-    if (upstream.status === 401 || upstream.status === 403) return json({ error: "server_key_invalid" }, 503, cors);
-    if (!upstream.ok) return json({ error: "upstream_" + upstream.status }, 502, cors);
-
-    const data = await upstream.json();
-    if (typeof data.c === "number" && data.c > 0) {
+    const store = (data) => {
       cache.set(symbol, { at: Date.now(), data });
       if (cache.size > MAX_CACHED) cache.delete(cache.keys().next().value);
+      return json(data, 200, cors, "MISS");
+    };
+
+    // Símbolos con punto (VUAA.L, VUAA.DE) son de otras bolsas: Finnhub gratis no los tiene, van directo a Yahoo.
+    if (!symbol.includes(".")) {
+      let upstream;
+      try {
+        upstream = await fetch(
+          "https://finnhub.io/api/v1/quote?symbol=" + encodeURIComponent(symbol) +
+          "&token=" + encodeURIComponent(env.FINNHUB_KEY)
+        );
+      } catch (e) {
+        return json({ error: "upstream_unreachable" }, 502, cors);
+      }
+      if (upstream.status === 429) return json({ error: "rate_limited" }, 429, cors);
+      if (upstream.status === 401) return json({ error: "server_key_invalid" }, 503, cors);
+      if (upstream.ok) {
+        const data = await upstream.json();
+        if (typeof data.c === "number" && data.c > 0) return store({ ...data, currency: "USD", source: "finnhub" });
+      } else if (upstream.status !== 403) {
+        return json({ error: "upstream_" + upstream.status }, 502, cors);
+      }
     }
-    return json(data, 200, cors, "MISS");
+
+    // Respaldo: Yahoo Finance. Sin punto se prueba la bolsa de Londres (.L), donde cotizan VUAA y EQAC en dólares.
+    const candidates = symbol.includes(".") ? [symbol] : [symbol + ".L"];
+    for (const c of candidates) {
+      const q = await yahooQuote(c);
+      if (q) return store(q);
+    }
+    return json({ c: 0, error: "no_price" }, 200, cors, "MISS");
   },
 };
+
+// Precio desde Yahoo Finance (no oficial). Devuelve el mismo formato que Finnhub más la moneda real de cotización.
+async function yahooQuote(symbol) {
+  try {
+    const r = await fetch(
+      "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(symbol) + "?range=5d&interval=1d",
+      { headers: { "User-Agent": "Mozilla/5.0 (compatible; Holdy/1.0)", "Accept": "application/json" } }
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    const m = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+    if (!m || typeof m.regularMarketPrice !== "number") return null;
+    let price = m.regularMarketPrice;
+    let prev = typeof m.chartPreviousClose === "number" ? m.chartPreviousClose : (typeof m.previousClose === "number" ? m.previousClose : null);
+    let cur = String(m.currency || "").trim();
+    if (cur === "GBp" || cur === "GBX") { price /= 100; if (prev !== null) prev /= 100; cur = "GBP"; }
+    cur = cur.toUpperCase();
+    if (!(price > 0)) return null;
+    const out = { c: price, currency: cur, source: "yahoo", t: typeof m.regularMarketTime === "number" ? m.regularMarketTime : 0 };
+    if (prev !== null && prev > 0) { out.pc = prev; out.d = price - prev; out.dp = (price - prev) / prev * 100; }
+    return out;
+  } catch (e) {
+    return null;
+  }
+}
 
 function json(body, status, headers, cacheState) {
   const h = { "Content-Type": "application/json; charset=utf-8", ...headers };
