@@ -363,6 +363,8 @@
         <input id="pfName" maxlength="40" placeholder="Ej: Cartera de mamá" aria-label="Nombre del perfil nuevo">
         <button type="button" id="pfAdd">Crear</button>
       </div>
+      <button type="button" id="pfDemo">Crear perfil de ejemplo (datos ficticios)</button>
+      <div class="help" id="pfDemoMsg" hidden></div>
     </div>
     <div class="btns"><button type="button" id="pfClose" class="primary wide">Cerrar</button></div>
   </form>
@@ -1628,6 +1630,45 @@
     var np={id:rid(),name:n,positions:[],readOnly:false,mod:Date.now()};
     profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null;
     save(LS_PROF,profData); dlgProf.close(); render();
+  });
+  $("pfDemo").addEventListener("click",function(){
+    var msg=$("pfDemoMsg"), btn=$("pfDemo");
+    function say(t){ msg.textContent=t; msg.hidden=!t; }
+    if(profData.profiles.length>=20){ say("Llegaste al máximo de 20 perfiles."); return; }
+    if(!navigator.onLine){ say("Necesito conexión para armar el ejemplo con precios reales de esas fechas."); return; }
+    var T=todayStr(), base=dayNum(T);
+    function ago(n){ return dayStr(base-n); }
+    var plan=[
+      {tk:"NVDA",lots:[[250,8],[120,5]]},
+      {tk:"MSFT",lots:[[200,6]]},
+      {tk:"KO",lots:[[230,20]]},
+      {tk:"AMZN",lots:[[90,8]]},
+      {tk:"TSLA",lots:[[240,10]],sold:90},
+      {tk:"AAPL",lots:[[180,12]],sold:60}
+    ];
+    btn.disabled=true; say("Armando el ejemplo…");
+    fetch(SYNC_BASE+"/history?symbols="+plan.map(function(x){return x.tk;}).join(",")+"&from="+ago(280),{cache:"no-store"})
+      .then(function(r){ if(!r.ok) throw new Error("http"); return r.json(); })
+      .then(function(j){
+        function closeOn(tk,iso){
+          var h=j.data&&j.data[tk]; if(!h||h.currency!=="USD") return null;
+          var v=null; h.pts.forEach(function(r){ if(r[0]<=iso) v=r[1]; }); return v||h.pts[0][1];
+        }
+        var pos=[], closed=[];
+        plan.forEach(function(x){
+          var lots=[]; x.lots.forEach(function(l){ var d=ago(l[0]), px=closeOn(x.tk,d); if(px) lots.push({q:l[1],b:Math.round(px*100)/100,d:d}); });
+          if(!lots.length) return;
+          var o={broker:"IBKR",ccy:"USD",ticker:x.tk,lots:lots,source:"auto",note:"Datos ficticios de ejemplo"};
+          if(x.sold){ var sd=ago(x.sold), sp=closeOn(x.tk,sd); if(!sp) return; o.sold={d:sd,p:Math.round(sp*100)/100}; var c=cleanPos(o,false); if(c&&c.sold) closed.push(c); }
+          else { var c2=cleanPos(o,false); if(c2) pos.push(c2); }
+        });
+        if(!pos.length) throw new Error("vacio");
+        cur().positions=positions;
+        var np={id:rid(),name:"Ejemplo",positions:pos,closed:closed,readOnly:false,mod:Date.now()};
+        profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null;
+        save(LS_PROF,profData); say(""); dlgProf.close(); render(); refresh(true);
+      }).catch(function(){ say("No se pudo armar el ejemplo ahora. Probá de nuevo en un rato."); })
+      .then(function(){ btn.disabled=false; });
   });
   $("pfImport").addEventListener("click",function(){
     var v=$("pfLink").value.trim(), i=v.indexOf("#share=");
