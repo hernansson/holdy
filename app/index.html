@@ -1168,22 +1168,25 @@
     var start=Infinity; ev.forEach(function(e){ var n=dayNum(e.d); if(n<start) start=n; });
     var end=dayNum(todayStr); if(!(end>=start)) return null;
     var byDay={}; ev.forEach(function(e){ var n=dayNum(e.d); (byDay[n]||(byDay[n]=[])).push(e); });
-    var px={}, ptr={}, last={};
-    Object.keys(hist).forEach(function(tk){ var h=hist[tk]; if(!h) return; px[tk]=h.pts.map(function(r){return [dayNum(r[0]),r[1]];}); ptr[tk]=0; });
+    var px={}, ptr={}, last={}, ad={};
+    Object.keys(hist).forEach(function(tk){ var h=hist[tk]; if(!h) return; px[tk]=h.pts.map(function(r){return [dayNum(r[0]),r[1],(r[2]>0?r[2]:r[1])];}); ptr[tk]=0; });
+    // Valor en "unidades de retorno total": el precio ajustado por dividendos reinvertidos.
+    function adv(tk,d){ var a=px[tk]; if(!a) return; while(ptr[tk]<a.length && a[ptr[tk]][0]<=d){ last[tk]=a[ptr[tk]][1]; ad[tk]=a[ptr[tk]][2]; ptr[tk]++; } }
     var hold={}, cash=0, vPrev=0, idx=1, out=[], contrib=0;
     for(var d=start; d<=end; d++){
       var list=(byDay[d]||[]).slice().sort(function(a,b){ return a.t===b.t?0:(a.t==="s"?-1:1); });
       var flow=0;
       list.forEach(function(e){
-        if(e.t==="s"){ hold[e.tk]=(hold[e.tk]||0)-e.q; cash+=e.q*e.p; }
-        else { hold[e.tk]=(hold[e.tk]||0)+e.q; var cost=e.q*e.p; if(cash>=cost) cash-=cost; else { flow+=cost-cash; cash=0; } }
-        last[e.tk]=e.p;
+        adv(e.tk,d);
+        var a0=ad[e.tk]>0?ad[e.tk]:e.p, un=e.q*e.p/a0;
+        if(e.t==="s"){ hold[e.tk]=(hold[e.tk]||0)-un; cash+=e.q*e.p; }
+        else { hold[e.tk]=(hold[e.tk]||0)+un; var cost=e.q*e.p; if(cash>=cost) cash-=cost; else { flow+=cost-cash; cash=0; } }
       });
       var v=cash;
       Object.keys(hold).forEach(function(tk){
         if(Math.abs(hold[tk])<1e-9) return;
-        var a=px[tk]; while(ptr[tk]<a.length && a[ptr[tk]][0]<=d){ last[tk]=a[ptr[tk]][1]; ptr[tk]++; }
-        v+=hold[tk]*last[tk];
+        adv(tk,d);
+        v+=hold[tk]*(ad[tk]>0?ad[tk]:last[tk]);
       });
       contrib+=flow;
       var base=vPrev+flow;
@@ -1284,12 +1287,13 @@
     if(ents.some(function(x){ return !x.spy&&!x.curve; })){ st.textContent="No hay precios históricos suficientes para armar la comparación."; return; }
     var csMin=Math.min.apply(null,starts), csMax=Math.max.apply(null,starts), capped=false, cap=tn-5*365+10;
     if(csMin<cap){ csMin=cap; capped=true; } if(csMax<cap) csMax=cap;
-    var last=null, i=0, pts=hist.SPY.pts.map(function(r){return [dayNum(r[0]),r[1]];}), sp=[];
+    var last=null, i=0, pts=hist.SPY.pts.map(function(r){return [dayNum(r[0]),(r[2]>0?r[2]:r[1])];}), sp=[];
     for(var d=csMin; d<=tn; d++){ while(i<pts.length&&pts[i][0]<=d){ last=pts[i][1]; i++; } if(last===null) continue; sp.push([d,last]); }
     ents.forEach(function(x){ if(x.spy) x.pxs=sp; });
     cmpData={ents:ents,sp:sp,csMin:csMin,csMax:csMax,tn:tn};
     var real=ents.filter(function(x){return !x.spy;});
-    st.textContent="Rendimiento ponderado por tiempo: no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"");
+    var TR=Object.keys(hist).some(function(tk){ return hist[tk].pts[0].length>2; });
+    st.textContent="Rendimiento ponderado por tiempo"+(TR?", con dividendos reinvertidos":"")+": no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"");
     if(csMax>csMin) body.appendChild(el("div","cmpchips")).id="cmpStartChips";
     body.appendChild(el("div","cmpchips")).id="cmpChips";
     var leg=el("div","cmpleg"); leg.id="cmpLeg"; body.appendChild(leg);
@@ -1307,7 +1311,7 @@
     tr("Mayor peso",function(s){ return s.maxWeight===null?"—":(s.maxWeight*100).toFixed(0)+"%"; });
     body.appendChild(tb_);
     var sk=[]; real.forEach(function(x){ if(x.e.skipped) sk.push(x.name+": "+x.e.skipped+" sin fecha de compra o en otra moneda"); });
-    if(sk.length) body.appendChild(el("div","cmpnote","No entran en la comparación → "+sk.join(" · ")+". Cargá la fecha de compra para sumarlas. No se tienen en cuenta dividendos."));
+    if(sk.length) body.appendChild(el("div","cmpnote","No entran en la comparación → "+sk.join(" · ")+". Cargá la fecha de compra para sumarlas."+(TR?" Los rendimientos incluyen dividendos reinvertidos.":" No se tienen en cuenta dividendos.")));
     drawCmp();
   }
   var RANGES=[["1M",30],["3M",91],["6M",182],["1A",365],["2A",730],["3A",1095],["5A",1825],["Todo",0]];

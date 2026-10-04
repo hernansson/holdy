@@ -284,8 +284,8 @@ async function account(request, env, url, cors) {
 }
 
 // ---------- Historial de precios (para comparar rendimientos) ----------
-//   GET /history?symbols=AAPL,VUAA&from=2025-01-01  ->  { data: { AAPL: { currency, pts: [["2025-01-02", 243.1], ...] } } }
-// Cierres diarios sin ajustar por dividendos, desde Yahoo Finance (no oficial).
+//   GET /history?symbols=AAPL,VUAA&from=2025-01-01  ->  { data: { AAPL: { currency, pts: [["2025-01-02", 243.1, 242.8], ...] } } }
+// Por día: [fecha, cierre, cierre ajustado por dividendos y splits], desde Yahoo Finance (no oficial).
 async function history(url, cors) {
   const syms = (url.searchParams.get("symbols") || "").toUpperCase().split(",").map((x) => x.trim()).filter(Boolean);
   if (!syms.length || syms.length > 20 || syms.some((x) => !/^[A-Z0-9.\-]{1,12}$/.test(x))) return json({ error: "bad_symbols" }, 400, cors);
@@ -326,6 +326,7 @@ async function yahooHistory(symbol, p1, p2) {
     const res = j && j.chart && j.chart.result && j.chart.result[0];
     if (!res || !Array.isArray(res.timestamp) || !res.indicators || !res.indicators.quote || !res.indicators.quote[0]) return null;
     const closes = res.indicators.quote[0].close || [];
+    const adjs = (res.indicators.adjclose && res.indicators.adjclose[0] && res.indicators.adjclose[0].adjclose) || [];
     const off = (res.meta && typeof res.meta.gmtoffset === "number") ? res.meta.gmtoffset : 0;
     let cur = String((res.meta && res.meta.currency) || "").trim();
     let k = 1;
@@ -334,7 +335,8 @@ async function yahooHistory(symbol, p1, p2) {
     for (let i = 0; i < res.timestamp.length; i++) {
       const c = closes[i];
       if (typeof c !== "number" || !(c > 0)) continue;
-      pts.push([new Date((res.timestamp[i] + off) * 1000).toISOString().slice(0, 10), Math.round(c * k * 1e6) / 1e6]);
+      const a = (typeof adjs[i] === "number" && adjs[i] > 0) ? adjs[i] : c;
+      pts.push([new Date((res.timestamp[i] + off) * 1000).toISOString().slice(0, 10), Math.round(c * k * 1e6) / 1e6, Math.round(a * k * 1e6) / 1e6]);
     }
     if (pts.length < 2) return null;
     return { currency: cur.toUpperCase(), pts };
