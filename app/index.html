@@ -841,15 +841,11 @@
 
       var card=el("div","sum-card");
       var npos=positions.filter(function(p){return p.ccy===ccy;}).length, inc=g.inc||0;
-      card.appendChild(el("h2",null,"Hoy tenés · "+npos+(npos===1?" posición":" posiciones")));
+      card.appendChild(el("h2",null,"Tu cartera hoy"));
       card.appendChild(el("div","big",mR(g.value+inc,ccy)));
-      if(g.dayN){
-        var dpc=g.dayBase>0?g.day/g.dayBase:null;
-        var dl=el("div","day-line "+cls(g.day)); dl.appendChild(el("span",null,"Hoy "+mRs(g.day,ccy)+" · "+fmtPct(dpc))); card.appendChild(dl);
-      }
       if(costPriced>0){
         var diff=g.value-costPriced, tot=g.value+inc-costPriced;
-        var gl=el("div","gain-line "+cls(tot)); gl.appendChild(el("span",null,"Ganancia "+mRs(tot,ccy)+" · "+fmtPct(tot/costPriced))); card.appendChild(gl);
+        var gl=el("div","gain-line "+cls(tot)); gl.appendChild(el("span",null,"Ganancia total "+mRs(tot,ccy)+" · "+fmtPct(tot/costPriced))); card.appendChild(gl);
         var dt=document.createElement("details"); dt.className="sum-det"; dt.open=!!sumOpen[ccy];
         dt.addEventListener("toggle",function(){ sumOpen[ccy]=dt.open; });
         dt.appendChild(el("summary",null,"Ver detalle"));
@@ -858,8 +854,8 @@
           var r=el("div","rrow"+(strong?" strong":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
           r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
         }
-        rrow("Pusiste",mR(costPriced,ccy),"",false,"lo que invertiste");
-        rrow("Cambio de precio",mRs(diff,ccy),cls(diff),false,"tus posiciones valen "+mR(g.value,ccy)+" hoy");
+        rrow("Capital invertido",mR(costPriced,ccy),"",false,"lo que pusiste de tu bolsillo");
+        rrow("Valor actual de las inversiones",mR(g.value,ccy),"",false,"lo que valen hoy ("+mRs(diff,ccy)+" vs. el capital)");
         if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"plata cobrada, sin invertir");
         dt.appendChild(rc); card.appendChild(dt);
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
