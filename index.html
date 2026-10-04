@@ -17,7 +17,6 @@
   nav{display:flex; align-items:center; justify-content:space-between; padding:12px 20px; margin:0 -20px; position:sticky; top:0; z-index:10; background:color-mix(in srgb,var(--bg) 82%,transparent); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); border-bottom:1px solid transparent}
   nav .btn{padding:9px 18px}
   html{scroll-behavior:smooth} #como{scroll-margin-top:80px}
-  dialog.sheet{color-scheme:light dark}
   .logo{font-weight:800; font-size:20px; letter-spacing:-.02em; display:flex; align-items:center; gap:8px}
   .logo i{width:26px; height:26px; border-radius:8px; background:var(--brand); display:inline-block}
   .btn{display:inline-block; font:inherit; font-weight:600; text-decoration:none; padding:12px 22px; border-radius:12px; background:var(--brand); color:var(--brand-ink); border:1px solid var(--brand)}
@@ -52,7 +51,7 @@
   dialog.sheet::backdrop{background:rgba(0,0,0,.45)}
   dialog.sheet h2{margin:0 0 6px;font-size:22px;letter-spacing:-.02em}
   dialog.sheet p{margin:0 0 16px;color:var(--muted);font-size:15px}
-  #gbtn{min-height:44px;display:flex;justify-content:center}
+  #gbtn{min-height:44px;display:flex;justify-content:center;color-scheme:light}
   #gmsg{font-size:14px;margin:12px 0 0;text-align:center}
   .x{display:block;margin:14px auto 0;background:none;border:0;color:var(--muted);font:inherit;cursor:pointer}
   dialog.sheet[open]{animation:sheet-up .3s cubic-bezier(.2,.8,.2,1)}
@@ -67,6 +66,30 @@
   .js .hero h1,.js .hero .lead,.js .hero .cta{animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
   .js .hero .lead{animation-delay:.08s}.js .hero .cta{animation-delay:.16s}
   @media (prefers-reduced-motion:reduce){ *,::backdrop{animation:none!important} }
+  .story{height:360vh;position:relative;margin-bottom:24px}
+  .story-in{position:sticky;top:64px;height:calc(100vh - 64px);display:grid;align-content:center;gap:18px;padding:12px 0}
+  @media (min-width:820px){ .story-in{grid-template-columns:.8fr 1.2fr;gap:36px;align-items:center} }
+  .story h2{font-size:clamp(26px,4.4vw,40px);line-height:1.08;letter-spacing:-.03em;margin:0 0 12px}
+  .story h2 em{font-style:normal;color:var(--brand)}
+  .steps{position:relative;min-height:5.2em}
+  .steps p{position:absolute;inset:0 auto auto 0;margin:0;color:var(--muted);font-size:17px;opacity:0;transform:translateY(10px);transition:opacity .4s,transform .4s}
+  .steps p.on{opacity:1;transform:none}
+  .chart{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px 12px 8px;box-shadow:0 18px 50px rgba(0,0,0,.10)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;padding:0 8px 6px;font-size:14px;font-weight:600}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .legend b{font-variant-numeric:tabular-nums}
+  .chart svg{width:100%;height:auto;display:block;overflow:visible}
+  .gl{stroke:var(--line);stroke-width:1}
+  .ax{fill:var(--muted);font-size:11px}
+  .lnA,.lnB{fill:none;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round}
+  .lnA{stroke:#0f9488}.lnB{stroke:#f08a24}
+  .dotA{fill:#0f9488}.dotB{fill:#f08a24}
+  .tagA,.tagB{font-size:12px;font-weight:700}
+  .tagA{fill:#0f9488}.tagB{fill:#f08a24}
+  @media (max-width:600px){ .ax{font-size:17px} .tagA,.tagB{font-size:18px} .lnA,.lnB{stroke-width:5} }
+  .story-note{font-size:11px;color:var(--muted);padding:2px 8px 6px}
+  @media (prefers-reduced-motion:reduce){ .story{height:auto} .story-in{position:static;height:auto} }
 </style>
 </head>
 <body>
@@ -97,6 +120,25 @@
       <div class="ph-note">Datos de ejemplo.</div>
     </div>
   </header>
+
+  <section class="story" id="story" aria-label="Quién rinde mejor">
+    <div class="story-in">
+      <div>
+        <h2>Quién <em>rinde mejor</em>, a la vista.</h2>
+        <div class="steps" id="steps">
+          <p class="on">Dos personas empiezan el año con el mismo capital.</p>
+          <p>Tomás arranca fuerte y se pone adelante.</p>
+          <p>Martina mantiene la calma y lo alcanza a mitad de año.</p>
+          <p>Al final, la diferencia se ve de un vistazo: +34% contra +11%.</p>
+        </div>
+      </div>
+      <div class="chart">
+        <div class="legend"><span><i style="background:#0f9488"></i>Martina <b id="vA">0,0%</b></span><span><i style="background:#f08a24"></i>Tomás <b id="vB">0,0%</b></span></div>
+        <svg id="svg" viewBox="0 0 600 340" role="img" aria-label="Gráfico de ejemplo con dos líneas de rendimiento"></svg>
+        <div class="story-note">Datos de ejemplo con nombres ficticios.</div>
+      </div>
+    </div>
+  </section>
 
   <section class="feats" id="como" aria-label="Qué hace">
     <div class="f"><h3>Ganancia real</h3><p>El porcentaje de cada posición se calcula contra lo que pagaste, no contra el cierre de ayer.</p></div>
@@ -136,6 +178,56 @@
     if(k<1) requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
+})();
+</script>
+<script>
+(function(){
+  var A=[0,2,1,4,7,6,12,18,22,27,31,34], B=[0,5,9,12,14,15,13,12,10,11,10,11];
+  var M=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  var W=600,H=340,L=40,R=78,T=14,Bm=30, ymin=-4, ymax=38;
+  var svg=document.getElementById("svg"), NS="http://www.w3.org/2000/svg";
+  function X(i){ return L+(W-L-R)*i/(A.length-1); }
+  function Y(v){ return T+(H-T-Bm)*(1-(v-ymin)/(ymax-ymin)); }
+  function mk(n,at,p){ var e=document.createElementNS(NS,n); for(var k in at) e.setAttribute(k,at[k]); (p||svg).appendChild(e); return e; }
+  [0,10,20,30].forEach(function(v){ mk("line",{x1:L,x2:W-R,y1:Y(v),y2:Y(v),"class":"gl"}); mk("text",{x:L-8,y:Y(v)+4,"text-anchor":"end","class":"ax"}).textContent=v+"%"; });
+  [0,3,6,9,11].forEach(function(i){ mk("text",{x:X(i),y:H-8,"text-anchor":"middle","class":"ax"}).textContent=M[i]; });
+  function path(a){
+    var p=a.map(function(v,i){return [X(i),Y(v)];}), d="M"+p[0][0]+" "+p[0][1];
+    for(var i=0;i<p.length-1;i++){
+      var p0=p[i-1]||p[i],p1=p[i],p2=p[i+1],p3=p[i+2]||p2;
+      d+=" C"+(p1[0]+(p2[0]-p0[0])/6)+" "+(p1[1]+(p2[1]-p0[1])/6)+","+(p2[0]-(p3[0]-p1[0])/6)+" "+(p2[1]-(p3[1]-p1[1])/6)+","+p2[0]+" "+p2[1];
+    }
+    return d;
+  }
+  var lB=mk("path",{d:path(B),"class":"lnB",pathLength:1}), lA=mk("path",{d:path(A),"class":"lnA",pathLength:1});
+  var dB=mk("circle",{r:6,"class":"dotB"}), dA=mk("circle",{r:6,"class":"dotA"});
+  var tB=mk("text",{"class":"tagB"}), tA=mk("text",{"class":"tagA"});
+  tA.textContent="Martina"; tB.textContent="Tomás";
+  var vA=document.getElementById("vA"), vB=document.getElementById("vB");
+  var steps=[].slice.call(document.querySelectorAll("#steps p")), sec=document.getElementById("story");
+  var reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+  function fmt(n){ return (n>=0?"+":"−")+Math.abs(n).toLocaleString("es-AR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%"; }
+  function val(a,t){ var x=t*(a.length-1), i=Math.min(a.length-2,Math.floor(x)), f=x-i; return a[i]+(a[i+1]-a[i])*f; }
+  function draw(p){
+    var t=Math.max(0,Math.min(1,p));
+    [[lA,dA,tA,vA,A],[lB,dB,tB,vB,B]].forEach(function(o){
+      var len=o[0].getTotalLength?1:1;
+      o[0].style.strokeDasharray="1 1"; o[0].style.strokeDashoffset=String(1-t);
+      var pl=o[0].getTotalLength(), pt=o[0].getPointAtLength(pl*t);
+      o[1].setAttribute("cx",pt.x); o[1].setAttribute("cy",pt.y);
+      o[2].setAttribute("x",pt.x+11); o[2].setAttribute("y",pt.y+4);
+      o[3].textContent=fmt(val(o[4],t));
+    });
+    var k=t<.18?0:t<.45?1:t<.8?2:3;
+    steps.forEach(function(e,i){ e.classList.toggle("on",i===k); });
+  }
+  var cur=reduce?1:0, target=0;
+  function calc(){
+    var r=sec.getBoundingClientRect(), tot=r.height-innerHeight*.9;
+    target=reduce?1:Math.max(0,Math.min(1,-(r.top-64)/Math.max(1,tot)));
+  }
+  function loop(){ calc(); cur+=(target-cur)*.14; if(Math.abs(target-cur)<.0005) cur=target; draw(cur); requestAnimationFrame(loop); }
+  draw(cur); if(reduce){ steps.forEach(function(e,i){e.classList.toggle("on",i===3);}); } else requestAnimationFrame(loop);
 })();
 </script>
 <script>
