@@ -290,6 +290,15 @@
   var done=false, inEl=sec.querySelector(".story-in"), navEl=document.querySelector("nav");
   function setNav(){ document.documentElement.style.setProperty("--nav",navEl.offsetHeight+"px"); } setNav();
   function metrics(){ var nh=navEl.offsetHeight, r=sec.getBoundingClientRect(); var range=Math.max(1,r.height-inEl.offsetHeight); var startY=scrollY+r.top-nh; return {startY:startY,range:range,q:Math.max(0,Math.min(1,(scrollY-startY)/range))}; }
+  var shrunk=false;
+  function shrink(){
+    if(shrunk) return;
+    var nh=navEl.offsetHeight, r=sec.getBoundingClientRect(), oldH=sec.offsetHeight, newH=inEl.offsetHeight;
+    if(oldH<=newH+2){ shrunk=true; return; }
+    if(r.top>nh+20){ sec.style.height=newH+"px"; shrunk=true; }
+    else if(r.bottom<-20){ sec.style.height=newH+"px"; window.scrollTo({top:scrollY-(oldH-newH),behavior:"instant"}); shrunk=true; }
+    if(shrunk) removeEventListener("scroll",shrink);
+  }
   function loop(){
     if(done) return;
     var q=metrics().q;
@@ -297,8 +306,7 @@
     draw(cur);
     if(cur>=.995 && q>=.985){
       done=true; cur=1; draw(1);
-      var oldH=sec.offsetHeight, newH=inEl.offsetHeight;
-      if(oldH>newH){ sec.style.height=newH+"px"; window.scrollTo({top:scrollY-(oldH-newH),behavior:"instant"}); }
+      addEventListener("scroll",shrink,{passive:true});
       return;
     }
     requestAnimationFrame(loop);
