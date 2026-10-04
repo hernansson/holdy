@@ -247,8 +247,8 @@
 <section id="cmpView" hidden>
   <div class="cmphdr"><button type="button" id="cmpBack" aria-label="Volver">←</button><h2>Comparar rendimientos</h2></div>
   <div class="cmpsel">
-    <label>Perfil A <select id="cmpA"></select></label>
-    <label>Perfil B <select id="cmpB"></select></label>
+    <label>Perfil <select id="cmpA"></select></label>
+    <label>Contra <select id="cmpB"></select></label>
   </div>
   <div class="cmpnote" id="cmpStatus"></div>
   <div id="cmpBody" style="display:grid;gap:14px"></div>
@@ -620,7 +620,7 @@
     } else if(profData.profiles.length>1) info="Tu perfil";
     $("profInfo").textContent=info;
     $("btnAdd").hidden=!!c.readOnly||cmpOpen;
-    $("btnCmp").hidden=profData.profiles.length<2;
+    $("btnCmp").hidden=!profData.profiles.length;
     $("menuUser").textContent=auth?((auth.name?auth.name+" · ":"")+auth.email):"";
   }
 
@@ -1214,15 +1214,15 @@
     x.showModal=function(){ setScr(x); try{ history.pushState({scr:1},""); }catch(e){} };
     x.close=function(){ if(x.hidden) return; if(history.state&&history.state.scr) history.back(); else setScr(null); };
   });
+  var SPY_ID="__spy", SPY_NAME="S&P 500";
+  var cmpStart="common";
   function openCmp(){
-    if(profData.profiles.length<2) return;
     var a=$("cmpA"), b=$("cmpB"); a.textContent=""; b.textContent="";
-    profData.profiles.forEach(function(pr){
-      [a,b].forEach(function(sel){ var o=document.createElement("option"); o.value=pr.id; o.textContent=pr.name+(pr.owner?" ("+pr.owner+")":""); sel.appendChild(o); });
-    });
-    a.value=profData.active;
-    var other=profData.profiles.filter(function(x){return x.id!==profData.active;})[0]; b.value=other?other.id:profData.active;
-    cmpRange="Todo"; setCmp(true);
+    function opt(sel,v,t){ var o=document.createElement("option"); o.value=v; o.textContent=t; sel.appendChild(o); }
+    profData.profiles.forEach(function(pr){ [a,b].forEach(function(sel){ opt(sel,pr.id,pr.name+(pr.owner?" ("+pr.owner+")":"")); }); });
+    opt(a,SPY_ID,SPY_NAME+" · índice"); opt(b,SPY_ID,SPY_NAME+" · índice");
+    a.value=profData.active; b.value=SPY_ID;
+    cmpRange="Todo"; cmpStart="common"; setCmp(true);
     try{ history.pushState({scr:1},""); }catch(e){}
     runCompare();
   }
@@ -1233,15 +1233,22 @@
   function fmtD(n){ return dayStr(n).split("-").reverse().join("/"); }
   function runCompare(){
     var my=++cmpRun, body=$("cmpBody"), st=$("cmpStatus"); body.textContent=""; cmpData=null;
-    var pa=profData.profiles.filter(function(x){return x.id===$("cmpA").value;})[0], pb=profData.profiles.filter(function(x){return x.id===$("cmpB").value;})[0];
-    if(!pa||!pb||pa===pb){ st.textContent="Elegí dos perfiles distintos."; return; }
-    var ea=cmpEvents(pa), eb=cmpEvents(pb);
-    if(!ea.used||!eb.used){
-      st.textContent="Para comparar, las posiciones de cada perfil necesitan fecha de compra (y en USD). "+(!ea.used?"“"+pa.name+"” no tiene ninguna. ":"")+(!eb.used?"“"+pb.name+"” no tiene ninguna.":"");
+    var ia=$("cmpA").value, ib=$("cmpB").value;
+    function find(id){ return profData.profiles.filter(function(x){return x.id===id;})[0]; }
+    if(ia===ib){ st.textContent="Elegí dos perfiles distintos."; return; }
+    var ents=[ia,ib].map(function(id){
+      if(id===SPY_ID) return {spy:true,name:SPY_NAME};
+      var pr=find(id); if(!pr) return null;
+      return {spy:false,name:pr.name,pr:pr,e:cmpEvents(pr)};
+    });
+    if(!ents[0]||!ents[1]) return;
+    var bad=ents.filter(function(x){ return !x.spy&&!x.e.used; });
+    if(bad.length){
+      st.textContent="Para comparar, las posiciones de cada perfil necesitan fecha de compra (y en USD). "+bad.map(function(x){ return "“"+x.name+"” no tiene ninguna."; }).join(" ");
       return;
     }
     var from="9999-99-99", tks={SPY:1};
-    ea.ev.concat(eb.ev).forEach(function(e){ if(e.d<from) from=e.d; tks[e.tk]=1; });
+    ents.forEach(function(x){ if(!x.spy) x.e.ev.forEach(function(e){ if(e.d<from) from=e.d; tks[e.tk]=1; }); });
     var list=Object.keys(tks);
     if(list.length>20){ st.textContent="Son demasiadas acciones distintas para comparar (máximo 19)."; return; }
     if(!navigator.onLine){ st.textContent="Necesito conexión para traer los precios históricos."; return; }
@@ -1252,45 +1259,45 @@
         if(my!==cmpRun) return;
         var hist={}, missing=[];
         Object.keys(j.data||{}).forEach(function(tk){ var h=j.data[tk]; if(h&&h.currency==="USD"&&Array.isArray(h.pts)&&h.pts.length>1) hist[tk]=h; else if(tk!=="SPY") missing.push(tk); });
-        buildCompare(pa,pb,ea,eb,hist,missing);
+        buildCompare(ents,hist,missing);
       }).catch(function(e){ try{ console.error("holdy-cmp",e); }catch(x){} if(my===cmpRun) st.textContent="No se pudieron traer los precios históricos. Probá de nuevo en un rato."; });
   }
-  function buildCompare(pa,pb,ea,eb,hist,missing){
+  function buildCompare(ents,hist,missing){
     var st=$("cmpStatus"), body=$("cmpBody"); body.textContent="";
     var today=todayStr(), tn=dayNum(today);
-    var ca=cmpCurve(ea.ev,hist,today), cb=cmpCurve(eb.ev,hist,today);
-    if(!ca||!cb){ st.textContent="No hay precios históricos suficientes para armar la comparación."; return; }
-    var cs=Math.max(ca.pts[0][0],cb.pts[0][0]), capped=false, cap=tn-5*365+10;
-    if(cs<cap){ cs=cap; capped=true; }
-    var sp=null;
-    if(hist.SPY){
-      var last=null, i=0, pts=hist.SPY.pts.map(function(r){return [dayNum(r[0]),r[1]];}); sp=[];
-      for(var d=cs; d<=tn; d++){ while(i<pts.length&&pts[i][0]<=d){ last=pts[i][1]; i++; } if(last===null) continue; sp.push([d,(last-0)]); }
-    }
-    cmpData={pa:pa,pb:pb,ca:ca,cb:cb,sp:sp,cs:cs,tn:tn,sA:cmpStats(ea.items,hist),sB:cmpStats(eb.items,hist)};
+    if(!hist.SPY){ st.textContent="No se pudo traer el S&P 500. Probá de nuevo en un rato."; return; }
+    var starts=[];
+    ents.forEach(function(x){ if(x.spy) return; x.curve=cmpCurve(x.e.ev,hist,today); if(x.curve) starts.push(x.curve.pts[0][0]); x.stats=cmpStats(x.e.items,hist); });
+    if(ents.some(function(x){ return !x.spy&&!x.curve; })){ st.textContent="No hay precios históricos suficientes para armar la comparación."; return; }
+    var csMin=Math.min.apply(null,starts), csMax=Math.max.apply(null,starts), capped=false, cap=tn-5*365+10;
+    if(csMin<cap){ csMin=cap; capped=true; } if(csMax<cap) csMax=cap;
+    var last=null, i=0, pts=hist.SPY.pts.map(function(r){return [dayNum(r[0]),r[1]];}), sp=[];
+    for(var d=csMin; d<=tn; d++){ while(i<pts.length&&pts[i][0]<=d){ last=pts[i][1]; i++; } if(last===null) continue; sp.push([d,last]); }
+    ents.forEach(function(x){ if(x.spy) x.pxs=sp; });
+    cmpData={ents:ents,sp:sp,csMin:csMin,csMax:csMax,tn:tn};
+    var real=ents.filter(function(x){return !x.spy;});
     st.textContent="Rendimiento ponderado por tiempo: no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"");
+    if(csMax>csMin) body.appendChild(el("div","cmpchips")).id="cmpStartChips";
     body.appendChild(el("div","cmpchips")).id="cmpChips";
     var leg=el("div","cmpleg"); leg.id="cmpLeg"; body.appendChild(leg);
     var box=el("div"); box.id="cmpChartBox"; body.appendChild(box);
     var v=el("div","cmpverd"); v.id="cmpVerd"; body.appendChild(v);
     var w=el("div"); w.id="cmpWhy"; body.appendChild(w);
-    // tabla (no depende del período)
-    var sA=cmpData.sA, sB=cmpData.sB;
     var tb_=document.createElement("table"); tb_.className="cmptbl";
-    function tr(k,x,y){ var r=document.createElement("tr"); r.appendChild(el("th",null,k)); r.appendChild(el("td",null,x)); r.appendChild(el("td",null,y)); tb_.appendChild(r); }
-    var h=document.createElement("tr"); h.appendChild(el("th",null,"Desde la compra")); h.appendChild(el("th",null,pa.name)); h.appendChild(el("th",null,pb.name)); tb_.appendChild(h);
+    function tr(k,f){ var r=document.createElement("tr"); r.appendChild(el("th",null,k)); real.forEach(function(x){ r.appendChild(el("td",null,f(x.stats))); }); tb_.appendChild(r); }
+    var h=document.createElement("tr"); h.appendChild(el("th",null,"Desde la compra")); real.forEach(function(x){ h.appendChild(el("th",null,x.name)); }); tb_.appendChild(h);
     function pos(x){ return x?x.tk+" "+fmtPct(x.pct):"—"; }
-    tr("Mejor posición",pos(sA.best),pos(sB.best));
-    tr("Peor posición",pos(sA.worst),pos(sB.worst));
-    tr("Ventas ganadoras",sA.closedN?sA.wins+" de "+sA.closedN:"—",sB.closedN?sB.wins+" de "+sB.closedN:"—");
-    tr("Posiciones activas",String(sA.openN),String(sB.openN));
-    tr("Mayor peso",sA.maxWeight===null?"—":(sA.maxWeight*100).toFixed(0)+"%",sB.maxWeight===null?"—":(sB.maxWeight*100).toFixed(0)+"%");
+    tr("Mejor posición",function(s){ return pos(s.best); });
+    tr("Peor posición",function(s){ return pos(s.worst); });
+    tr("Ventas ganadoras",function(s){ return s.closedN?s.wins+" de "+s.closedN:"—"; });
+    tr("Posiciones activas",function(s){ return String(s.openN); });
+    tr("Mayor peso",function(s){ return s.maxWeight===null?"—":(s.maxWeight*100).toFixed(0)+"%"; });
     body.appendChild(tb_);
-    var sk=[]; if(ea.skipped) sk.push(pa.name+": "+ea.skipped+" sin fecha de compra o en otra moneda"); if(eb.skipped) sk.push(pb.name+": "+eb.skipped+" sin fecha de compra o en otra moneda");
+    var sk=[]; real.forEach(function(x){ if(x.e.skipped) sk.push(x.name+": "+x.e.skipped+" sin fecha de compra o en otra moneda"); });
     if(sk.length) body.appendChild(el("div","cmpnote","No entran en la comparación → "+sk.join(" · ")+". Cargá la fecha de compra para sumarlas. No se tienen en cuenta dividendos."));
     drawCmp();
   }
-  var RANGES=[["1M",30],["3M",91],["6M",182],["1A",365],["3A",1095],["Todo",0]];
+  var RANGES=[["1M",30],["3M",91],["6M",182],["1A",365],["2A",730],["3A",1095],["5A",1825],["Todo",0]];
   function rebaseSeries(arr,r0){
     var base=null, out=[];
     arr.forEach(function(r){ if(r[0]<r0) return; if(base===null) base=r[1]; out.push([r[0],(r[1]/base-1)*100]); });
@@ -1298,37 +1305,61 @@
   }
   function drawCmp(){
     var D=cmpData; if(!D) return;
-    var span=D.tn-D.cs;
+    var csBase=cmpStart==="first"?D.csMin:D.csMax, span=D.tn-csBase;
+    var sc=$("cmpStartChips");
+    if(sc){
+      sc.textContent="";
+      [["common","Desde que ambos invierten"],["first","Desde la primera inversión"]].forEach(function(o){
+        var b=el("button",cmpStart===o[0]?"on":"",o[1]); b.type="button";
+        b.addEventListener("click",function(){ cmpStart=o[0]; drawCmp(); });
+        sc.appendChild(b);
+      });
+    }
     var chips=$("cmpChips"); chips.textContent="";
     RANGES.forEach(function(r){
       var key=r[0], b=el("button",cmpRange===key?"on":"",key); b.type="button";
-      if(r[1] && r[1]>=span){ b.disabled=true; b.title="No hay tantos datos"; }
       b.addEventListener("click",function(){ cmpRange=key; drawCmp(); });
       chips.appendChild(b);
     });
-    var cur_=RANGES.filter(function(r){return r[0]===cmpRange;})[0];
-    if(!cur_||(cur_[1]&&cur_[1]>=span)){ cmpRange="Todo"; cur_=RANGES[RANGES.length-1]; }
-    var r0=cur_[1]?Math.max(D.cs,D.tn-cur_[1]):D.cs;
-    function ser(c){ return rebaseSeries(c.pts.map(function(r){ return [r[0],1+r[1]/100]; }),r0); }
-    var sa=ser(D.ca), sb=ser(D.cb), sm=D.sp?rebaseSeries(D.sp,r0):null;
-    if(!sa.length||!sb.length) return;
-    var ta=sa[sa.length-1][1], tb=sb[sb.length-1][1], tm=sm&&sm.length?sm[sm.length-1][1]:null;
-    var pa=D.pa, pb=D.pb, leg=$("cmpLeg"); leg.textContent="";
+    var cur_=RANGES.filter(function(r){return r[0]===cmpRange;})[0]||RANGES[RANGES.length-1];
+    var short=cur_[1]&&cur_[1]>=span;
+    var r0=(cur_[1]&&!short)?D.tn-cur_[1]:csBase;
+    var E=D.ents.map(function(x,k){
+      var color=x.spy?"#5b6b9a":(k===0?"#0f9488":"#f08a24");
+      var p=x.spy?rebaseSeries(x.pxs,r0):rebaseSeries(x.curve.pts.map(function(r){ return [r[0],1+r[1]/100]; }),r0);
+      return {n:x.name,c:color,p:p,x:x,t:p.length?p[p.length-1][1]:null};
+    });
+    if(E.some(function(e){return e.t===null;})) return;
+    var bothReal=!E[0].x.spy&&!E[1].x.spy;
+    var sm=bothReal?rebaseSeries(D.sp,r0):null, tm=sm&&sm.length?sm[sm.length-1][1]:null;
+    var leg=$("cmpLeg"); leg.textContent="";
     function lg(color,name,v,dash){ var s=el("span"); var i=el("i",dash?"dash":""); if(!dash) i.style.background=color; s.appendChild(i); s.appendChild(document.createTextNode(name+" ")); s.appendChild(el("span",cls(v),pctTxt(v))); leg.appendChild(s); }
-    lg("#0f9488",pa.name,ta); lg("#f08a24",pb.name,tb); if(tm!==null) lg("",'S&P 500 (SPY)',tm,true);
+    E.forEach(function(e){ lg(e.c,e.n,e.t); }); if(tm!==null) lg("",SPY_NAME+" (SPY)",tm,true);
     var box=$("cmpChartBox"); box.textContent="";
-    box.appendChild(el("div","cmpnote",fmtD(r0)+" → "+fmtD(D.tn)));
-    box.appendChild(cmpChart([{n:pa.name,c:"#0f9488",p:sa},{n:pb.name,c:"#f08a24",p:sb}],sm,r0,D.tn));
-    var win=ta>=tb?{n:pa.name,t:ta,s:D.sA,o:pb.name,ot:tb,os:D.sB}:{n:pb.name,t:tb,s:D.sB,o:pa.name,ot:ta,os:D.sA};
-    $("cmpVerd").textContent=win.n+" rinde "+Math.abs(ta-tb).toFixed(1).replace(".",",")+" puntos más en este período: "+pctTxt(win.t)+" contra "+pctTxt(win.ot)+".";
+    box.appendChild(el("div","cmpnote",fmtD(r0)+" → "+fmtD(D.tn)+(short?" · hay datos solo desde esa fecha":"")));
+    box.appendChild(cmpChart(E.map(function(e){return {n:e.n,c:e.c,p:e.p};}),sm,r0,D.tn));
+    var ta=E[0].t, tb=E[1].t;
+    var w=ta>=tb?E[0]:E[1], o=ta>=tb?E[1]:E[0];
+    var diff=Math.abs(ta-tb).toFixed(1).replace(".",",");
     var why=[];
-    if(tm!==null){
-      var dm=win.t-tm; why.push(win.n+(dm>=0?" le gana al mercado (S&P 500) por ":" queda por debajo del mercado (S&P 500) por ")+Math.abs(dm).toFixed(1).replace(".",",")+" puntos.");
-      var dl=win.ot-tm; why.push(win.o+(dl>=0?" también supera al mercado por ":" queda por debajo del mercado por ")+Math.abs(dl).toFixed(1).replace(".",",")+" puntos.");
+    if(!bothReal){
+      var real=E[0].x.spy?E[1]:E[0], spyE=E[0].x.spy?E[0]:E[1], dm=real.t-spyE.t;
+      $("cmpVerd").textContent=(dm>=0?real.n+" le gana al S&P 500 por "+diff+" puntos: ":real.n+" queda por debajo del S&P 500 por "+diff+" puntos: ")+pctTxt(real.t)+" contra "+pctTxt(spyE.t)+".";
+      var s=real.x.stats;
+      if(s.best) why.push("Lo mejor de "+real.n+" desde la compra: "+s.best.tk+" ("+fmtPct(s.best.pct)+(s.best.closed?", ya vendida":"")+").");
+      if(s.worst&&s.rows.length>1) why.push((s.worst.pct<0?"Lo que más le pesó: ":"Lo que menos rindió: ")+s.worst.tk+" ("+fmtPct(s.worst.pct)+(s.worst.closed?", ya vendida":"")+").");
+      if(s.closedN) why.push("Operaciones cerradas: "+s.wins+" de "+s.closedN+" ganadoras.");
+    } else {
+      $("cmpVerd").textContent=w.n+" rinde "+diff+" puntos más en este período: "+pctTxt(w.t)+" contra "+pctTxt(o.t)+".";
+      if(tm!==null){
+        var dm2=w.t-tm; why.push(w.n+(dm2>=0?" le gana al mercado (S&P 500) por ":" queda por debajo del mercado (S&P 500) por ")+Math.abs(dm2).toFixed(1).replace(".",",")+" puntos.");
+        var dl=o.t-tm; why.push(o.n+(dl>=0?" también supera al mercado por ":" queda por debajo del mercado por ")+Math.abs(dl).toFixed(1).replace(".",",")+" puntos.");
+      }
+      var ws=w.x.stats, os=o.x.stats;
+      if(ws.best) why.push("Lo mejor de "+w.n+" desde la compra: "+ws.best.tk+" ("+fmtPct(ws.best.pct)+(ws.best.closed?", ya vendida":"")+").");
+      if(os.worst && os.rows.length>1) why.push((os.worst.pct<0?"Lo que más le pesó a ":"Lo que menos rindió de ")+o.n+": "+os.worst.tk+" ("+fmtPct(os.worst.pct)+(os.worst.closed?", ya vendida":"")+").");
+      if(ws.closedN||os.closedN) why.push("Operaciones cerradas: "+w.n+" "+ws.wins+" de "+ws.closedN+" ganadoras; "+o.n+" "+os.wins+" de "+os.closedN+".");
     }
-    if(win.s.best) why.push("Lo mejor de "+win.n+" desde la compra: "+win.s.best.tk+" ("+fmtPct(win.s.best.pct)+(win.s.best.closed?", ya vendida":"")+").");
-    if(win.os.worst && win.os.rows.length>1) why.push((win.os.worst.pct<0?"Lo que más le pesó a ":"Lo que menos rindió de ")+win.o+": "+win.os.worst.tk+" ("+fmtPct(win.os.worst.pct)+(win.os.worst.closed?", ya vendida":"")+").");
-    if(win.s.closedN||win.os.closedN) why.push("Operaciones cerradas: "+win.n+" "+win.s.wins+" de "+win.s.closedN+" ganadoras; "+win.o+" "+win.os.wins+" de "+win.os.closedN+".");
     var wb=$("cmpWhy"); wb.textContent="";
     if(why.length){ wb.appendChild(el("div","k","¿Por qué?")); var ul=el("ul","cmpwhy"); why.forEach(function(t){ ul.appendChild(el("li",null,t)); }); wb.appendChild(ul); }
   }
