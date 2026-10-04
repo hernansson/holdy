@@ -2318,6 +2318,21 @@
   });
   $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } ibRead(t); });
   function isImp(x,br){ return x.broker===br && /^Importado de /.test(x.note||""); }
+  function ibKeys(pos,closed){
+    var m={}, n=0;
+    function lotsOf(p){ return (p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}]; }
+    function r4(v){ return Math.round(v*1e4)/1e4; }
+    (pos||[]).forEach(function(p){ lotsOf(p).forEach(function(l){ m["o|"+p.ticker+"|"+(l.d||"")+"|"+r4(l.q)+"|"+r4(l.b)]=p.ticker; n++; }); });
+    (closed||[]).forEach(function(p){ lotsOf(p).forEach(function(l){ m["c|"+p.ticker+"|"+(l.d||"")+"|"+r4(l.q)+"|"+r4(l.b)+"|"+p.sold.d+"|"+r4(p.sold.p)]=p.ticker; n++; }); });
+    return {m:m,n:n};
+  }
+  function ibDiff(oldPos,oldClosed,newPos,newClosed){
+    var a=ibKeys(oldPos,oldClosed), b=ibKeys(newPos,newClosed), nw=[], same=0, gone=[];
+    Object.keys(b.m).forEach(function(k){ if(a.m[k]!==undefined) same++; else nw.push(b.m[k]); });
+    Object.keys(a.m).forEach(function(k){ if(b.m[k]===undefined) gone.push(a.m[k]); });
+    function uniq(x){ var o={}; x.forEach(function(t){ o[t]=1; }); return Object.keys(o); }
+    return {newN:nw.length,newT:uniq(nw),goneN:gone.length,goneT:uniq(gone),same:same};
+  }
   function ibReset(){ ibState=null; $("ibAct").hidden=true; $("ibText").value=""; $("ibFile").value=""; ibMsg(""); }
   function ibShowAct(){
     var nw=ibTargetId==="new", n=$("ibNote");
@@ -2327,7 +2342,16 @@
       var pr=profData.profiles.filter(function(x){return x.id===ibTargetId;})[0];
       if(pr&&ibState){
         var ps=(pr.id===profData.active?positions:pr.positions).filter(function(x){return isImp(x,ibState.broker);}).length, cs=(pr.closed||[]).filter(function(x){return isImp(x,ibState.broker);}).length;
-        n.textContent=(ps||cs)?"Reemplaza las "+ps+" posiciones y "+cs+" ventas que importaste antes de "+(ibState.broker==="Balanz"?"Balanz":"IBKR")+" en este perfil. Lo que cargaste a mano no se toca. Si el archivo no cubre todo tu historial, lo anterior se pierde.":"Suma las operaciones importadas a este perfil. Lo que ya tenías cargado a mano no se toca, así que si es lo mismo puede quedar repetido.";
+        var oldP=(pr.id===profData.active?positions:pr.positions).filter(function(x){return isImp(x,ibState.broker);}), oldC=(pr.closed||[]).filter(function(x){return isImp(x,ibState.broker);});
+        if(ps||cs){
+          var df=ibDiff(oldP,oldC,ibState.pos,ibState.closed), tx="Cambios respecto de lo que ya importaste: ";
+          if(!df.newN&&!df.goneN) tx+="ninguno, el archivo trae lo mismo ("+df.same+" operaciones).";
+          else {
+            tx+=(df.newN?df.newN+" operación(es) nueva(s)"+(df.newT.length?" ("+df.newT.slice(0,6).join(", ")+(df.newT.length>6?"…":"")+")":""):"ninguna nueva")+"; "+df.same+" sin cambios.";
+            if(df.goneN) tx+=" ⚠ El archivo no trae "+df.goneN+" operación(es) que ya tenías ("+df.goneT.slice(0,6).join(", ")+(df.goneT.length>6?"…":"")+"): al guardar se pierden. ¿Cubre menos período?";
+          }
+          n.textContent=tx+" Lo que cargaste a mano no se toca.";
+        } else n.textContent="Suma las operaciones importadas a este perfil. Lo que ya tenías cargado a mano no se toca, así que si es lo mismo puede quedar repetido.";
         n.hidden=false;
       }
     }
