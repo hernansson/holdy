@@ -67,8 +67,8 @@
   .js .hero .lead{animation-delay:.08s}.js .hero .cta{animation-delay:.16s}
   @media (prefers-reduced-motion:reduce){ *,::backdrop{animation:none!important} }
   html{scroll-behavior:auto!important;overflow-anchor:none}
-  .story{height:400vh;position:relative;margin:0 calc(50% - 50vw) 24px;width:100vw}
-  .story-in{position:sticky;top:64px;height:calc(100vh - 64px);height:calc(100svh - 64px);display:flex;flex-direction:column;overflow:hidden}
+  .story{height:650vh;position:relative;margin:0 calc(50% - 50vw) 24px;width:100vw}
+  .story-in{position:sticky;top:var(--nav,64px);height:calc(100vh - var(--nav,64px));height:calc(100svh - var(--nav,64px));display:flex;flex-direction:column;overflow:hidden}
   .story-top{padding:10px 20px 0;max-width:980px;width:100%;margin:0 auto;display:grid;gap:6px;z-index:2}
   @media (min-width:820px){ .story-top{grid-template-columns:1fr auto;align-items:end;gap:24px} }
   .story h2{font-size:clamp(24px,4vw,38px);line-height:1.08;letter-spacing:-.03em;margin:0 0 6px}
@@ -287,20 +287,17 @@
     steps.forEach(function(e,i){ e.classList.toggle("on",i===k); });
   }
   var cur=0,target=0;
-  var done=false, VMAX=.07, LEAD=.025, last=0, want=0, lastSet=null;
-  function metrics(){ var r=sec.getBoundingClientRect(); var range=Math.max(1,r.height-(innerHeight-64)); var startY=scrollY+r.top-64; return {startY:startY,range:range,q:Math.max(0,Math.min(1,(scrollY-startY)/range))}; }
-  function loop(ts){
+  var done=false, inEl=sec.querySelector(".story-in"), navEl=document.querySelector("nav");
+  function setNav(){ document.documentElement.style.setProperty("--nav",navEl.offsetHeight+"px"); } setNav();
+  function metrics(){ var nh=navEl.offsetHeight, r=sec.getBoundingClientRect(); var range=Math.max(1,r.height-inEl.offsetHeight); var startY=scrollY+r.top-nh; return {startY:startY,range:range,q:Math.max(0,Math.min(1,(scrollY-startY)/range))}; }
+  function loop(){
     if(done) return;
-    var dt=Math.min(.05,last?(ts-last)/1000:.016); last=ts;
-    var m=metrics();
-    if(!(lastSet!==null && Math.abs(scrollY-lastSet)<1.5)) want=m.q;
-    var pos=Math.min(want,cur+LEAD), desired=m.startY+pos*m.range;
-    if((m.q>cur+LEAD+.002 || want>m.q+.002) && Math.abs(scrollY-desired)>1){ window.scrollTo({top:desired,behavior:"instant"}); lastSet=scrollY; }
-    var d=want-cur, st=VMAX*dt; cur+= Math.abs(d)<st ? d : (d>0?st:-st);
+    var q=metrics().q;
+    cur+=(q-cur)*.12; if(Math.abs(q-cur)<.0005) cur=q;
     draw(cur);
-    if(cur>=.999 && want>=.97){
+    if(cur>=.995 && q>=.985){
       done=true; cur=1; draw(1);
-      var oldH=sec.offsetHeight, newH=innerHeight-64;
+      var oldH=sec.offsetHeight, newH=inEl.offsetHeight;
       if(oldH>newH){ sec.style.height=newH+"px"; window.scrollTo({top:scrollY-(oldH-newH),behavior:"instant"}); }
       return;
     }
@@ -309,7 +306,7 @@
   build();
   if(reduce){ draw(1); steps.forEach(function(e,i){e.classList.toggle("on",i===3);}); }
   else { draw(0); requestAnimationFrame(loop); }
-  var rt; addEventListener("resize",function(){ clearTimeout(rt); rt=setTimeout(function(){ build(); draw(reduce||done?1:cur); },150); });
+  var rt, lw=innerWidth; addEventListener("resize",function(){ if(innerWidth===lw) return; lw=innerWidth; clearTimeout(rt); rt=setTimeout(function(){ build(); draw(reduce||done?1:cur); },150); });
 })();
 </script>
 <script>
