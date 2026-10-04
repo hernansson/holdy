@@ -2275,11 +2275,21 @@
     });
     var fx={};
     (P.fixed||[]).forEach(function(x){
-      var f=fx[x.tk]||(fx[x.tk]={tk:x.tk,lots:[],w:0,wr:0,terms:fiTerms(x.desc),noY:0});
+      var f=fx[x.tk]||(fx[x.tk]={tk:x.tk,lots:[],w:0,wr:0,terms:fiTerms(x.desc),desc:x.desc,noY:0});
       f.lots.push({q:x.q,b:Math.round(x.p*1e6)/1e6,d:x.d});
       var y=fiYield(f.terms,x.p,x.d); if(y===null) f.noY++; else { f.w+=x.q*x.p; f.wr+=x.q*x.p*y; }
     });
-    var fixed=Object.keys(fx).map(function(k){ var f=fx[k]; return {tk:f.tk,lots:f.lots,fi:f.w>0?{r:Math.round(f.wr/f.w*100)/100,m:f.terms.m||"",c:f.terms.c>0?f.terms.c:0,cp:(P.coupons||[]).filter(function(x){return x.tk===f.tk;}).map(function(x){return [x.d,x.a];}).sort(function(a,b){return a[0]<b[0]?-1:1;})}:null}; });
+    // Cupones cobrados: los del Excel; si uno se desvía más de 10% de lo que corresponde (nominal × cupón ÷ pagos por año), se usa el teórico.
+    function fiCp(f){
+      var monthly=/BONO TESORO/i.test(f.desc||"")?12:2, c=f.terms.c;
+      return (P.coupons||[]).filter(function(x){return x.tk===f.tk;}).map(function(x){
+        var a=x.a;
+        if(c>0){ var nom=0; f.lots.forEach(function(l){ if(l.d<x.d) nom+=l.q; });
+          var th=nom*c/100/monthly; if(th>0&&Math.abs(a-th)/th>0.1) a=Math.round(th*100)/100; }
+        return [x.d,a];
+      }).sort(function(a,b){return a[0]<b[0]?-1:1;});
+    }
+    var fixed=Object.keys(fx).map(function(k){ var f=fx[k]; return {tk:f.tk,lots:f.lots,fi:f.w>0?{r:Math.round(f.wr/f.w*100)/100,m:f.terms.m||"",c:f.terms.c>0?f.terms.c:0,cp:fiCp(f)}:null}; });
     var fclosed={};
     (P.fixedSold||[]).forEach(function(x){
       var key=x.tk+"|"+x.ds+"|"+x.ps, c=fclosed[key]||(fclosed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*1e6)/1e6},lots:[]});
