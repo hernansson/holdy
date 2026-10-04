@@ -96,8 +96,8 @@
   try{
     // La landing vieja y la app vieja compartían dirección: se limpia cualquier service worker de esta ruta.
     if("serviceWorker" in navigator){ navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ if(r.scope===location.origin+location.pathname.replace(/[^/]*$/,"")) r.unregister(); }); }); }
-    // Quien ya usa Holdy entra directo a la app (se puede ver esta página con ?home).
-    var has=localStorage.getItem("cartera.profiles.v2")||localStorage.getItem("cartera.positions.v1")||localStorage.getItem("cartera.auth.v1");
+    // Quien ya inició sesión entra directo; el resto ve el ingreso con Google al abrir la app a la app (se puede ver esta página con ?home).
+    var has=localStorage.getItem("cartera.auth.v1");
     if(has && !/[?&]home\b/.test(location.search)) location.replace("app/");
   }catch(e){}
 })();

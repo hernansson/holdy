@@ -150,6 +150,12 @@
 </style>
 </head>
 <body>
+<section id="gate" hidden style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center">
+  <h1 style="margin:0;font-size:34px;letter-spacing:-.03em">Holdy</h1>
+  <p style="margin:0;max-width:22em;color:var(--muted,#5b6b69)">Entrá con tu cuenta de Google para ver tu cartera. Se guarda en tu cuenta y te sigue en todos tus dispositivos.</p>
+  <div id="gateBtn" style="min-height:44px"></div>
+  <p id="gateMsg" style="margin:0;font-size:14px" hidden></p>
+</section>
 <header>
   <h1>Holdy</h1>
   <button id="btnRefresh" aria-label="Actualizar precios">Actualizar</button>
@@ -1004,6 +1010,7 @@
   });
 
   function handleHash(){
+    if(GOOGLE_CLIENT_ID && !auth) return;
     var m=/^#share=(.+)$/.exec(location.hash||"");
     if(!m) return;
     var tok=m[1];
@@ -1285,7 +1292,18 @@
     s.onerror=function(){ gisState=0; var q=gisQueue; gisQueue=[]; q.forEach(function(f){ f(false); }); };
     document.body.appendChild(s);
   }
+  var gateDone=false;
+  function updateGate(){
+    var locked=!!GOOGLE_CLIENT_ID && !auth;
+    $("gate").hidden=!locked;
+    document.querySelector("body>header").hidden=locked;
+    document.querySelector("main").hidden=locked;
+    var gm=$("gateMsg"); gm.textContent=cloudStatus||""; gm.hidden=!(locked&&cloudStatus);
+    if(locked){ mountGoogleButton(); }
+    else if(!gateDone){ gateDone=true; handleHash(); }
+  }
   function renderAccount(){
+    updateGate();
     var sec=$("acctSec"); if(!sec) return;
     if(!GOOGLE_CLIENT_ID){ sec.hidden=true; return; }
     sec.hidden=false;
@@ -1298,15 +1316,19 @@
       $("acctBtns").hidden=true; $("gBtn").hidden=false;
     }
   }
+  var gMounted=false;
   function mountGoogleButton(){
-    if(auth || !GOOGLE_CLIENT_ID) return;
+    if(auth || !GOOGLE_CLIENT_ID || gMounted) return;
+    gMounted=true;
     loadGIS(function(ok){
-      if(!ok){ setCloudStatus("No se pudo cargar el ingreso con Google. Revisá tu conexión."); return; }
+      if(!ok){ gMounted=false; if(!cloudStatus){ cloudStatus="No se pudo cargar el ingreso con Google. Revisá tu conexión."; var gm=$("gateMsg"); gm.textContent=cloudStatus; gm.hidden=false; } return; }
       try{
         window.google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:onCredential,auto_select:false});
-        $("gBtn").textContent="";
-        window.google.accounts.id.renderButton($("gBtn"),{theme:"outline",size:"large",text:"continue_with",shape:"pill",locale:"es",width:260});
-      }catch(e){}
+        ["gBtn","gateBtn"].forEach(function(id){
+          var b=$(id); b.textContent="";
+          window.google.accounts.id.renderButton(b,{theme:"outline",size:"large",text:"continue_with",shape:"pill",locale:"es",width:260});
+        });
+      }catch(e){ gMounted=false; }
     });
   }
   $("acctSync").addEventListener("click",function(){ cloudSync(); });
@@ -1315,7 +1337,7 @@
     var old=auth; auth=null;
     try{ localStorage.removeItem(LS_AUTH); }catch(e){}
     if(old){ fetch(SYNC_BASE+"/auth/logout",{method:"POST",headers:{"Authorization":"Bearer "+old.session}}).catch(function(){}); }
-    cloudStatus=""; renderAccount(); mountGoogleButton(); renderAcctNotice();
+    cloudStatus=""; gMounted=false; renderAccount(); mountGoogleButton(); renderAcctNotice();
   });
   function renderAcctNotice(){
     var box=$("notice2"); box.textContent="";
@@ -1370,7 +1392,7 @@
 
   render();
   refresh(false);
-  handleHash();
+  updateGate();
   pullFollowers(); flushDirty(); cloudSync();
 
   if("serviceWorker" in navigator){
