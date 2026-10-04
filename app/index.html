@@ -635,14 +635,8 @@
 
   // Renta fija: valor estimado = lo invertido creciendo a la tasa anual (hasta el vencimiento).
   function fiPrice(p){
-    // Sin contar cupones: el precio converge de a poco desde lo que pagaste hasta 1 en el vencimiento (se devuelve a 1).
-    var ls=(p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}], tn=dayNum(todayStr()), M=p.fi.m?dayNum(p.fi.m):0, v=0, q=0;
-    ls.forEach(function(l){
-      var px=l.b;
-      if(M&&l.d){ var d0=dayNum(l.d), fr=M>d0?Math.max(0,Math.min(1,(tn-d0)/(M-d0))):1; px=l.b+(1-l.b)*fr; }
-      v+=l.q*px; q+=l.q;
-    });
-    return q>0?v/q:null;
+    // Renta fija: se mide siempre contra 1, que es lo que te devuelven al vencimiento.
+    return p.fi?1:null;
   }
   // Cupones ya cobrados (reales del Excel; si no hay, estimados): se suman a la ganancia, aparte del precio.
   function fiIncome(p){
@@ -953,7 +947,7 @@
       var mm_=ccyMismatch(p);
       if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
-      if(p.fi) notes.push("Renta fija: el precio va acercándose de a poco a 1"+(p.fi.m?" hasta el vencimiento":" (cargá el vencimiento en Editar para que se note)")+", porque ahí te devuelven 1. No sigue el precio de mercado. A esa diferencia se le suman los cupones que fuiste cobrando.");
+      if(p.fi) notes.push("Renta fija: se mide contra 1, que es lo que te devuelven al vencimiento"+(p.fi.m?" ("+p.fi.m.split("-").reverse().join("/")+")":"")+". Ganás (1 − lo que pagaste) si compraste debajo de 1, o perdés si compraste arriba, más los cupones que vas cobrando. No sigue el precio de mercado.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       if(!p.parts && (multiBroker||p.broker==="Balanz")) notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
       if(p.note) notes.push(p.note);
@@ -1417,6 +1411,14 @@
   $("cmpA").addEventListener("change",runCompare); $("cmpB").addEventListener("change",runCompare);
   function pctTxt(v){ return fmtPct(v/100); }
   function fmtD(n){ return dayStr(n).split("-").reverse().join("/"); }
+  // El Worker acepta hasta 20 símbolos por pedido: se parte en tandas y se juntan los resultados.
+  function fetchHistory(list,from){
+    var parts=[]; for(var i=0;i<list.length;i+=20) parts.push(list.slice(i,i+20));
+    return Promise.all(parts.map(function(pt){
+      return fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(pt.join(","))+"&from="+from,{cache:"no-store"})
+        .then(function(r){ if(!r.ok) throw new Error("http"+r.status); return r.json(); });
+    })).then(function(js){ var data={}; js.forEach(function(j){ Object.keys(j.data||{}).forEach(function(k){ data[k]=j.data[k]; }); }); return {data:data}; });
+  }
   function runCompare(){
     var my=++cmpRun, body=$("cmpBody"), st=$("cmpStatus"); body.textContent=""; cmpData=null;
     var ia=$("cmpA").value, ib=$("cmpB").value;
@@ -1437,11 +1439,10 @@
     var fiMap={};
     ents.forEach(function(x){ if(!x.spy){ Object.keys(x.e.fis).forEach(function(k){ fiMap[k]=x.e.fis[k]; }); x.e.ev.forEach(function(e){ if(e.d<from) from=e.d; if(e.tk.indexOf("FI:")!==0) tks[e.tk]=1; }); } });
     var list=Object.keys(tks);
-    if(list.length>20){ st.textContent="Son demasiadas acciones distintas para comparar (máximo 19)."; return; }
+    if(list.length>80){ st.textContent="Son demasiadas acciones distintas para comparar (máximo 80)."; return; }
     if(!navigator.onLine){ st.textContent="Necesito conexión para traer los precios históricos."; return; }
     st.textContent="Trayendo precios históricos…";
-    fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(list.join(","))+"&from="+from,{cache:"no-store"})
-      .then(function(r){ if(!r.ok) throw new Error("http"+r.status); return r.json(); })
+    fetchHistory(list,from)
       .then(function(j){
         if(my!==cmpRun) return;
         var hist={}, missing=[];
@@ -2376,10 +2377,9 @@
       P.open.forEach(function(x){ tks[x.tk]=1; if(x.d<from) from=x.d; });
       P.sold.forEach(function(x){ tks[x.tk]=1; if(x.db<from) from=x.db; });
       var list=Object.keys(tks);
-      if(list.length>20){ ibMsg("Son demasiadas acciones distintas (máximo 20)."); return; }
+      if(list.length>80){ ibMsg("Son demasiadas acciones distintas (máximo 80)."); return; }
       ibMsg("Trayendo precios para convertir los CEDEARs…");
-      return (list.length?fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(list.join(","))+"&from="+from,{cache:"no-store"})
-        .then(function(r){ if(!r.ok) throw new Error("http"); return r.json(); }):Promise.resolve({data:{}}))
+      return (list.length?fetchHistory(list,from):Promise.resolve({data:{}}))
         .then(function(j){
           var B=balanzBuild(P,j.data||{}), pos=[], closed=[];
           B.open.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c) pos.push(c); });
