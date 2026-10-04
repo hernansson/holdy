@@ -66,7 +66,7 @@
   .js .hero h1,.js .hero .lead,.js .hero .cta{animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
   .js .hero .lead{animation-delay:.08s}.js .hero .cta{animation-delay:.16s}
   @media (prefers-reduced-motion:reduce){ *,::backdrop{animation:none!important} }
-  .story{height:420vh;position:relative;margin:0 calc(50% - 50vw) 24px;width:100vw}
+  .story{height:520vh;position:relative;margin:0 calc(50% - 50vw) 24px;width:100vw}
   .story-in{position:sticky;top:64px;height:calc(100vh - 64px);height:calc(100svh - 64px);display:flex;flex-direction:column;overflow:hidden}
   .story-top{padding:10px 20px 0;max-width:980px;width:100%;margin:0 auto;display:grid;gap:6px;z-index:2}
   @media (min-width:820px){ .story-top{grid-template-columns:1fr auto;align-items:end;gap:24px} }
@@ -88,6 +88,10 @@
   .dotA{fill:#0f9488}.dotB{fill:#f08a24}
   .tagA,.tagB{font-size:14px;font-weight:800}
   .tagA{fill:#0f9488}.tagB{fill:#f08a24}
+  .flag{stroke:var(--muted);stroke-width:1.5;stroke-dasharray:5 5;opacity:.7}
+  .flagt{fill:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .winner{position:absolute;left:50%;top:36px;transform:translate(-50%,10px);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:10px 18px;font-weight:800;font-size:16px;box-shadow:0 10px 30px rgba(0,0,0,.14);opacity:0;pointer-events:none;white-space:nowrap}
+  .winner em{font-style:normal;color:#0f9488}
   .story-note{position:absolute;right:20px;bottom:30px;font-size:11px;color:var(--muted)}
   @media (prefers-reduced-motion:reduce){ .story{height:auto} .story-in{position:static;height:80vh} }
 </style>
@@ -128,15 +132,15 @@
         <div>
           <h2>Quién <em>rinde mejor</em>, a la vista.</h2>
           <div class="steps" id="steps">
-            <p class="on">Dos personas empiezan el año con el mismo capital.</p>
+            <p class="on">Dos personas, el mismo capital y un año por delante. ¡Listos, largan!</p>
             <p>Tomás arranca fuerte y se pone adelante.</p>
             <p>Martina mantiene la calma y lo alcanza a mitad de año.</p>
-            <p>Al final, la diferencia se ve de un vistazo: +34% contra +11%.</p>
+            <p>Fin del año: Martina le ganó a Tomás por 23 puntos.</p>
           </div>
         </div>
         <div class="legend"><span><i style="background:#0f9488"></i>Martina <b id="vA">0,0%</b></span><span><i style="background:#f08a24"></i>Tomás <b id="vB">0,0%</b></span></div>
       </div>
-      <div class="stage" id="stage"><svg id="svg" role="img" aria-label="Gráfico de ejemplo con dos líneas de rendimiento"></svg><div class="story-note">Datos de ejemplo con nombres ficticios.</div></div>
+      <div class="stage" id="stage"><div class="winner" id="winner">🏆 <em>Martina</em> ganó la carrera: +34% vs +11%</div><svg id="svg" role="img" aria-label="Gráfico de ejemplo con dos líneas de rendimiento"></svg><div class="story-note">Datos de ejemplo con nombres ficticios.</div></div>
     </div>
   </section>
   <div class="wrap">
@@ -206,6 +210,9 @@
     svg.textContent=""; svg.setAttribute("viewBox","0 0 "+W+" "+H);
     els.grid=[0,10,20,30].map(function(v){ return {v:v,l:mk("line",{"class":"gl"}),t:mk("text",{"class":"ax","text-anchor":"start"})}; });
     els.xl=M.map(function(m,i){ var t=mk("text",{"class":"ax","text-anchor":"middle"}); t.textContent=m; return t; });
+    els.fs=mk("line",{"class":"flag"}); els.fe=mk("line",{"class":"flag"});
+    els.fst=mk("text",{"class":"flagt","text-anchor":"middle"}); els.fst.textContent="Salida";
+    els.fet=mk("text",{"class":"flagt","text-anchor":"middle"}); els.fet.textContent="Llegada";
     els.g=mk("g",{});
     els.lB=mk("path",{d:pathD(B),"class":"lnB",pathLength:1},els.g); els.lA=mk("path",{d:pathD(A),"class":"lnA",pathLength:1},els.g);
     els.dB=mk("circle",{r:7,"class":"dotB"}); els.dA=mk("circle",{r:7,"class":"dotA"});
@@ -217,7 +224,7 @@
   function ease(x){ return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2; }
   function draw(p){
     if(!els.g) return;
-    var t=Math.max(0,Math.min(1,p));
+    var q=Math.max(0,Math.min(1,p)), t=Math.max(0,Math.min(1,(q-.07)/.76));
     var ptA=els.lA.getPointAtLength(els.pA*t), ptB=els.lB.getPointAtLength(els.pB*t);
     var zk=ease(Math.min(1,t/.88)), s=1+(S0-1)*(1-zk), w=(s-1)/(S0-1);
     var tipx=(ptA.x+ptB.x)/2, tipy=(ptA.y+ptB.y)/2;
@@ -225,14 +232,17 @@
     function X(x){ return (x-cx)*s+W/2; } function Y(y){ return (y-cy)*s+H/2; }
     els.g.setAttribute("transform","translate("+(W/2-cx*s)+" "+(H/2-cy*s)+") scale("+s+")");
     [[els.lA,els.pA],[els.lB,els.pB]].forEach(function(o){ o[0].style.strokeDasharray="1 1"; o[0].style.strokeDashoffset=String(1-t); o[0].style.strokeWidth=(W<600?5:4.5)/s; });
+    [[els.fs,els.fst,0],[els.fe,els.fet,11]].forEach(function(f){ var x=X(wx(f[2])); f[0].setAttribute("x1",x); f[0].setAttribute("x2",x); f[0].setAttribute("y1",0); f[0].setAttribute("y2",H); f[1].setAttribute("x",x); f[1].setAttribute("y",16); var on=(x>10&&x<W-10)?1:0; f[0].style.opacity=on*.7; f[1].style.opacity=on; });
     els.grid.forEach(function(g){ var y=Y(wy(g.v)); g.l.setAttribute("x1",0); g.l.setAttribute("x2",W); g.l.setAttribute("y1",y); g.l.setAttribute("y2",y); g.t.setAttribute("x",8); g.t.setAttribute("y",y-5); g.t.textContent=g.v+"%"; g.l.style.opacity=g.t.style.opacity=(y>0&&y<H)?1:0; });
     els.xl.forEach(function(e,i){ var x=X(wx(i)); e.setAttribute("x",x); e.setAttribute("y",H-8); e.style.opacity=(x>20&&x<W-20&&(s<1.6||(W<600?i%3===0:i%2===0)||i===11))?1:0; });
-    [[els.dA,els.tA,ptA,vA,A],[els.dB,els.tB,ptB,vB,B]].forEach(function(o){
+    var yA0=Y(ptA.y), yB0=Y(ptB.y), sep=Math.max(0,26-Math.abs(yA0-yB0))/2, aUp=yA0<yB0-.5;
+    [[els.dA,els.tA,ptA,vA,A,aUp?-sep:sep],[els.dB,els.tB,ptB,vB,B,aUp?sep:-sep]].forEach(function(o){
       var x=X(o[2].x), y=Y(o[2].y);
-      o[0].setAttribute("cx",x); o[0].setAttribute("cy",y); o[1].setAttribute("x",x+12); o[1].setAttribute("y",y+5);
+      o[0].setAttribute("cx",x); o[0].setAttribute("cy",y); o[1].setAttribute("x",x+12); o[1].setAttribute("y",y+5+o[5]);
       o[3].textContent=fmt(val(o[4],t));
     });
-    var k=t<.18?0:t<.45?1:t<.8?2:3;
+    var k=t<.18?0:t<.45?1:t<.8?2:(q<.86?2:3);
+    var wn=document.getElementById("winner"), wo=Math.max(0,Math.min(1,(q-.86)/.06)); wn.style.opacity=wo; wn.style.transform="translate(-50%,"+(10-10*wo)+"px)";
     steps.forEach(function(e,i){ e.classList.toggle("on",i===k); });
   }
   var cur=0,target=0;
