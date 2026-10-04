@@ -48,9 +48,10 @@
   .dr-top{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 8px;font-size:18px}
   .dr-top button{border:0;background:transparent;min-height:36px;min-width:36px;font-size:18px}
   .dr-user{font-size:13px;color:var(--muted);padding:0 8px 10px;word-break:break-all}
-  .dr-item{text-align:left;border:0;background:transparent;border-radius:10px;padding:13px 10px;font-size:16px;width:100%}
+  .dr-item{display:flex;align-items:center;gap:12px;text-align:left;border:0;background:transparent;border-radius:10px;padding:13px 10px;font-size:16px;width:100%}
   .dr-item:hover,.dr-item:active{background:var(--chip)}
   .dr-item[hidden]{display:none}
+  .dr-item.danger{color:var(--neg)}
   .dr-sep{height:1px;background:var(--line);margin:6px 4px}
   main{max-width:860px; margin:0 auto; padding:14px 16px}
   button{
@@ -103,6 +104,7 @@
   .cmphdr button{border-radius:999px;min-width:42px;font-size:18px}
   .cmpchips{display:flex;gap:6px;flex-wrap:wrap}
   .cmpchips button{border-radius:999px;min-height:34px;padding:4px 12px;font-size:13px;font-weight:600}
+  .cmpchips button:disabled{opacity:.35}
   .cmpchips button.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
   .cmpsel{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .cmpleg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;font-weight:700}
@@ -223,12 +225,11 @@
   <div class="dr-in">
     <div class="dr-top"><strong>Holdy</strong><button type="button" id="menuClose" aria-label="Cerrar menú">✕</button></div>
     <div class="dr-user" id="menuUser"></div>
-    <button type="button" class="dr-item" id="btnRefresh">Actualizar precios</button>
-    <button type="button" class="dr-item" id="btnCmp" hidden>Comparar perfiles</button>
-    <button type="button" class="dr-item" id="menuProf">Perfiles</button>
-    <button type="button" class="dr-item" id="btnSettings">Ajustes y respaldo</button>
+    <button type="button" class="dr-item" id="btnRefresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span>Actualizar precios</span></button>
+    <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
+    <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Cuenta y respaldo</span></button>
     <div class="dr-sep"></div>
-    <button type="button" class="dr-item danger" id="menuOut">Cerrar sesión</button>
+    <button type="button" class="dr-item danger" id="menuOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></svg><span>Cerrar sesión</span></button>
   </div>
 </dialog>
 
@@ -254,10 +255,6 @@
   <div class="status" id="status" role="status" aria-live="polite">Sin actualizar todavía.</div>
   <section class="summary" id="summary" aria-label="Resumen"></section>
   <div class="toolbar" id="toolbar" hidden>
-    <div class="chips" role="group" aria-label="Filtrar por broker">
-      <button type="button" id="fltAll" data-filter="all" aria-pressed="true">Todos</button>
-      <button type="button" id="fltIBKR" data-filter="IBKR" aria-pressed="false">IBKR</button>
-    </div>
     <label class="sortlbl">Ordenar
       <select id="sortSel" aria-label="Ordenar posiciones">
         <option value="value">Mayor valor</option>
@@ -422,9 +419,8 @@
       <div class="sec-t">Cuenta</div>
       <div class="help" id="acctInfo"></div>
       <div id="gBtn"></div>
-      <div class="btns split" id="acctBtns" hidden>
+      <div class="btns" id="acctBtns" hidden>
         <button type="button" id="acctSync">Sincronizar ahora</button>
-        <button type="button" id="acctOut" class="danger">Cerrar sesión</button>
       </div>
       <div class="help" id="acctMsg" role="status" aria-live="polite" hidden></div>
     </div>
@@ -586,8 +582,7 @@
   // ---------- Render ----------
   function syncToolbar(){
     $("toolbar").hidden=!positions.length;
-    $("fltAll").setAttribute("aria-pressed",String(ui.filter==="all"));
-    $("fltIBKR").setAttribute("aria-pressed",String(ui.filter==="IBKR"));
+    ui.filter="all";
     $("sortSel").value=ui.sort;
     $("btnHide").setAttribute("aria-pressed",String(ui.hide));
     $("btnHide").textContent=ui.hide?"Mostrar montos":"Ocultar montos";
@@ -1279,8 +1274,8 @@
     var span=D.tn-D.cs;
     var chips=$("cmpChips"); chips.textContent="";
     RANGES.forEach(function(r){
-      if(r[1] && r[1]>=span) return;
       var key=r[0], b=el("button",cmpRange===key?"on":"",key); b.type="button";
+      if(r[1] && r[1]>=span){ b.disabled=true; b.title="No hay tantos datos"; }
       b.addEventListener("click",function(){ cmpRange=key; drawCmp(); });
       chips.appendChild(b);
     });
@@ -1360,10 +1355,9 @@
   dlgMenu.addEventListener("click",function(e){ if(e.target===dlgMenu) dlgMenu.close(); });
   $("btnMenu").addEventListener("click",function(){ renderProfile(); dlgMenu.showModal(); });
   $("menuClose").addEventListener("click",function(){ dlgMenu.close(); });
-  ["btnRefresh","btnSettings","btnCmp","menuProf","menuOut"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
+  ["btnRefresh","btnSettings","btnCmp","menuOut"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
   $("btnCmp").addEventListener("click",openCmp);
-  $("menuProf").addEventListener("click",function(){ if(cmpOpen) setCmp(false); $("btnProf").click(); });
-  $("menuOut").addEventListener("click",function(){ setTimeout(function(){ $("acctOut").click(); },0); });
+  $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
   // ---------- Ajustes ----------
   function openSettings(){ renderAccount(); mountGoogleButton(); dlgSet.showModal(); }
@@ -1414,10 +1408,6 @@
   $("btnRefresh").addEventListener("click",function(){ clearBanner(); refresh(true); pullFollowers(); cloudSync(); });
 
   // ---------- Filtros, orden y modo privado ----------
-  $("toolbar").addEventListener("click",function(e){
-    var f=e.target.getAttribute&&e.target.getAttribute("data-filter");
-    if(f){ ui.filter=f; save(LS_UI,ui); render(); }
-  });
   $("sortSel").addEventListener("change",function(){ ui.sort=$("sortSel").value; save(LS_UI,ui); render(); });
   $("btnHide").addEventListener("click",function(){ ui.hide=!ui.hide; save(LS_UI,ui); render(); });
 
@@ -1968,13 +1958,13 @@
     });
   }
   $("acctSync").addEventListener("click",function(){ cloudSync(); });
-  $("acctOut").addEventListener("click",function(){
+  function doLogout(){
     if(!confirm("¿Cerrar sesión? Tus datos se quedan en este dispositivo y en tu cuenta.")) return;
     var old=auth; auth=null;
     try{ localStorage.removeItem(LS_AUTH); }catch(e){}
     if(old){ fetch(SYNC_BASE+"/auth/logout",{method:"POST",headers:{"Authorization":"Bearer "+old.session}}).catch(function(){}); }
     cloudStatus=""; gMounted=false; renderAccount(); mountGoogleButton(); renderAcctNotice();
-  });
+  }
   function renderAcctNotice(){
     var box=$("notice2"); box.textContent="";
     if(auth || !GOOGLE_CLIENT_ID || !positions.length) return;
