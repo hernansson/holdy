@@ -78,6 +78,15 @@
   .gain-line .gl-sub,.day-line{font-size:12px; color:var(--muted); font-weight:500}
   .day-line{margin-top:2px}
   .day-line.pos{color:var(--pos)} .day-line.neg{color:var(--neg)}
+  .recibo{margin-top:14px; border-top:1px solid var(--line); display:grid}
+  .rrow{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--line)}
+  .rrow:last-child{border-bottom:0}
+  .rrow .rl{display:flex; flex-direction:column; font-size:14.5px}
+  .rrow .rl small{font-size:11.5px; color:var(--muted); font-weight:400; margin-top:1px}
+  .rrow .rv{font-size:15px; font-weight:700; white-space:nowrap; text-align:right}
+  .rrow.strong{padding-top:12px}
+  .rrow.strong .rl{font-weight:700; font-size:15.5px}
+  .rrow.strong .rv{font-size:18px}
   .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line)}
   .tiles .v{font-size:15px}
   .bk-block{margin-top:12px; padding-top:12px; border-top:1px solid var(--line)}
@@ -823,23 +832,27 @@
       var pl=g.value-costPriced+(g.inc||0), pct=costPriced>0?pl/costPriced:null;
 
       var card=el("div","sum-card");
-      card.appendChild(el("h2",null,"Total en "+ccy));
+      var npos=positions.filter(function(p){return p.ccy===ccy;}).length;
+      card.appendChild(el("h2",null,"Hoy tenés · "+npos+(npos===1?" posición":" posiciones")));
       card.appendChild(el("div","big",mR(g.value,ccy)));
-      if(costPriced>0){
-        var gl=el("div","gain-line "+cls(pl));
-        gl.appendChild(el("span","gl-main",mRs(pl,ccy)+" · "+fmtPct(pct)));
-        gl.appendChild(el("span","gl-sub",g.inc>0?"valor − invertido + cupones":"desde la compra"));
-        card.appendChild(gl);
-      } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       if(g.dayN){
         var dpc=g.dayBase>0?g.day/g.dayBase:null;
         var dl=el("div","day-line "+cls(g.day)); dl.appendChild(el("span",null,"Hoy "+mRs(g.day,ccy)+" · "+fmtPct(dpc))); card.appendChild(dl);
       }
-      var tiles=el("div","tiles");
-      var t1=el("div"); t1.appendChild(el("div","k","Invertido")); t1.appendChild(el("div","v",mR(costPriced,ccy))); tiles.appendChild(t1);
-      if(g.inc>0){ var t3=el("div"); t3.appendChild(el("div","k","Cupones cobrados")); t3.appendChild(el("div","v pos","+"+mR(g.inc,ccy).replace(/^\+/,""))); tiles.appendChild(t3); }
-      var t2=el("div"); t2.appendChild(el("div","k","Posiciones")); t2.appendChild(el("div","v",String(positions.filter(function(p){return p.ccy===ccy;}).length))); tiles.appendChild(t2);
-      card.appendChild(tiles);
+      if(costPriced>0){
+        var diff=g.value-costPriced, inc=g.inc||0, rc=el("div","recibo");
+        function rrow(lbl,val,c,strong,sub){
+          var r=el("div","rrow"+(strong?" strong":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
+          r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
+        }
+        rrow("Pusiste",mR(costPriced,ccy),"",false,"lo que invertiste");
+        rrow(inc>0?"Diferencia de precio":"Ganancia",mRs(diff,ccy)+" · "+fmtPct(diff/costPriced),cls(diff),inc<=0,"lo que valen hoy menos lo que pusiste");
+        if(inc>0){
+          rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"plata de bonos y ON que ya cobraste");
+          rrow("Ganancia total",mRs(pl,ccy)+" · "+fmtPct(pct),cls(pl),true,"diferencia + cupones");
+        }
+        card.appendChild(rc);
+      } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
       box.appendChild(card);
     });
