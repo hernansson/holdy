@@ -78,7 +78,7 @@
   .gain-line .gl-sub,.day-line{font-size:12px; color:var(--muted); font-weight:500}
   .day-line{margin-top:2px}
   .day-line.pos{color:var(--pos)} .day-line.neg{color:var(--neg)}
-  .tiles{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line)}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line)}
   .tiles .v{font-size:15px}
   .bk-block{margin-top:12px; padding-top:12px; border-top:1px solid var(--line)}
   .bk-bar{display:flex; height:8px; border-radius:999px; overflow:hidden; background:var(--chip); gap:2px; margin-bottom:10px}
@@ -828,7 +828,7 @@
       if(costPriced>0){
         var gl=el("div","gain-line "+cls(pl));
         gl.appendChild(el("span","gl-main",mRs(pl,ccy)+" · "+fmtPct(pct)));
-        gl.appendChild(el("span","gl-sub","desde la compra"));
+        gl.appendChild(el("span","gl-sub",g.inc>0?"valor − invertido + cupones":"desde la compra"));
         card.appendChild(gl);
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       if(g.dayN){
@@ -836,7 +836,8 @@
         var dl=el("div","day-line "+cls(g.day)); dl.appendChild(el("span",null,"Hoy "+mRs(g.day,ccy)+" · "+fmtPct(dpc))); card.appendChild(dl);
       }
       var tiles=el("div","tiles");
-      var t1=el("div"); t1.appendChild(el("div","k","Invertido")); t1.appendChild(el("div","v",mR(g.cost,ccy))); tiles.appendChild(t1);
+      var t1=el("div"); t1.appendChild(el("div","k","Invertido")); t1.appendChild(el("div","v",mR(costPriced,ccy))); tiles.appendChild(t1);
+      if(g.inc>0){ var t3=el("div"); t3.appendChild(el("div","k","Cupones cobrados")); t3.appendChild(el("div","v pos","+"+mR(g.inc,ccy).replace(/^\+/,""))); tiles.appendChild(t3); }
       var t2=el("div"); t2.appendChild(el("div","k","Posiciones")); t2.appendChild(el("div","v",String(positions.filter(function(p){return p.ccy===ccy;}).length))); tiles.appendChild(t2);
       card.appendChild(tiles);
       if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
