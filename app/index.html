@@ -558,8 +558,9 @@
     if(!isFinite(qty)||!isFinite(buy)||!(qty>0)||!(buy>0)) return null;
     var fi=null;
     if(p.fi){ var fr=+(p.fi.r!==undefined?p.fi.r:p.fi[0]), fm=String((p.fi.m!==undefined?p.fi.m:p.fi[1])||"");
-      var fc=+(p.fi.c!==undefined?p.fi.c:p.fi[2]), fcp=(p.fi.cp!==undefined?p.fi.cp:p.fi[3]);
+      var fc=+(p.fi.c!==undefined?p.fi.c:p.fi[2]), fcp=(p.fi.cp!==undefined?p.fi.cp:p.fi[3]), fn=+(p.fi.n!==undefined?p.fi.n:p.fi[4]);
       if(isFinite(fr)&&fr>-20&&fr<200){ fi={r:fr,m:/^\d{4}-\d{2}-\d{2}$/.test(fm)?fm:"",c:(isFinite(fc)&&fc>0&&fc<100)?fc:0};
+        if([1,2,4,12].indexOf(fn)>=0) fi.n=fn;
         if(Array.isArray(fcp)) fi.cp=fcp.map(function(x){ return [String(x[0]||""),+x[1]]; }).filter(function(x){ return /^\d{4}-\d{2}-\d{2}$/.test(x[0])&&isFinite(x[1])&&x[1]>0; }); } }
     var mp=+p.manualPrice; if(!isFinite(mp)||mp<0) mp=0;
     var src=p.source==="manual"?"manual":"auto";
@@ -642,19 +643,33 @@
     return q>0?v/q:null;
   }
   // Cupones de renta fija: pagan cada 6 meses hacia atrás desde el vencimiento; cobrás los posteriores a cada compra.
+  function fiMonthsBack(iso,m){
+    var y=+iso.slice(0,4), mo=+iso.slice(5,7)-1-m, dd=+iso.slice(8,10);
+    y+=Math.floor(mo/12); mo=((mo%12)+12)%12;
+    var last=new Date(Date.UTC(y,mo+1,0)).getUTCDate();
+    return dayNum(y+"-"+("0"+(mo+1)).slice(-2)+"-"+("0"+Math.min(dd,last)).slice(-2));
+  }
+  function fiNextCoupon(p){
+    if(!p.fi||!(p.fi.c>0)||!p.fi.m) return null;
+    var nn=p.fi.n||2, tn=dayNum(todayStr()), M=dayNum(p.fi.m), best=null, k=0, d;
+    if(tn>=M) return null;
+    while((d=fiMonthsBack(p.fi.m,k*12/nn))>tn){ best=d; k++; if(k>400) break; }
+    var q=(p.lots&&p.lots.length)?p.lots.reduce(function(a,l){return a+l.q;},0):p.qty;
+    return best===null?null:{d:best,a:q*p.fi.c/(100*nn)};
+  }
   function fiCoupons(p){
     if(!p.fi||!(p.fi.c>0)||!p.fi.m) return null;
     var M=dayNum(p.fi.m), tn=dayNum(todayStr()), ls=(p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}];
     if(ls.some(function(l){return !l.d;})) return null;
-    var ds=[], k=0, d, first=Infinity; ls.forEach(function(l){ var n=dayNum(l.d); if(n<first) first=n; });
-    while((d=Math.round(M-k*365.25/2))>first){ ds.push(d); k++; }
+    var nn=p.fi.n||2, step=12/nn, ds=[], k=0, d, first=Infinity; ls.forEach(function(l){ var n=dayNum(l.d); if(n<first) first=n; });
+    while((d=fiMonthsBack(p.fi.m,k*step))>first){ ds.push(d); k++; }
     ds.sort(function(a,b){return a-b;});
     var total=0, next=null, paid=0;
     ds.forEach(function(dd){
       var q=0; ls.forEach(function(l){ if(dayNum(l.d)<dd) q+=l.q; });
-      if(dd<=tn){ total+=q*p.fi.c/200; paid++; } else if(next===null) next=dd;
+      if(dd<=tn){ total+=q*p.fi.c/(100*nn); paid++; } else if(next===null) next=dd;
     });
-    return {total:total,paid:paid,next:next,per:ls.reduce(function(a,l){return a+l.q;},0)*p.fi.c/200};
+    return {total:total,paid:paid,next:next,per:ls.reduce(function(a,l){return a+l.q;},0)*p.fi.c/(100*nn)};
   }
   function currentPrice(p){
     if(p.fi) return fiPrice(p);
@@ -900,6 +915,8 @@
           var tot=p.fi.cp.reduce(function(x,y){return x+y[1];},0), lc=p.fi.cp[p.fi.cp.length-1];
           cell("Cupones cobrados",p.fi.cp.length?mm(tot,p.ccy)+" ("+p.fi.cp.length+(p.fi.cp.length===1?" pago":" pagos")+")":"Todavía ninguno",p.fi.cp.length?"pos":"");
           if(lc) cell("Último cupón",lc[0].split("-").reverse().join("/")+" · "+mm(lc[1],p.ccy));
+          var nx=fiNextCoupon(p);
+          cell("Próximo cupón",nx?dayStr(nx.d).split("-").reverse().join("/")+" · ≈"+mm(nx.a,p.ccy):"—");
         } else {
           var cu=fiCoupons(p);
           if(cu){
@@ -1201,7 +1218,7 @@
     };
     var fiR=parseFloat($("fFiR").value), fiM=$("fFiM").dataset.iso||"";
     if(fiM==="?"){ alert("El vencimiento no es válido. Escribilo como dd/mm/aaaa."); return; }
-    var fiC=parseFloat($("fFiC").value); var oldP=editingId?positions.filter(function(x){return x.id===editingId;})[0]:null; data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM,c:(isFinite(fiC)&&fiC>0&&fiC<100)?fiC:0}:null; if(data.fi&&oldP&&oldP.fi&&oldP.fi.cp) data.fi.cp=oldP.fi.cp;
+    var fiC=parseFloat($("fFiC").value); var oldP=editingId?positions.filter(function(x){return x.id===editingId;})[0]:null; data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM,c:(isFinite(fiC)&&fiC>0&&fiC<100)?fiC:0}:null; if(data.fi&&oldP&&oldP.fi){ if(oldP.fi.cp) data.fi.cp=oldP.fi.cp; if(oldP.fi.n) data.fi.n=oldP.fi.n; }
     if(editingId){
       positions=positions.map(function(x){
         if(x.id!==editingId) return x;
@@ -1685,7 +1702,7 @@
   }
   function lotsT(p){
     var L=(p.lots&&p.lots.length)?p.lots.map(function(l){return [l.q,l.b,l.d||""];}):0, S=p.sold?[p.sold.d,p.sold.p]:0;
-    var F=p.fi?[p.fi.r,p.fi.m||"",p.fi.c||0].concat(p.fi.cp?[p.fi.cp]:[]):0;
+    var F=p.fi?[p.fi.r,p.fi.m||"",p.fi.c||0].concat((p.fi.cp||p.fi.n)?[p.fi.cp||0,p.fi.n||0]:[]):0;
     return F?[L,S,F]:(S?[L,S]:(L?[L]:[]));
   }
   function buildPayload(pr){
@@ -2280,21 +2297,23 @@
       var y=fiYield(f.terms,x.p,x.d); if(y===null) f.noY++; else { f.w+=x.q*x.p; f.wr+=x.q*x.p*y; }
     });
     // Cupones cobrados: los del Excel; si uno se desvía más de 10% de lo que corresponde (nominal × cupón ÷ pagos por año), se usa el teórico.
-    function fiCp(f){
-      var monthly=/BONO TESORO/i.test(f.desc||"")?12:2, c=f.terms.c;
-      var mine=(P.coupons||[]).filter(function(x){return x.tk===f.tk;});
-      // Frecuencia real: con 2 o más cupones en el archivo se deduce de la separación entre fechas.
+    function fiN(f){
+      var n0=/BONO TESORO/i.test(f.desc||"")?12:2, mine=(P.coupons||[]).filter(function(x){return x.tk===f.tk;});
       if(mine.length>=2){ var ds=mine.map(function(x){return dayNum(x.d);}).sort(function(a,b){return a-b;}), gaps=[];
         for(var gi=1;gi<ds.length;gi++) gaps.push(ds[gi]-ds[gi-1]); gaps.sort(function(a,b){return a-b;});
-        var gm=gaps[Math.floor(gaps.length/2)], per=365/gm; monthly=[12,4,2,1].reduce(function(b,n){ return Math.abs(n-per)<Math.abs(b-per)?n:b; },12); }
-      return mine.map(function(x){
+        var per=365/gaps[Math.floor(gaps.length/2)]; n0=[12,4,2,1].reduce(function(b,n){ return Math.abs(n-per)<Math.abs(b-per)?n:b; },12); }
+      return n0;
+    }
+    function fiCp(f){
+      var monthly=fiN(f), c=f.terms.c;
+      return (P.coupons||[]).filter(function(x){return x.tk===f.tk;}).map(function(x){
         var a=x.a;
         if(c>0){ var nom=0; f.lots.forEach(function(l){ if(l.d<x.d) nom+=l.q; });
           var th=nom*c/100/monthly; if(th>0&&Math.abs(a-th)/th>0.1) a=Math.round(th*100)/100; }
         return [x.d,a];
       }).sort(function(a,b){return a[0]<b[0]?-1:1;});
     }
-    var fixed=Object.keys(fx).map(function(k){ var f=fx[k]; return {tk:f.tk,lots:f.lots,fi:f.w>0?{r:Math.round(f.wr/f.w*100)/100,m:f.terms.m||"",c:f.terms.c>0?f.terms.c:0,cp:fiCp(f)}:null}; });
+    var fixed=Object.keys(fx).map(function(k){ var f=fx[k]; return {tk:f.tk,lots:f.lots,fi:f.w>0?{r:Math.round(f.wr/f.w*100)/100,m:f.terms.m||"",c:f.terms.c>0?f.terms.c:0,cp:fiCp(f),n:fiN(f)}:null}; });
     var fclosed={};
     (P.fixedSold||[]).forEach(function(x){
       var key=x.tk+"|"+x.ds+"|"+x.ps, c=fclosed[key]||(fclosed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*1e6)/1e6},lots:[]});
