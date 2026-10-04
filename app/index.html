@@ -252,7 +252,6 @@
   .profbar button{border-radius:999px; font-weight:600; min-height:38px}
   #profSel{display:inline-flex; align-items:center; gap:7px; min-height:32px; padding:0 11px 0 4px; border-radius:999px; font-weight:600; font-size:13.5px; max-width:70%}
   #profSel svg{color:var(--muted); flex:0 0 auto; transition:transform .15s}
-  #profSel[aria-expanded="true"] svg{transform:rotate(180deg)}
   #profSel .pav{display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--brand); color:#fff; font-style:normal; font-size:12px; font-weight:700; flex:0 0 auto}
   .profbar button#profSel{min-height:32px}
   #profSel span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -365,10 +364,9 @@
   <div id="notice"></div>
   <div id="notice2"></div>
   <div class="profbar" id="profbar">
-    <button type="button" id="profSel" aria-haspopup="dialog" aria-label="Elegir perfil"></button>
+    <button type="button" id="profSel" aria-haspopup="dialog" aria-label="Cambiar de perfil"></button>
     <span class="tag" id="roTag" hidden>solo lectura</span>
     <span class="profinfo" id="profInfo"></span>
-    <div class="pmenu" id="pmenu" role="menu" hidden></div>
   </div>
   <div class="status" id="status" role="status" aria-live="polite">Sin actualizar todavía.</div>
   <section class="summary" id="summary" aria-label="Resumen"></section>
@@ -482,6 +480,13 @@
   </form>
 </dialog>
 
+
+<dialog id="dlgPick" class="sheet">
+  <form method="dialog" id="formPick">
+    <h3>Elegir perfil</h3>
+    <div id="pickList"></div>
+  </form>
+</dialog>
 
 <section id="dlgProf" class="scr" hidden>
   <div class="cmphdr"><button type="button" id="pfClose" aria-label="Volver">←</button><h2 id="pvTitle">Perfiles</h2></div>
@@ -812,7 +817,7 @@
     var ps=$("profSel"); ps.textContent="";
     ps.appendChild(el("i","pav",(c.name||"?").trim().charAt(0).toUpperCase()));
     ps.appendChild(el("span",null,c.name));
-    ps.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
+    ps.insertAdjacentHTML("beforeend",'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>');
     $("roTag").hidden=!c.readOnly;
     var info="";
     if(c.readOnly){
@@ -2112,30 +2117,22 @@
   $("shareNative").addEventListener("click",function(){
     try{ navigator.share({title:"Holdy",text:"Mi cartera en Holdy",url:$("shareLink").value}).catch(function(){}); }catch(e){}
   });
-  var pmenu=$("pmenu");
-  function closePmenu(){ if(pmenu.hidden) return; pmenu.classList.remove("in"); $("profSel").setAttribute("aria-expanded","false"); setTimeout(function(){ pmenu.hidden=true; },120); }
-  $("profSel").setAttribute("aria-expanded","false");
-  $("profSel").addEventListener("click",function(e){
-    e.stopPropagation();
-    if(!pmenu.hidden){ closePmenu(); return; }
-    pmenu.textContent="";
+  var dlgPick=$("dlgPick");
+  dlgPick.addEventListener("click",function(e){ if(e.target===dlgPick) dlgPick.close(); });
+  $("profSel").addEventListener("click",function(){
+    var box=$("pickList"); box.textContent="";
     profData.profiles.forEach(function(pr){
-      var b=el("button","pm-item"+(pr.id===profData.active?" on":"")); b.type="button"; b.setAttribute("role","menuitem");
-      b.appendChild(el("i","pav",(pr.name||"?").trim().charAt(0).toUpperCase()));
-      b.appendChild(el("span","pm-n",pr.name));
-      if(pr.readOnly) b.appendChild(el("small",null,"solo lectura"));
+      var b=el("button","pk-item"+(pr.id===profData.active?" on":""),pr.name); b.type="button";
+      if(pr.readOnly) b.appendChild(el("span","chip","solo lectura"));
       if(pr.id===profData.active) b.appendChild(el("span","ck","✓"));
-      b.addEventListener("click",function(){ closePmenu(); if(pr.id!==profData.active) setActive(pr.id); });
-      pmenu.appendChild(b);
+      b.addEventListener("click",function(){ dlgPick.close(); if(pr.id!==profData.active) setActive(pr.id); });
+      box.appendChild(b);
     });
-    var m=el("button","pm-item pm-adm","Administrar perfiles"); m.type="button";
-    m.addEventListener("click",function(){ closePmenu(); $("btnProfAdm").click(); });
-    pmenu.appendChild(m);
-    pmenu.hidden=false; $("profSel").setAttribute("aria-expanded","true");
-    requestAnimationFrame(function(){ pmenu.classList.add("in"); });
+    var m=el("button","pk-item","Administrar perfiles…"); m.type="button"; m.style.color="var(--muted)";
+    m.addEventListener("click",function(){ dlgPick.close(); $("btnProfAdm").click(); });
+    box.appendChild(m);
+    dlgPick.showModal();
   });
-  document.addEventListener("click",function(e){ if(!pmenu.hidden && !pmenu.contains(e.target)) closePmenu(); });
-  document.addEventListener("keydown",function(e){ if(e.key==="Escape") closePmenu(); });
   $("btnProfAdm").addEventListener("click",function(){ $("shareBox").hidden=true; renderProfList(); pvShow("list"); dlgProf.showModal(); });
   $("pfClose").addEventListener("click",function(){
     if(pvMode==="imp"){ if(ibTargetId==="new") pvShow("new"); else { var p=profData.profiles.filter(function(x){return x.id===ibTargetId;})[0]; if(p) openProfEdit(p); else pvShow("list"); } }
