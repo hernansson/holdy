@@ -2586,6 +2586,16 @@
     if(l){ if(l.syncUpdated) o.syncUpdated=l.syncUpdated; if(l.syncGone) o.syncGone=l.syncGone; }
     return o;
   }
+  // La renta fija (rendimiento, vencimiento, cupones) no se pierde al sincronizar: si la versión elegida
+  // tiene una posición sin esos datos y la otra sí, se los copia (mismo ticker y mismo broker).
+  function healFi(pick,other){
+    if(!pick||!other||!pick.positions||!other.positions) return;
+    pick.positions.forEach(function(p){
+      if(p.fi) return;
+      var q=other.positions.filter(function(x){ return x.fi && x.ticker===p.ticker && x.broker===p.broker; })[0];
+      if(q) p.fi=JSON.parse(JSON.stringify(q.fi));
+    });
+  }
   function mergeRemote(remote){
     var tomb=Object.assign({},profData.tomb||{});
     Object.keys(remote.tomb).forEach(function(k){ tomb[k]=Math.max(tomb[k]||0,remote.tomb[k]); });
@@ -2595,7 +2605,7 @@
     var hasRemote=remote.profiles.length>0, out=[];
     order.forEach(function(id){
       var e=byId[id], pick;
-      if(e.l && e.r) pick=(e.r.mod>(e.l.mod||0))?fromRemote(e.r,e.l):e.l;
+      if(e.l && e.r){ pick=(e.r.mod>(e.l.mod||0))?fromRemote(e.r,e.l):e.l; healFi(pick,pick===e.l?e.r:e.l); }
       else if(e.l){ pick=e.l; if(hasRemote && isDisposable(pick)) return; }
       else pick=fromRemote(e.r,null);
       if((tomb[id]||0)>(pick.mod||0)) return;
