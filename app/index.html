@@ -2237,7 +2237,7 @@
     });
     rea.forEach(function(r){
       if(r.ticker&&String(r["tipo movimiento"]||"")==="Cupón"){
-        var ca=+r.cupones, cc=+r.operacionventadolarccl, cd=xlDate(r.fecha);
+        var ca=+r.cupones, cc=+r.operacionventadolaroficial||+r.operacionventadolarccl, cd=xlDate(r.fecha); /* Balanz paga cupones al dólar oficial: cierra exacto con cupón × nominal */
         if(ca>0&&cc>0&&cd) out.coupons.push({tk:String(r.ticker).toUpperCase().trim(),d:cd,a:Math.round(ca/cc*100)/100});
         return;
       }
