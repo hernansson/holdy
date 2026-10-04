@@ -129,10 +129,13 @@
   @keyframes scrIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
   @keyframes scrOut{from{transform:none}to{transform:translateX(100%)}}
   @keyframes mainBack{from{opacity:.35;transform:translateX(-18px)}to{opacity:1;transform:none}}
+  @keyframes vinR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+  @keyframes vinL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+  .vin-r{animation:vinR .26s cubic-bezier(.2,.8,.2,1)} .vin-l{animation:vinL .26s cubic-bezier(.2,.8,.2,1)}
   .scr.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
   .scr.leave{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
   main.enter-back{animation:mainBack .28s cubic-bezier(.2,.8,.2,1)}
-  @media (prefers-reduced-motion:reduce){.scr.enter,main.enter-back{animation:none}.scr.leave{animation:none;display:none}}
+  @media (prefers-reduced-motion:reduce){.scr.enter,main.enter-back,.vin-r,.vin-l{animation:none}.scr.leave{animation:none;display:none}}
   .scr .cmphdr{padding:0 16px}
   .scr form{padding:8px 16px 18px}
   #cmpView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px}
@@ -1900,11 +1903,17 @@
   window.addEventListener("hashchange",handleHash);
 
   var pvMode="list", pvProf=null, ibTargetId="new";
+  var PV_DEPTH={list:0,new:1,edit:1,imp:2}, PV_ID={list:"pvList",new:"pvNew",edit:"pvEdit",imp:"pvImp"};
   function pvShow(v,pr){
-    pvMode=v; if(pr) pvProf=pr;
+    var prevM=pvMode; pvMode=v; if(pr) pvProf=pr;
     $("pvList").hidden=v!=="list"; $("pvEdit").hidden=v!=="edit"; $("pvNew").hidden=v!=="new"; $("pvImp").hidden=v!=="imp";
     $("pvTitle").textContent=v==="list"?"Perfiles":v==="new"?"Nuevo perfil":v==="imp"?"Importar operaciones":(pvProf?pvProf.name:"Perfil");
     window.scrollTo(0,0);
+    // Transición interna: hacia adentro entra desde la derecha, al volver entra desde la izquierda.
+    if(prevM&&prevM!==v&&!$("dlgProf").hidden){
+      var nd=$(PV_ID[v]); nd.classList.remove("vin-r","vin-l"); void nd.offsetWidth;
+      nd.classList.add(PV_DEPTH[v]>=PV_DEPTH[prevM]?"vin-r":"vin-l");
+    }
   }
   function renderProfList(){
     var box=$("profList"); box.textContent="";
