@@ -1237,13 +1237,16 @@
       var p=it.p, h=hist[p.ticker], lastPx=(h&&h.pts.length)?h.pts[h.pts.length-1][1]:null;
       if(p.fi&&!it.closed&&typeof fiPrice==="function") lastPx=fiPrice(p);
       if(it.closed){
-        var pct=(p.sold.p-p.buy)/p.buy; rows.push({tk:p.ticker,pct:pct,closed:true,gain:(p.sold.p-p.buy)*p.qty}); closedN++; if(pct>0) wins++;
+        var pct=(p.sold.p-p.buy)/p.buy; rows.push({tk:p.ticker,pct:pct,closed:true,gain:(p.sold.p-p.buy)*p.qty,cost:p.buy*p.qty}); closedN++; if(pct>0) wins++;
       } else if(lastPx!==null){
-        var pc=(lastPx-p.buy)/p.buy, val=lastPx*p.qty; rows.push({tk:p.ticker,pct:pc,closed:false,gain:(lastPx-p.buy)*p.qty}); openVal+=val; vals.push(val);
+        var pc=(lastPx-p.buy)/p.buy, val=lastPx*p.qty; rows.push({tk:p.ticker,pct:pc,closed:false,gain:(lastPx-p.buy)*p.qty,cost:p.buy*p.qty}); openVal+=val; vals.push(val);
       }
     });
+    var tc=0; rows.forEach(function(r){ tc+=r.cost; });
+    rows.forEach(function(r){ r.contrib=tc>0?r.gain/tc*100:0; });
+    var byC=rows.slice().sort(function(a,b){return b.contrib-a.contrib;});
     rows.sort(function(a,b){return b.pct-a.pct;});
-    return {rows:rows,best:rows[0]||null,worst:rows.length?rows[rows.length-1]:null,closedN:closedN,wins:wins,
+    return {rows:rows,topC:byC[0]||null,botC:byC.length?byC[byC.length-1]:null,best:rows[0]||null,worst:rows.length?rows[rows.length-1]:null,closedN:closedN,wins:wins,
       openN:vals.length,maxWeight:openVal>0?Math.max.apply(null,vals)/openVal:null};
   }
   // </cmp-core>
@@ -1350,8 +1353,9 @@
     function tr(k,f){ var r=document.createElement("tr"); r.appendChild(el("th",null,k)); real.forEach(function(x){ r.appendChild(el("td",null,f(x.stats))); }); tb_.appendChild(r); }
     var h=document.createElement("tr"); h.appendChild(el("th",null,"Desde la compra")); real.forEach(function(x){ h.appendChild(el("th",null,x.name)); }); tb_.appendChild(h);
     function pos(x){ return x?x.tk+" "+fmtPct(x.pct):"—"; }
-    tr("Mejor posición",function(s){ return pos(s.best); });
-    tr("Peor posición",function(s){ return pos(s.worst); });
+    function posC(x){ return x?x.tk+" "+fmtPct(x.contrib/100):"—"; }
+    tr("Más aportó a la cartera",function(s){ return posC(s.topC); });
+    tr("Menos aportó",function(s){ return posC(s.botC); });
     tr("Ventas ganadoras",function(s){ return s.closedN?s.wins+" de "+s.closedN:"—"; });
     tr("Posiciones activas",function(s){ return String(s.openN); });
     tr("Mayor peso",function(s){ return s.maxWeight===null?"—":(s.maxWeight*100).toFixed(0)+"%"; });
@@ -1409,8 +1413,8 @@
       var real=E[0].x.spy?E[1]:E[0], spyE=E[0].x.spy?E[0]:E[1], dm=real.t-spyE.t;
       $("cmpVerd").textContent=(dm>=0?real.n+" le gana al S&P 500 por "+diff+" puntos: ":real.n+" queda por debajo del S&P 500 por "+diff+" puntos: ")+pctTxt(real.t)+" contra "+pctTxt(spyE.t)+".";
       var s=real.x.stats;
-      if(s.best) why.push("Lo mejor de "+real.n+" desde la compra: "+s.best.tk+" ("+fmtPct(s.best.pct)+(s.best.closed?", ya vendida":"")+").");
-      if(s.worst&&s.rows.length>1) why.push((s.worst.pct<0?"Lo que más le pesó: ":"Lo que menos rindió: ")+s.worst.tk+" ("+fmtPct(s.worst.pct)+(s.worst.closed?", ya vendida":"")+").");
+      if(s.topC) why.push("Lo que más aportó: "+s.topC.tk+" ("+fmtPct(s.topC.contrib/100)+" a tu cartera; la acción rindió "+fmtPct(s.topC.pct)+(s.topC.closed?", ya vendida":"")+").");
+      if(s.botC&&s.rows.length>1) why.push((s.botC.contrib<0?"Lo que más le restó: ":"Lo que menos aportó: ")+s.botC.tk+" ("+fmtPct(s.botC.contrib/100)+" a tu cartera; la acción rindió "+fmtPct(s.botC.pct)+(s.botC.closed?", ya vendida":"")+").");
       if(s.closedN) why.push("Operaciones cerradas: "+s.wins+" de "+s.closedN+" ganadoras.");
     } else {
       $("cmpVerd").textContent=w.n+" rinde "+diff+" puntos más en este período: "+pctTxt(w.t)+" contra "+pctTxt(o.t)+".";
@@ -1419,8 +1423,8 @@
         var dl=o.t-tm; why.push(o.n+(dl>=0?" también supera al mercado por ":" queda por debajo del mercado por ")+Math.abs(dl).toFixed(1).replace(".",",")+" puntos.");
       }
       var ws=w.x.stats, os=o.x.stats;
-      if(ws.best) why.push("Lo mejor de "+w.n+" desde la compra: "+ws.best.tk+" ("+fmtPct(ws.best.pct)+(ws.best.closed?", ya vendida":"")+").");
-      if(os.worst && os.rows.length>1) why.push((os.worst.pct<0?"Lo que más le pesó a ":"Lo que menos rindió de ")+o.n+": "+os.worst.tk+" ("+fmtPct(os.worst.pct)+(os.worst.closed?", ya vendida":"")+").");
+      if(ws.topC) why.push("Lo que más aportó a "+w.n+": "+ws.topC.tk+" ("+fmtPct(ws.topC.contrib/100)+" a su cartera; la acción rindió "+fmtPct(ws.topC.pct)+(ws.topC.closed?", ya vendida":"")+").");
+      if(os.botC && os.rows.length>1) why.push((os.botC.contrib<0?"Lo que más le restó a ":"Lo que menos aportó a ")+o.n+": "+os.botC.tk+" ("+fmtPct(os.botC.contrib/100)+" a su cartera; la acción rindió "+fmtPct(os.botC.pct)+(os.botC.closed?", ya vendida":"")+").");
       if(ws.closedN||os.closedN) why.push("Operaciones cerradas: "+w.n+" "+ws.wins+" de "+ws.closedN+" ganadoras; "+o.n+" "+os.wins+" de "+os.closedN+".");
     }
     var wb=$("cmpWhy"); wb.textContent="";
