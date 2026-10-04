@@ -283,7 +283,7 @@
     <div class="help" style="font-size:14px;color:var(--muted)">¿La vendiste? Si cargás la fecha y el precio de venta, la guardamos en “Vendidas” y se usa para calcular tu rendimiento.</div>
     <div class="two">
       <label>Fecha de venta
-        <input id="sellDate" type="date">
+        <input id="sellDate" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off">
       </label>
       <label>Precio de venta
         <input id="sellPrice" type="number" inputmode="decimal" step="any" min="0" placeholder="0.00">
@@ -818,6 +818,21 @@
   function syncSource(){ $("fManualWrap").hidden=($("fSource").value!=="manual"); }
   $("fSource").addEventListener("change",syncSource);
 
+  // Fechas como texto dd/mm/aaaa (el selector nativo no abre en algunos celulares).
+  function toISO(v){
+    var m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v||"").trim()); if(!m) return null;
+    var d=+m[1], mo=+m[2], y=+m[3], dt=new Date(Date.UTC(y,mo-1,d));
+    if(dt.getUTCFullYear()!==y||dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d||y<1990) return null;
+    var iso=dt.toISOString().slice(0,10); return iso>todayStr()?null:iso;
+  }
+  function fromISO(iso){ return iso?String(iso).split("-").reverse().join("/"):""; }
+  function maskDate(inp){
+    inp.addEventListener("input",function(){
+      var d=inp.value.replace(/\D/g,"").slice(0,8), o=d;
+      if(d.length>4) o=d.slice(0,2)+"/"+d.slice(2,4)+"/"+d.slice(4); else if(d.length>2) o=d.slice(0,2)+"/"+d.slice(2);
+      if(o!==inp.value) inp.value=o;
+    });
+  }
   var lotsBox=$("lotsBox");
   function addLotRow(l){
     var r=document.createElement("div"); r.className="lotrow";
@@ -831,13 +846,13 @@
     var ib=document.createElement("input"); ib.className="lb"; ib.type="number"; ib.inputMode="decimal"; ib.step="any"; ib.min="0"; ib.required=true; ib.placeholder="170.50"; ib.value=l.b===""||l.b==null?"":l.b; b.appendChild(ib);
     two.appendChild(a); two.appendChild(b); r.appendChild(two);
     var dl=document.createElement("label"); dl.appendChild(document.createTextNode("Fecha de compra (opcional)"));
-    var id=document.createElement("input"); id.className="ld"; id.type="date"; id.value=l.d||""; dl.appendChild(id); r.appendChild(dl);
+    var id=document.createElement("input"); id.className="ld"; id.type="text"; id.inputMode="numeric"; id.maxLength=10; id.placeholder="dd/mm/aaaa"; id.autocomplete="off"; id.value=fromISO(l.d); maskDate(id); dl.appendChild(id); r.appendChild(dl);
     r.addEventListener("input",refreshLots);
     lotsBox.appendChild(r);
   }
   function readLots(){
     return [].slice.call(lotsBox.querySelectorAll(".lotrow")).map(function(r){
-      return {q:parseFloat(r.querySelector(".lq").value), b:parseFloat(r.querySelector(".lb").value), d:r.querySelector(".ld").value||""};
+      return {q:parseFloat(r.querySelector(".lq").value), b:parseFloat(r.querySelector(".lb").value), d:(function(v){ v=v.trim(); if(!v) return ""; return toISO(v)||"?"; })(r.querySelector(".ld").value)};
     });
   }
   function refreshLots(){
@@ -879,6 +894,7 @@
     if(!ticker){ alert("Falta el ticker."); return; }
     if(source==="auto" && !/^[A-Z0-9.\-]{1,12}$/.test(ticker)){ alert("El ticker solo puede tener letras, números, punto o guion (máx. 12)."); return; }
     for(var li=0;li<lots.length;li++){
+      if(lots[li].d==="?"){ alert("La fecha no es válida. Escribila como dd/mm/aaaa (por ejemplo 12/03/2026) y que no sea futura."); return; }
       if(!(lots[li].q>0)){ alert("La cantidad tiene que ser mayor a 0."); return; }
       if(!(lots[li].b>0)){ alert("El precio de compra tiene que ser mayor a 0."); return; }
     }
@@ -908,13 +924,14 @@
 
   // ---------- Venta / eliminación ----------
   var dlgSell=$("dlgSell"), sellingId=null;
+  maskDate($("sellDate"));
   dlgSell.addEventListener("click",function(e){ if(e.target===dlgSell) dlgSell.close(); });
   function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
   function openSell(p){
     if(isRO()) return;
     sellingId=p.id;
     $("sellTitle").textContent="Eliminar "+p.ticker;
-    $("sellDate").value=todayStr(); $("sellDate").max=todayStr();
+    $("sellDate").value=fromISO(todayStr());
     var cp=currentPrice(p); $("sellPrice").value=cp!==null?(Math.round(cp*10000)/10000):"";
     dlgSell.showModal();
   }
@@ -927,8 +944,8 @@
   $("formSell").addEventListener("submit",function(ev){
     ev.preventDefault();
     var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p||isRO()) return;
-    var d=$("sellDate").value, sp=parseFloat($("sellPrice").value);
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Poné la fecha de venta."); return; }
+    var d=toISO($("sellDate").value)||"", sp=parseFloat($("sellPrice").value);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Poné la fecha de venta como dd/mm/aaaa (no puede ser futura)."); return; }
     if(!(sp>0)){ alert("Poné el precio de venta."); return; }
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
     pr.closed.push(Object.assign({},p,{sold:{d:d,p:sp}}));
