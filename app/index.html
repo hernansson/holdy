@@ -1719,15 +1719,17 @@
     var T=todayStr(), base=dayNum(T);
     function ago(n){ return dayStr(base-n); }
     var plan=[
-      {tk:"NVDA",lots:[[250,8],[120,5]]},
-      {tk:"MSFT",lots:[[200,6]]},
-      {tk:"KO",lots:[[230,20]]},
-      {tk:"AMZN",lots:[[90,8]]},
-      {tk:"TSLA",lots:[[240,10]],sold:90},
-      {tk:"AAPL",lots:[[180,12]],sold:60}
+      {tk:"NVDA",lots:[[960,6],[520,4],[140,5]]},
+      {tk:"MSFT",lots:[[900,6],[330,3]]},
+      {tk:"KO",lots:[[930,20]]},
+      {tk:"AMZN",lots:[[420,8]]},
+      {tk:"TSLA",lots:[[880,10]],sold:480},
+      {tk:"AAPL",lots:[[760,12]],sold:200},
+      {tk:"GOOGL",lots:[[300,8]]}
     ];
+
     btn.disabled=true; say("Armando el ejemplo…");
-    fetch(SYNC_BASE+"/history?symbols="+plan.map(function(x){return x.tk;}).join(",")+"&from="+ago(280),{cache:"no-store"})
+    fetch(SYNC_BASE+"/history?symbols="+plan.map(function(x){return x.tk;}).join(",")+"&from="+ago(1000),{cache:"no-store"})
       .then(function(r){ if(!r.ok) throw new Error("http"); return r.json(); })
       .then(function(j){
         function closeOn(tk,iso){
