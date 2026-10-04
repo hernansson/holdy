@@ -78,8 +78,10 @@ export default {
       }
     }
 
-    // Respaldo: Yahoo Finance. Sin punto se prueba la bolsa de Londres (.L), donde cotizan VUAA y EQAC en dólares.
-    const candidates = symbol.includes(".") ? [symbol] : [symbol + ".L"];
+    // Respaldo: Yahoo Finance. Sin punto se prueba la bolsa de Londres (.L) y la suiza (.SW); VUAA cotiza en Londres y EQAC en Suiza, ambos en dólares.
+    // EQAC (EQQQ Nasdaq-100 Acc en dólares) cotiza en la bolsa suiza (.SW), no en Londres.
+    const ALIAS = { EQAC: "EQAC.SW" };
+    const candidates = symbol.includes(".") ? [symbol] : (ALIAS[symbol] ? [ALIAS[symbol]] : [symbol + ".L", symbol + ".SW"]);
     for (const c of candidates) {
       const q = await yahooQuote(c);
       if (q) return store(q);
