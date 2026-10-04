@@ -833,27 +833,26 @@
       var pl=g.value-costPriced+(g.inc||0), pct=costPriced>0?pl/costPriced:null;
 
       var card=el("div","sum-card");
-      var npos=positions.filter(function(p){return p.ccy===ccy;}).length;
+      var npos=positions.filter(function(p){return p.ccy===ccy;}).length, inc=g.inc||0;
       card.appendChild(el("h2",null,"Hoy tenés · "+npos+(npos===1?" posición":" posiciones")));
-      card.appendChild(el("div","big",mR(g.value,ccy)));
+      card.appendChild(el("div","big",mR(g.value+inc,ccy)));
       if(g.dayN){
         var dpc=g.dayBase>0?g.day/g.dayBase:null;
         var dl=el("div","day-line "+cls(g.day)); dl.appendChild(el("span",null,"Hoy "+mRs(g.day,ccy)+" · "+fmtPct(dpc))); card.appendChild(dl);
       }
       if(costPriced>0){
-        var diff=g.value-costPriced, inc=g.inc||0, rc=el("div","recibo");
+        var diff=g.value-costPriced, tot=g.value+inc-costPriced, rc=el("div","recibo");
         function rrow(lbl,val,c,strong,sub){
           var r=el("div","rrow"+(strong?" strong":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
           r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
         }
-        rrow("Pusiste",mR(costPriced,ccy),"",false,"lo que invertiste");
-        rrow(inc>0?"Diferencia de precio":"Ganancia",mRs(diff,ccy)+" · "+fmtPct(diff/costPriced),cls(diff),inc<=0,"lo que valen hoy menos lo que pusiste");
         if(inc>0){
-          rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"plata de bonos y ON que ya cobraste");
-          rrow("Ganancia total",mRs(pl,ccy)+" · "+fmtPct(pct),cls(pl),true,"diferencia + cupones");
+          rrow("En inversiones",mR(g.value,ccy),"",false,"lo que valen hoy tus posiciones");
+          rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"plata que ya cobraste, sin invertir");
         }
+        rrow("Pusiste",mR(costPriced,ccy),"",false,"lo que invertiste");
+        rrow("Ganancia",mRs(tot,ccy)+" · "+fmtPct(tot/costPriced),cls(tot),true,inc>0?("precio "+mRs(diff,ccy)+" · cupones +"+mR(inc,ccy)):"lo que tenés hoy menos lo que pusiste");
         card.appendChild(rc);
-        if(inc>0) card.appendChild(el("div","k rnote","Los cupones ya los cobraste, por eso no están dentro de lo que tenés hoy. Sumados a lo que tenés hoy: "+mR(g.value+inc,ccy)+"."));
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
       box.appendChild(card);
