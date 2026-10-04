@@ -2282,7 +2282,12 @@
     // Cupones cobrados: los del Excel; si uno se desvía más de 10% de lo que corresponde (nominal × cupón ÷ pagos por año), se usa el teórico.
     function fiCp(f){
       var monthly=/BONO TESORO/i.test(f.desc||"")?12:2, c=f.terms.c;
-      return (P.coupons||[]).filter(function(x){return x.tk===f.tk;}).map(function(x){
+      var mine=(P.coupons||[]).filter(function(x){return x.tk===f.tk;});
+      // Frecuencia real: con 2 o más cupones en el archivo se deduce de la separación entre fechas.
+      if(mine.length>=2){ var ds=mine.map(function(x){return dayNum(x.d);}).sort(function(a,b){return a-b;}), gaps=[];
+        for(var gi=1;gi<ds.length;gi++) gaps.push(ds[gi]-ds[gi-1]); gaps.sort(function(a,b){return a-b;});
+        var gm=gaps[Math.floor(gaps.length/2)], per=365/gm; monthly=[12,4,2,1].reduce(function(b,n){ return Math.abs(n-per)<Math.abs(b-per)?n:b; },12); }
+      return mine.map(function(x){
         var a=x.a;
         if(c>0){ var nom=0; f.lots.forEach(function(l){ if(l.d<x.d) nom+=l.q; });
           var th=nom*c/100/monthly; if(th>0&&Math.abs(a-th)/th>0.1) a=Math.round(th*100)/100; }
