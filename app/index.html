@@ -1180,18 +1180,19 @@
   function dayStr(n){ return new Date(n*86400000).toISOString().slice(0,10); }
   // Movimientos (compras y ventas con fecha) de un perfil. Solo USD y con fecha de compra.
   function cmpEvents(pr){
-    var ev=[], used=0, skipped=0, items=[];
+    var ev=[], used=0, skipped=0, items=[], fis={};
     function lotsOf(p){ return (p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}]; }
     function add(p,closed){
       var ls=lotsOf(p);
-      if(p.fi || p.ccy!=="USD" || ls.some(function(l){return !l.d;}) || (closed && !p.sold)){ skipped++; return; }
-      ls.forEach(function(l){ ev.push({d:l.d,tk:p.ticker,q:l.q,p:l.b,t:"b"}); });
-      if(closed) ev.push({d:p.sold.d,tk:p.ticker,q:p.qty,p:p.sold.p,t:"s"});
+      if(p.ccy!=="USD" || ls.some(function(l){return !l.d;}) || (closed && !p.sold)){ skipped++; return; }
+      var key=p.ticker; if(p.fi){ key="FI:"+p.ticker+":"+p.fi.r+":"+(p.fi.m||""); fis[key]={r:p.fi.r,m:p.fi.m||""}; }
+      ls.forEach(function(l){ ev.push({d:l.d,tk:key,q:l.q,p:l.b,t:"b"}); });
+      if(closed) ev.push({d:p.sold.d,tk:key,q:p.qty,p:p.sold.p,t:"s"});
       used++; items.push({p:p,closed:closed});
     }
     (pr.positions||[]).forEach(function(p){ add(p,false); });
     (pr.closed||[]).forEach(function(p){ add(p,true); });
-    return {ev:ev,used:used,skipped:skipped,items:items};
+    return {ev:ev,used:used,skipped:skipped,items:items,fis:fis};
   }
   // Curva de rendimiento ponderado por tiempo (en %), con "efectivo virtual": lo que cobrás de una venta
   // se usa primero para pagar compras; solo lo que falta cuenta como plata nueva.
@@ -1234,6 +1235,7 @@
     var rows=[], wins=0, closedN=0, openVal=0, vals=[];
     items.forEach(function(it){
       var p=it.p, h=hist[p.ticker], lastPx=(h&&h.pts.length)?h.pts[h.pts.length-1][1]:null;
+      if(p.fi&&!it.closed&&typeof fiPrice==="function") lastPx=fiPrice(p);
       if(it.closed){
         var pct=(p.sold.p-p.buy)/p.buy; rows.push({tk:p.ticker,pct:pct,closed:true,gain:(p.sold.p-p.buy)*p.qty}); closedN++; if(pct>0) wins++;
       } else if(lastPx!==null){
@@ -1297,7 +1299,8 @@
       return;
     }
     var from="9999-99-99", tks={SPY:1};
-    ents.forEach(function(x){ if(!x.spy) x.e.ev.forEach(function(e){ if(e.d<from) from=e.d; tks[e.tk]=1; }); });
+    var fiMap={};
+    ents.forEach(function(x){ if(!x.spy){ Object.keys(x.e.fis).forEach(function(k){ fiMap[k]=x.e.fis[k]; }); x.e.ev.forEach(function(e){ if(e.d<from) from=e.d; if(e.tk.indexOf("FI:")!==0) tks[e.tk]=1; }); } });
     var list=Object.keys(tks);
     if(list.length>20){ st.textContent="Son demasiadas acciones distintas para comparar (máximo 19)."; return; }
     if(!navigator.onLine){ st.textContent="Necesito conexión para traer los precios históricos."; return; }
@@ -1308,6 +1311,15 @@
         if(my!==cmpRun) return;
         var hist={}, missing=[];
         Object.keys(j.data||{}).forEach(function(tk){ var h=j.data[tk]; if(h&&h.currency==="USD"&&Array.isArray(h.pts)&&h.pts.length>1) hist[tk]=h; else if(tk!=="SPY") missing.push(tk); });
+        // Renta fija: curva sintética que crece a su rendimiento anual (con cupones incluidos), hasta el vencimiento.
+        var tnn=dayNum(todayStr());
+        Object.keys(fiMap).forEach(function(k){
+          var d0=Infinity; ents.forEach(function(x){ if(!x.spy) x.e.ev.forEach(function(e){ if(e.tk===k){ var n=dayNum(e.d); if(n<d0) d0=n; } }); });
+          if(!isFinite(d0)) return;
+          var f=fiMap[k], cap=f.m?dayNum(f.m):1e9, pts=[];
+          for(var dd=d0; dd<=tnn; dd++){ var v=Math.round(100*Math.pow(1+f.r/100,(Math.min(dd,cap)-d0)/365)*1e6)/1e6; pts.push([dayStr(dd),v,v]); }
+          if(pts.length>1) hist[k]={currency:"USD",pts:pts};
+        });
         buildCompare(ents,hist,missing);
       }).catch(function(e){ try{ console.error("holdy-cmp",e); }catch(x){} if(my===cmpRun) st.textContent="No se pudieron traer los precios históricos. Probá de nuevo en un rato."; });
   }
@@ -1325,8 +1337,9 @@
     ents.forEach(function(x){ if(x.spy) x.pxs=sp; });
     cmpData={ents:ents,sp:sp,csMin:csMin,csMax:csMax,tn:tn};
     var real=ents.filter(function(x){return !x.spy;});
-    var TR=Object.keys(hist).some(function(tk){ return hist[tk].pts[0].length>2; });
-    st.textContent="Rendimiento ponderado por tiempo"+(TR?", con dividendos reinvertidos":"")+": no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"");
+    var hasFi=real.some(function(x){ return Object.keys(x.e.fis).length>0; });
+    var TR=Object.keys(hist).some(function(tk){ return tk.indexOf("FI:")!==0 && hist[tk].pts[0].length>2; });
+    st.textContent="Rendimiento ponderado por tiempo"+(TR?", con dividendos reinvertidos":"")+": no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"")+(hasFi?" La renta fija entra con su rendimiento estimado.":"");
     if(csMax>csMin) body.appendChild(el("div","cmpchips")).id="cmpStartChips";
     body.appendChild(el("div","cmpchips")).id="cmpChips";
     var leg=el("div","cmpleg"); leg.id="cmpLeg"; body.appendChild(leg);
@@ -1343,7 +1356,7 @@
     tr("Posiciones activas",function(s){ return String(s.openN); });
     tr("Mayor peso",function(s){ return s.maxWeight===null?"—":(s.maxWeight*100).toFixed(0)+"%"; });
     body.appendChild(tb_);
-    var sk=[]; real.forEach(function(x){ if(x.e.skipped) sk.push(x.name+": "+x.e.skipped+" sin fecha de compra, en otra moneda o de renta fija"); });
+    var sk=[]; real.forEach(function(x){ if(x.e.skipped) sk.push(x.name+": "+x.e.skipped+" sin fecha de compra o en otra moneda"); });
     if(sk.length) body.appendChild(el("div","cmpnote","No entran en la comparación → "+sk.join(" · ")+". Cargá la fecha de compra para sumarlas."+(TR?" Los rendimientos incluyen dividendos reinvertidos.":" No se tienen en cuenta dividendos.")));
     drawCmp();
   }
@@ -2125,6 +2138,10 @@
     (P.fixedSold||[]).forEach(function(x){
       var key=x.tk+"|"+x.ds+"|"+x.ps, c=fclosed[key]||(fclosed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*1e6)/1e6},lots:[]});
       c.lots.push({q:x.q,b:Math.round(x.pb*1e6)/1e6,d:x.db});
+      if(!c.fi){
+        var dd=dayNum(x.ds)-dayNum(x.db), rr=(dd>=3&&x.pb>0&&x.ps>0)?(Math.pow(x.ps/x.pb,365/dd)-1)*100:0;
+        c.fi={r:Math.round(Math.max(-90,Math.min(150,rr))*100)/100,m:""};
+      }
     });
     return {open:Object.keys(open).map(function(tk){ return {tk:tk,lots:open[tk]}; }),closed:Object.keys(closed).map(function(k){ return closed[k]; }),
       fixed:fixed,fixedClosed:Object.keys(fclosed).map(function(k){ return fclosed[k]; }),noHist:Object.keys(noHist),ok:ok};
@@ -2179,7 +2196,7 @@
           B.open.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c) pos.push(c); });
           B.closed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c&&c.sold) closed.push(c); });
           B.fixed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,fi:x.fi,source:"auto",note:"Importado de Balanz. Renta fija: rendimiento estimado con la tasa y el vencimiento de la descripción; revisalo."},false); if(c) pos.push(c); });
-          B.fixedClosed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de Balanz"},false); if(c&&c.sold) closed.push(c); });
+          B.fixedClosed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,fi:x.fi,source:"auto",note:"Importado de Balanz"},false); if(c&&c.sold) closed.push(c); });
           var nfx=B.fixed.length, nofi=B.fixed.filter(function(x){return !x.fi;}).map(function(x){return x.tk;});
           var extra=nfx?" Incluí "+nfx+" bonos/ONs como renta fija con rendimiento estimado"+(nofi.length?" (sin tasa para estimar: "+nofi.join(", ")+")":"")+".":"";
           var sk=Object.keys(P.skipped);
