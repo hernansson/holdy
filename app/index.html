@@ -70,6 +70,11 @@
   .row-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px 10px; margin-top:10px}
   .row-actions{display:flex; gap:8px; margin-top:10px}
   .row-actions button{padding:6px 12px; min-height:34px; font-size:13px}
+  details.sold{margin-top:14px}
+  details.sold>summary{cursor:pointer;color:var(--muted);font-size:14px;padding:6px 2px}
+  .soldrow{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 2px;border-top:1px solid var(--line);font-size:14px;flex-wrap:wrap}
+  .soldrow .k{font-size:12px}
+  .soldrow button{min-height:32px;padding:4px 10px;font-size:13px}
   .lotrow{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:8px}
   .lothead{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600}
   .lothead button{min-height:32px;padding:4px 10px;font-size:13px}
@@ -197,6 +202,7 @@
     <button type="button" id="btnHide" aria-pressed="false">Ocultar montos</button>
   </div>
   <section class="list" id="list" aria-label="Posiciones"></section>
+  <div id="soldBox"></div>
 </main>
 
 <button class="primary fab" id="btnAdd">+ Posición</button>
@@ -240,6 +246,26 @@
     <div class="btns">
       <button type="button" id="posCancel">Cancelar</button>
       <button type="submit" class="primary" id="posSave">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgSell" class="sheet">
+  <form method="dialog" id="formSell">
+    <h3 id="sellTitle">Eliminar posición</h3>
+    <div class="help" style="font-size:14px;color:var(--muted)">¿La vendiste? Si cargás la fecha y el precio de venta, la guardamos en “Vendidas” y se usa para calcular tu rendimiento.</div>
+    <div class="two">
+      <label>Fecha de venta
+        <input id="sellDate" type="date">
+      </label>
+      <label>Precio de venta
+        <input id="sellPrice" type="number" inputmode="decimal" step="any" min="0" placeholder="0.00">
+      </label>
+    </div>
+    <div class="btns">
+      <button type="button" id="sellCancel">Cancelar</button>
+      <button type="button" id="sellJustDelete" class="danger">Solo eliminar</button>
+      <button type="submit" class="primary">Registrar venta</button>
     </div>
   </form>
 </dialog>
@@ -368,18 +394,21 @@
       qty=tq; buy=tc/tq;
       if(lots.length<2 && !lots[0].d) lots=[];
     }
+    var so=null;
+    if(p.sold){ var sd=String(p.sold.d!==undefined?p.sold.d:p.sold[0]||""), sp=+(p.sold.p!==undefined?p.sold.p:p.sold[1]);
+      if(/^\d{4}-\d{2}-\d{2}$/.test(sd)&&isFinite(sp)&&sp>0) so={d:sd,p:sp}; }
     if(!isFinite(qty)||!isFinite(buy)||!(qty>0)||!(buy>0)) return null;
     var mp=+p.manualPrice; if(!isFinite(mp)||mp<0) mp=0;
     var src=p.source==="manual"?"manual":"auto";
     if(src==="manual" && !(mp>0)) src="auto";
     return { id:rid()+Math.random().toString(36).slice(2,4), broker:p.broker==="Balanz"?"Balanz":"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
-      ticker:t, qty:qty, buy:buy, lots:lots, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
+      ticker:t, qty:qty, buy:buy, lots:lots, sold:so, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
       note:String(p.note||"").replace(/[\u0000-\u001f]/g," ").slice(0,200) };
   }
   function initProfiles(){
     var d=load(LS_PROF,null);
     if(d && Array.isArray(d.profiles) && d.profiles.length){
-      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.name=cleanName(pr.name)||"Perfil"; });
+      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.closed=(Array.isArray(pr.closed)?pr.closed:[]).map(function(c){return cleanPos(c,false);}).filter(function(c){return c&&c.sold;}); pr.name=cleanName(pr.name)||"Perfil"; });
       if(!d.profiles.some(function(x){return x.id===d.active;})) d.active=d.profiles[0].id;
       if(!d.tomb || typeof d.tomb!=="object") d.tomb={};
       return d;
@@ -498,6 +527,7 @@
     renderAcctNotice();
     renderSummary();
     renderList();
+    renderSold();
     renderStatus();
   }
 
@@ -690,7 +720,7 @@
           acts.appendChild(bm);
         }
         var bd=el("button","danger","Eliminar"); bd.type="button"; bd.addEventListener("click",function(){
-          if(confirm("¿Eliminar "+p.ticker+" ("+p.broker+")?")){ positions=positions.filter(function(x){return x.id!==p.id;}); saveProfiles(); render(); }
+          openSell(p);
         });
         acts.appendChild(bd);
         body.appendChild(acts);
@@ -848,12 +878,66 @@
     if(source==="auto") refresh(true);
   });
 
+  // ---------- Venta / eliminación ----------
+  var dlgSell=$("dlgSell"), sellingId=null;
+  dlgSell.addEventListener("click",function(e){ if(e.target===dlgSell) dlgSell.close(); });
+  function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+  function openSell(p){
+    if(isRO()) return;
+    sellingId=p.id;
+    $("sellTitle").textContent="Eliminar "+p.ticker;
+    $("sellDate").value=todayStr(); $("sellDate").max=todayStr();
+    var cp=currentPrice(p); $("sellPrice").value=cp!==null?(Math.round(cp*10000)/10000):"";
+    dlgSell.showModal();
+  }
+  $("sellCancel").addEventListener("click",function(){ dlgSell.close(); });
+  $("sellJustDelete").addEventListener("click",function(){
+    var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p) return;
+    if(!confirm("¿Eliminar "+p.ticker+" sin registrar la venta? No se va a tener en cuenta para el rendimiento.")) return;
+    positions=positions.filter(function(x){return x.id!==sellingId;}); saveProfiles(); dlgSell.close(); render();
+  });
+  $("formSell").addEventListener("submit",function(ev){
+    ev.preventDefault();
+    var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p||isRO()) return;
+    var d=$("sellDate").value, sp=parseFloat($("sellPrice").value);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Poné la fecha de venta."); return; }
+    if(!(sp>0)){ alert("Poné el precio de venta."); return; }
+    var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
+    pr.closed.push(Object.assign({},p,{sold:{d:d,p:sp}}));
+    positions=positions.filter(function(x){return x.id!==sellingId;});
+    saveProfiles(); dlgSell.close(); render();
+  });
+  function renderSold(){
+    var box=$("soldBox"); box.textContent="";
+    var cl=cur().closed||[]; if(!cl.length) return;
+    var det=document.createElement("details"); det.className="sold";
+    det.appendChild(el("summary",null,"Vendidas ("+cl.length+")"));
+    cl.slice().sort(function(a,b){return a.sold.d<b.sold.d?1:-1;}).forEach(function(c){
+      var pct=(c.sold.p-c.buy)/c.buy;
+      var row=el("div","soldrow");
+      var l=el("div"); l.appendChild(el("div","v",c.ticker));
+      l.appendChild(el("div","k",qq(c.qty)+" × "+mm(c.buy,c.ccy)+" → "+mm(c.sold.p,c.ccy)+" · "+c.sold.d.split("-").reverse().join("/")));
+      row.appendChild(l);
+      row.appendChild(el("div","v "+cls(pct),arrow(pct)+fmtPct(pct)));
+      if(!isRO()){
+        var bd=el("button","danger","Eliminar"); bd.type="button";
+        bd.addEventListener("click",function(){
+          if(!confirm("¿Borrar "+c.ticker+" de las vendidas? Deja de contar para el rendimiento.")) return;
+          cur().closed=cur().closed.filter(function(x){return x.id!==c.id;}); saveProfiles(); render();
+        });
+        row.appendChild(bd);
+      }
+      det.appendChild(row);
+    });
+    box.appendChild(det);
+  }
+
   // ---------- Ajustes ----------
   function openSettings(){ renderAccount(); mountGoogleButton(); dlgSet.showModal(); }
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
   $("sClose").addEventListener("click",function(){ dlgSet.close(); });
   function doExport(){
-    var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions}; })},null,2)],{type:"application/json"});
+    var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions,closed:x.closed||[]}; })},null,2)],{type:"application/json"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download="holdy-"+new Date().toISOString().slice(0,10)+".json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
@@ -871,7 +955,8 @@
         if(j && Array.isArray(j.profiles)){
           profs=j.profiles.slice(0,20).map(function(x){
             var ps=(Array.isArray(x.positions)?x.positions:[]).slice(0,300).map(function(p){return cleanPos(p,false);}).filter(Boolean);
-            return {id:okId(x.id)?String(x.id):rid(),name:cleanName(x.name)||"Perfil",positions:ps,readOnly:!!x.readOnly,
+            var cl=(Array.isArray(x.closed)?x.closed:[]).slice(0,300).map(function(p){return cleanPos(p,false);}).filter(function(c){return c&&c.sold;});
+            return {id:okId(x.id)?String(x.id):rid(),name:cleanName(x.name)||"Perfil",positions:ps,closed:cl,readOnly:!!x.readOnly,
               owner:cleanName(x.owner),sharedAt:+x.sharedAt||0,shareKey:okId(x.shareKey)?x.shareKey:undefined,shareId:okId(x.shareId)?x.shareId:undefined};
           });
         } else {
@@ -944,7 +1029,10 @@
     }
     return p.then(function(u){ return JSON.parse(new TextDecoder().decode(u)); });
   }
-  function lotsT(p){ return (p.lots&&p.lots.length)?[p.lots.map(function(l){return [l.q,l.b,l.d||""];})]:[]; }
+  function lotsT(p){
+    var L=(p.lots&&p.lots.length)?p.lots.map(function(l){return [l.q,l.b,l.d||""];}):0, S=p.sold?[p.sold.d,p.sold.p]:0;
+    return S?[L,S]:(L?[L]:[]);
+  }
   function buildPayload(pr){
     if(!pr.shareKey){ pr.shareKey=rid()+Math.random().toString(36).slice(2,8); save(LS_PROF,profData); }
     return {v:2,i:pr.shareKey,n:pr.name,t:Date.now(),p:pr.positions.map(function(x){
@@ -1215,10 +1303,11 @@
   function posTuple(p){ return [p.broker==="Balanz"?1:0,p.ccy==="ARS"?1:0,p.ticker,p.qty,p.buy,p.source==="manual"?1:0,p.manualPrice||0,p.manualTs||0,p.note||""].concat(lotsT(p)); }
   function posFromTuple(r){
     if(!Array.isArray(r)) return null;
-    return cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:r[7],note:r[8],lots:r[9]},false);
+    return cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:r[7],note:r[8],lots:r[9],sold:r[10]},false);
   }
   function serProfile(pr){
     var o={id:pr.id,name:pr.name,mod:pr.mod||0,readOnly:!!pr.readOnly,p:pr.syncCode?[]:pr.positions.map(posTuple)};
+    if(pr.closed&&pr.closed.length) o.c=pr.closed.map(posTuple);
     if(pr.sync) o.sync=pr.sync;
     if(pr.shareKey) o.shareKey=pr.shareKey;
     if(pr.syncCode) o.syncCode=pr.syncCode;
@@ -1239,7 +1328,8 @@
     doc.profiles.slice(0,20).forEach(function(x){
       if(!x || !okId(x.id)) return;
       var o={id:String(x.id),name:cleanName(x.name)||"Perfil",mod:+x.mod||0,readOnly:!!x.readOnly,
-        positions:(Array.isArray(x.p)?x.p:[]).slice(0,300).map(posFromTuple).filter(Boolean)};
+        positions:(Array.isArray(x.p)?x.p:[]).slice(0,300).map(posFromTuple).filter(Boolean),
+        closed:(Array.isArray(x.c)?x.c:[]).slice(0,300).map(posFromTuple).filter(function(c){return c&&c.sold;})};
       if(x.sync && okCode(x.sync.code) && typeof x.sync.secret==="string" && /^[a-z0-9]{16,100}$/.test(x.sync.secret)) o.sync={code:String(x.sync.code),secret:String(x.sync.secret)};
       if(okId(x.shareKey)) o.shareKey=String(x.shareKey);
       if(okCode(x.syncCode)) o.syncCode=String(x.syncCode);
@@ -1253,7 +1343,7 @@
     return out;
   }
   function fromRemote(r,l){
-    var o={id:r.id,name:r.name,mod:r.mod,readOnly:r.readOnly,positions:r.syncCode?(l?l.positions:[]):r.positions};
+    var o={id:r.id,name:r.name,mod:r.mod,readOnly:r.readOnly,positions:r.syncCode?(l?l.positions:[]):r.positions,closed:r.syncCode?[]:(r.closed||[])};
     ["sync","shareKey","syncCode","shareId","owner","sharedAt"].forEach(function(k){ if(r[k]) o[k]=r[k]; });
     if(l){ if(l.syncUpdated) o.syncUpdated=l.syncUpdated; if(l.syncGone) o.syncGone=l.syncGone; }
     return o;
