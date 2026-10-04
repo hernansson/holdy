@@ -39,6 +39,19 @@
   }
   header h1{font-size:18px; margin:0; flex:1}
   header button{background:transparent; color:inherit; border:1px solid currentColor; opacity:.95}
+  header .burger{border:0; padding:6px 8px; min-height:40px; border-radius:10px; display:grid; place-items:center}
+  dialog.drawer{margin:0 0 0 auto; width:min(300px,86vw); height:100%; max-height:100%; border:0; border-radius:0; padding:0; box-shadow:-10px 0 40px rgba(0,0,0,.25)}
+  dialog.drawer[open]{animation:drawer-in .24s cubic-bezier(.2,.8,.2,1)}
+  dialog.drawer[open]::backdrop{animation:sheet-fade .24s ease-out}
+  @keyframes drawer-in{from{transform:translateX(100%)}to{transform:none}}
+  .dr-in{display:grid;gap:4px;padding:14px 12px calc(14px + env(safe-area-inset-bottom));align-content:start}
+  .dr-top{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 8px;font-size:18px}
+  .dr-top button{border:0;background:transparent;min-height:36px;min-width:36px;font-size:18px}
+  .dr-user{font-size:13px;color:var(--muted);padding:0 8px 10px;word-break:break-all}
+  .dr-item{text-align:left;border:0;background:transparent;border-radius:10px;padding:13px 10px;font-size:16px;width:100%}
+  .dr-item:hover,.dr-item:active{background:var(--chip)}
+  .dr-item[hidden]{display:none}
+  .dr-sep{height:1px;background:var(--line);margin:6px 4px}
   main{max-width:860px; margin:0 auto; padding:14px 16px}
   button{
     font:inherit; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--text);
@@ -83,6 +96,14 @@
   .calgrid button.sel{background:var(--brand);color:var(--brand-ink);font-weight:700}
   .calgrid button:disabled{opacity:.3}
   .datebtn{cursor:pointer;text-align:left;background:var(--card)}
+  #cmpView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px}
+  #cmpView[hidden]{display:none}
+  .cmphdr{display:flex;align-items:center;gap:10px}
+  .cmphdr h2{margin:0;font-size:20px}
+  .cmphdr button{border-radius:999px;min-width:42px;font-size:18px}
+  .cmpchips{display:flex;gap:6px;flex-wrap:wrap}
+  .cmpchips button{border-radius:999px;min-height:34px;padding:4px 12px;font-size:13px;font-weight:600}
+  .cmpchips button.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
   .cmpsel{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .cmpleg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;font-weight:700}
   .cmpleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
@@ -195,9 +216,31 @@
 </section>
 <header>
   <h1>Holdy</h1>
-  <button id="btnRefresh" aria-label="Actualizar precios">Actualizar</button>
-  <button id="btnSettings" aria-label="Ajustes">Ajustes</button>
+  <button id="btnMenu" class="burger" aria-label="Menú" aria-haspopup="dialog"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </header>
+
+<dialog id="dlgMenu" class="drawer">
+  <div class="dr-in">
+    <div class="dr-top"><strong>Holdy</strong><button type="button" id="menuClose" aria-label="Cerrar menú">✕</button></div>
+    <div class="dr-user" id="menuUser"></div>
+    <button type="button" class="dr-item" id="btnRefresh">Actualizar precios</button>
+    <button type="button" class="dr-item" id="btnCmp" hidden>Comparar perfiles</button>
+    <button type="button" class="dr-item" id="menuProf">Perfiles</button>
+    <button type="button" class="dr-item" id="btnSettings">Ajustes y respaldo</button>
+    <div class="dr-sep"></div>
+    <button type="button" class="dr-item danger" id="menuOut">Cerrar sesión</button>
+  </div>
+</dialog>
+
+<section id="cmpView" hidden>
+  <div class="cmphdr"><button type="button" id="cmpBack" aria-label="Volver">←</button><h2>Comparar rendimientos</h2></div>
+  <div class="cmpsel">
+    <label>Perfil A <select id="cmpA"></select></label>
+    <label>Perfil B <select id="cmpB"></select></label>
+  </div>
+  <div class="cmpnote" id="cmpStatus"></div>
+  <div id="cmpBody" style="display:grid;gap:14px"></div>
+</section>
 
 <main>
   <div id="banners"></div>
@@ -205,7 +248,6 @@
   <div id="notice2"></div>
   <div class="profbar" id="profbar">
     <button type="button" id="btnProf" aria-haspopup="dialog"></button>
-    <button type="button" id="btnCmp" hidden>Comparar</button>
     <span class="tag" id="roTag" hidden>solo lectura</span>
     <span class="profinfo" id="profInfo"></span>
   </div>
@@ -293,18 +335,7 @@
   </div>
 </dialog>
 
-<dialog id="dlgCmp" class="sheet">
-  <form method="dialog" id="formCmp">
-    <h3>Comparar rendimientos</h3>
-    <div class="cmpsel">
-      <label>Perfil A <select id="cmpA"></select></label>
-      <label>Perfil B <select id="cmpB"></select></label>
-    </div>
-    <div class="cmpnote" id="cmpStatus"></div>
-    <div id="cmpBody" style="display:grid;gap:14px"></div>
-    <div class="btns"><button type="button" id="cmpClose">Cerrar</button></div>
-  </form>
-</dialog>
+<!-- comparación: pantalla propia (ver #cmpView más abajo) -->
 
 <dialog id="dlgSell" class="sheet">
   <form method="dialog" id="formSell">
@@ -575,8 +606,9 @@
       info="Compartido con código "+fmtCode(c.sync.code)+(sm?(sm.ok?" · sincronizado ✓":" · ⚠ "+sm.err):(c.syncDirty?" · pendiente de sincronizar":""));
     } else if(profData.profiles.length>1) info="Tu perfil";
     $("profInfo").textContent=info;
-    $("btnAdd").hidden=!!c.readOnly;
+    $("btnAdd").hidden=!!c.readOnly||cmpOpen;
     $("btnCmp").hidden=profData.profiles.length<2;
+    $("menuUser").textContent=auth?((auth.name?auth.name+" · ":"")+auth.email):"";
   }
 
   function render(){
@@ -1152,22 +1184,33 @@
   }
   // </cmp-core>
 
-  var dlgCmp=$("dlgCmp"), cmpRun=0;
-  dlgCmp.addEventListener("click",function(e){ if(e.target===dlgCmp) dlgCmp.close(); });
-  $("cmpClose").addEventListener("click",function(){ dlgCmp.close(); });
-  $("btnCmp").addEventListener("click",function(){
+  var cmpView=$("cmpView"), cmpRun=0, cmpOpen=false, cmpData=null, cmpRange="all";
+  var MES3=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  function setCmp(on){
+    cmpOpen=on; cmpView.hidden=!on;
+    document.querySelector("main").hidden=on||(!!GOOGLE_CLIENT_ID&&!auth);
+    $("btnAdd").hidden=on||!!cur().readOnly;
+    window.scrollTo(0,0);
+  }
+  function openCmp(){
+    if(profData.profiles.length<2) return;
     var a=$("cmpA"), b=$("cmpB"); a.textContent=""; b.textContent="";
     profData.profiles.forEach(function(pr){
       [a,b].forEach(function(sel){ var o=document.createElement("option"); o.value=pr.id; o.textContent=pr.name+(pr.owner?" ("+pr.owner+")":""); sel.appendChild(o); });
     });
     a.value=profData.active;
     var other=profData.profiles.filter(function(x){return x.id!==profData.active;})[0]; b.value=other?other.id:profData.active;
-    dlgCmp.showModal(); runCompare();
-  });
+    cmpRange="Todo"; setCmp(true);
+    try{ history.pushState({cmp:1},""); }catch(e){}
+    runCompare();
+  }
+  $("cmpBack").addEventListener("click",function(){ if(history.state&&history.state.cmp) history.back(); else setCmp(false); });
+  window.addEventListener("popstate",function(){ if(cmpOpen) setCmp(false); });
   $("cmpA").addEventListener("change",runCompare); $("cmpB").addEventListener("change",runCompare);
   function pctTxt(v){ return fmtPct(v/100); }
+  function fmtD(n){ return dayStr(n).split("-").reverse().join("/"); }
   function runCompare(){
-    var my=++cmpRun, body=$("cmpBody"), st=$("cmpStatus"); body.textContent="";
+    var my=++cmpRun, body=$("cmpBody"), st=$("cmpStatus"); body.textContent=""; cmpData=null;
     var pa=profData.profiles.filter(function(x){return x.id===$("cmpA").value;})[0], pb=profData.profiles.filter(function(x){return x.id===$("cmpB").value;})[0];
     if(!pa||!pb||pa===pb){ st.textContent="Elegí dos perfiles distintos."; return; }
     var ea=cmpEvents(pa), eb=cmpEvents(pb);
@@ -1187,54 +1230,34 @@
         if(my!==cmpRun) return;
         var hist={}, missing=[];
         Object.keys(j.data||{}).forEach(function(tk){ var h=j.data[tk]; if(h&&h.currency==="USD"&&Array.isArray(h.pts)&&h.pts.length>1) hist[tk]=h; else if(tk!=="SPY") missing.push(tk); });
-        showCompare(pa,pb,ea,eb,hist,missing);
+        buildCompare(pa,pb,ea,eb,hist,missing);
       }).catch(function(e){ try{ console.error("holdy-cmp",e); }catch(x){} if(my===cmpRun) st.textContent="No se pudieron traer los precios históricos. Probá de nuevo en un rato."; });
   }
-  function showCompare(pa,pb,ea,eb,hist,missing){
+  function buildCompare(pa,pb,ea,eb,hist,missing){
     var st=$("cmpStatus"), body=$("cmpBody"); body.textContent="";
-    var today=todayStr();
+    var today=todayStr(), tn=dayNum(today);
     var ca=cmpCurve(ea.ev,hist,today), cb=cmpCurve(eb.ev,hist,today);
     if(!ca||!cb){ st.textContent="No hay precios históricos suficientes para armar la comparación."; return; }
-    var cs=Math.max(ca.pts[0][0],cb.pts[0][0]);
-    function rebase(c){
-      var base=null, out=[];
-      c.pts.forEach(function(r){ if(r[0]<cs) return; var f=1+r[1]/100; if(base===null) base=f; out.push([r[0],(f/base-1)*100]); });
-      return out;
-    }
-    var sa=rebase(ca), sb=rebase(cb), sp=null;
+    var cs=Math.max(ca.pts[0][0],cb.pts[0][0]), capped=false, cap=tn-5*365+10;
+    if(cs<cap){ cs=cap; capped=true; }
+    var sp=null;
     if(hist.SPY){
-      var base=null, last=null, i=0, pts=hist.SPY.pts.map(function(r){return [dayNum(r[0]),r[1]];}); sp=[];
-      for(var d=cs; d<=dayNum(today); d++){ while(i<pts.length&&pts[i][0]<=d){ last=pts[i][1]; i++; } if(last===null) continue; if(base===null) base=last; sp.push([d,(last/base-1)*100]); }
+      var last=null, i=0, pts=hist.SPY.pts.map(function(r){return [dayNum(r[0]),r[1]];}); sp=[];
+      for(var d=cs; d<=tn; d++){ while(i<pts.length&&pts[i][0]<=d){ last=pts[i][1]; i++; } if(last===null) continue; sp.push([d,(last-0)]); }
     }
-    var ta=sa[sa.length-1][1], tb=sb[sb.length-1][1], tm=sp&&sp.length?sp[sp.length-1][1]:null;
-    st.textContent="Período comparado: desde el "+dayStr(cs).split("-").reverse().join("/")+" (cuando ambos ya tienen movimientos). Rendimiento ponderado por tiempo: no cuenta cuánta plata puso cada uno."+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"");
-    // leyenda
-    var leg=el("div","cmpleg");
-    function lg(color,name,v,dash){ var s=el("span"); var i=el("i",dash?"dash":""); if(!dash) i.style.background=color; s.appendChild(i); s.appendChild(document.createTextNode(name+" ")); var b=el("span",cls(v),pctTxt(v)); s.appendChild(b); leg.appendChild(s); }
-    lg("#0f9488",pa.name,ta); lg("#f08a24",pb.name,tb); if(tm!==null) lg("",'S&P 500 (SPY)',tm,true);
-    body.appendChild(leg);
-    // gráfico
-    body.appendChild(cmpChart([{n:pa.name,c:"#0f9488",p:sa},{n:pb.name,c:"#f08a24",p:sb}], sp, cs));
-    // veredicto
-    var sA=cmpStats(ea.items,hist), sB=cmpStats(eb.items,hist);
-    var win=ta>=tb?{n:pa.name,t:ta,s:sA,o:pb.name,ot:tb,os:sB}:{n:pb.name,t:tb,s:sB,o:pa.name,ot:ta,os:sA};
-    var v=el("div","cmpverd",win.n+" rinde "+Math.abs(ta-tb).toFixed(1).replace(".",",")+" puntos más: "+pctTxt(win.t)+" contra "+pctTxt(win.ot)+".");
-    body.appendChild(v);
-    var why=[];
-    if(tm!==null){
-      var dm=win.t-tm; why.push(win.n+(dm>=0?" le gana al mercado (S&P 500) por ":" queda por debajo del mercado (S&P 500) por ")+Math.abs(dm).toFixed(1).replace(".",",")+" puntos.");
-      var dl=win.ot-tm; why.push(win.o+(dl>=0?" también supera al mercado por ":" queda ")+(dl>=0?"":"por debajo del mercado por ")+Math.abs(dl).toFixed(1).replace(".",",")+" puntos.");
-    }
-    if(win.s.best) why.push("Lo mejor de "+win.n+": "+win.s.best.tk+" ("+fmtPct(win.s.best.pct)+(win.s.best.closed?", ya vendida":"")+").");
-    if(win.os.worst && win.os.rows.length>1) why.push((win.os.worst.pct<0?"Lo que más le pesó a ":"Lo que menos rindió de ")+win.o+": "+win.os.worst.tk+" ("+fmtPct(win.os.worst.pct)+(win.os.worst.closed?", ya vendida":"")+").");
-    if(win.s.closedN||win.os.closedN) why.push("Operaciones cerradas: "+win.n+" "+win.s.wins+" de "+win.s.closedN+" ganadoras; "+win.o+" "+win.os.wins+" de "+win.os.closedN+".");
-    if(why.length){ body.appendChild(el("div","k","¿Por qué?")); var ul=el("ul","cmpwhy"); why.forEach(function(t){ ul.appendChild(el("li",null,t)); }); body.appendChild(ul); }
-    // tabla
+    cmpData={pa:pa,pb:pb,ca:ca,cb:cb,sp:sp,cs:cs,tn:tn,sA:cmpStats(ea.items,hist),sB:cmpStats(eb.items,hist)};
+    st.textContent="Rendimiento ponderado por tiempo: no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"");
+    body.appendChild(el("div","cmpchips")).id="cmpChips";
+    var leg=el("div","cmpleg"); leg.id="cmpLeg"; body.appendChild(leg);
+    var box=el("div"); box.id="cmpChartBox"; body.appendChild(box);
+    var v=el("div","cmpverd"); v.id="cmpVerd"; body.appendChild(v);
+    var w=el("div"); w.id="cmpWhy"; body.appendChild(w);
+    // tabla (no depende del período)
+    var sA=cmpData.sA, sB=cmpData.sB;
     var tb_=document.createElement("table"); tb_.className="cmptbl";
     function tr(k,x,y){ var r=document.createElement("tr"); r.appendChild(el("th",null,k)); r.appendChild(el("td",null,x)); r.appendChild(el("td",null,y)); tb_.appendChild(r); }
-    var h=document.createElement("tr"); h.appendChild(el("th",null,"")); h.appendChild(el("th",null,pa.name)); h.appendChild(el("th",null,pb.name)); tb_.appendChild(h);
+    var h=document.createElement("tr"); h.appendChild(el("th",null,"Desde la compra")); h.appendChild(el("th",null,pa.name)); h.appendChild(el("th",null,pb.name)); tb_.appendChild(h);
     function pos(x){ return x?x.tk+" "+fmtPct(x.pct):"—"; }
-    tr("Rendimiento",pctTxt(ta),pctTxt(tb));
     tr("Mejor posición",pos(sA.best),pos(sB.best));
     tr("Peor posición",pos(sA.worst),pos(sB.worst));
     tr("Ventas ganadoras",sA.closedN?sA.wins+" de "+sA.closedN:"—",sB.closedN?sB.wins+" de "+sB.closedN:"—");
@@ -1243,30 +1266,88 @@
     body.appendChild(tb_);
     var sk=[]; if(ea.skipped) sk.push(pa.name+": "+ea.skipped+" sin fecha de compra o en otra moneda"); if(eb.skipped) sk.push(pb.name+": "+eb.skipped+" sin fecha de compra o en otra moneda");
     if(sk.length) body.appendChild(el("div","cmpnote","No entran en la comparación → "+sk.join(" · ")+". Cargá la fecha de compra para sumarlas. No se tienen en cuenta dividendos."));
+    drawCmp();
   }
-  function cmpChart(series, bench, cs){
-    var NS="http://www.w3.org/2000/svg", W=600, H=300, L=44, R=16, T=14, B=26;
+  var RANGES=[["1M",30],["3M",91],["6M",182],["1A",365],["3A",1095],["Todo",0]];
+  function rebaseSeries(arr,r0){
+    var base=null, out=[];
+    arr.forEach(function(r){ if(r[0]<r0) return; if(base===null) base=r[1]; out.push([r[0],(r[1]/base-1)*100]); });
+    return out;
+  }
+  function drawCmp(){
+    var D=cmpData; if(!D) return;
+    var span=D.tn-D.cs;
+    var chips=$("cmpChips"); chips.textContent="";
+    RANGES.forEach(function(r){
+      if(r[1] && r[1]>=span) return;
+      var key=r[0], b=el("button",cmpRange===key?"on":"",key); b.type="button";
+      b.addEventListener("click",function(){ cmpRange=key; drawCmp(); });
+      chips.appendChild(b);
+    });
+    var cur_=RANGES.filter(function(r){return r[0]===cmpRange;})[0];
+    if(!cur_||(cur_[1]&&cur_[1]>=span)){ cmpRange="Todo"; cur_=RANGES[RANGES.length-1]; }
+    var r0=cur_[1]?Math.max(D.cs,D.tn-cur_[1]):D.cs;
+    function ser(c){ return rebaseSeries(c.pts.map(function(r){ return [r[0],1+r[1]/100]; }),r0); }
+    var sa=ser(D.ca), sb=ser(D.cb), sm=D.sp?rebaseSeries(D.sp,r0):null;
+    if(!sa.length||!sb.length) return;
+    var ta=sa[sa.length-1][1], tb=sb[sb.length-1][1], tm=sm&&sm.length?sm[sm.length-1][1]:null;
+    var pa=D.pa, pb=D.pb, leg=$("cmpLeg"); leg.textContent="";
+    function lg(color,name,v,dash){ var s=el("span"); var i=el("i",dash?"dash":""); if(!dash) i.style.background=color; s.appendChild(i); s.appendChild(document.createTextNode(name+" ")); s.appendChild(el("span",cls(v),pctTxt(v))); leg.appendChild(s); }
+    lg("#0f9488",pa.name,ta); lg("#f08a24",pb.name,tb); if(tm!==null) lg("",'S&P 500 (SPY)',tm,true);
+    var box=$("cmpChartBox"); box.textContent="";
+    box.appendChild(el("div","cmpnote",fmtD(r0)+" → "+fmtD(D.tn)));
+    box.appendChild(cmpChart([{n:pa.name,c:"#0f9488",p:sa},{n:pb.name,c:"#f08a24",p:sb}],sm,r0,D.tn));
+    var win=ta>=tb?{n:pa.name,t:ta,s:D.sA,o:pb.name,ot:tb,os:D.sB}:{n:pb.name,t:tb,s:D.sB,o:pa.name,ot:ta,os:D.sA};
+    $("cmpVerd").textContent=win.n+" rinde "+Math.abs(ta-tb).toFixed(1).replace(".",",")+" puntos más en este período: "+pctTxt(win.t)+" contra "+pctTxt(win.ot)+".";
+    var why=[];
+    if(tm!==null){
+      var dm=win.t-tm; why.push(win.n+(dm>=0?" le gana al mercado (S&P 500) por ":" queda por debajo del mercado (S&P 500) por ")+Math.abs(dm).toFixed(1).replace(".",",")+" puntos.");
+      var dl=win.ot-tm; why.push(win.o+(dl>=0?" también supera al mercado por ":" queda por debajo del mercado por ")+Math.abs(dl).toFixed(1).replace(".",",")+" puntos.");
+    }
+    if(win.s.best) why.push("Lo mejor de "+win.n+" desde la compra: "+win.s.best.tk+" ("+fmtPct(win.s.best.pct)+(win.s.best.closed?", ya vendida":"")+").");
+    if(win.os.worst && win.os.rows.length>1) why.push((win.os.worst.pct<0?"Lo que más le pesó a ":"Lo que menos rindió de ")+win.o+": "+win.os.worst.tk+" ("+fmtPct(win.os.worst.pct)+(win.os.worst.closed?", ya vendida":"")+").");
+    if(win.s.closedN||win.os.closedN) why.push("Operaciones cerradas: "+win.n+" "+win.s.wins+" de "+win.s.closedN+" ganadoras; "+win.o+" "+win.os.wins+" de "+win.os.closedN+".");
+    var wb=$("cmpWhy"); wb.textContent="";
+    if(why.length){ wb.appendChild(el("div","k","¿Por qué?")); var ul=el("ul","cmpwhy"); why.forEach(function(t){ ul.appendChild(el("li",null,t)); }); wb.appendChild(ul); }
+  }
+  function cmpChart(series, bench, d0, d1){
+    var NS="http://www.w3.org/2000/svg", W=600, H=320, L=44, R=16, T=14, B=28;
     var sv=document.createElementNS(NS,"svg"); sv.setAttribute("viewBox","0 0 "+W+" "+H); sv.setAttribute("class","cmpchart");
     function mk(n,at,t){ var e=document.createElementNS(NS,n); for(var k in at) e.setAttribute(k,at[k]); if(t!==undefined) e.textContent=t; sv.appendChild(e); return e; }
     var all=[]; series.forEach(function(s){ s.p.forEach(function(r){ all.push(r[1]); }); }); if(bench) bench.forEach(function(r){ all.push(r[1]); });
     var lo=Math.min(0,Math.min.apply(null,all)), hi=Math.max(0,Math.max.apply(null,all)); if(hi-lo<5){ hi+=2.5; lo-=2.5; }
     var pad=(hi-lo)*.08; lo-=pad; hi+=pad;
-    var d0=cs, d1=dayNum(todayStr()); if(d1<=d0) d1=d0+1;
+    if(d1<=d0) d1=d0+1;
     function X(d){ return L+(W-L-R)*(d-d0)/(d1-d0); } function Y(v){ return T+(H-T-B)*(1-(v-lo)/(hi-lo)); }
-    var step=[1,2,5,10,20,25,50,100,200,500].filter(function(s){ return (hi-lo)/s<=6; })[0]||500;
+    var step=[1,2,5,10,20,25,50,100,200,500,1000].filter(function(s){ return (hi-lo)/s<=6; })[0]||1000;
     for(var g=Math.ceil(lo/step)*step; g<=hi; g+=step){ mk("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),"class":"gl",style:g===0?"stroke:var(--muted)":""}); mk("text",{x:L-6,y:Y(g)+4,"text-anchor":"end","class":"ax"},(g>0?"+":"")+g+"%"); }
-    var nx=Math.min(4,Math.max(1,Math.floor((d1-d0)/20)));
-    for(var i=0;i<=nx;i++){ var dd=Math.round(d0+(d1-d0)*i/nx); mk("text",{x:X(dd),y:H-6,"text-anchor":i===0?"start":(i===nx?"end":"middle"),"class":"ax"},dayStr(dd).split("-").reverse().slice(0,2).join("/")+"/"+dayStr(dd).slice(2,4)); }
-    function path(arr){ return arr.map(function(r,i){ return (i?"L":"M")+X(r[0]).toFixed(1)+" "+Y(r[1]).toFixed(1); }).join(" "); }
+    // eje de tiempo: marcas en inicios de mes (o de año), según el largo del período
+    var span=d1-d0, months=span>2200?24:span>1500?12:span>700?6:span>300?3:span>120?2:1, yrs=months>=12;
+    if(span<=60){
+      var st_=span<=21?3:7;
+      for(var dd=d0; dd<=d1; dd+=st_){ mk("line",{x1:X(dd),x2:X(dd),y1:T,y2:H-B,"class":"gl",style:"opacity:.5"}); var p3=dayStr(dd).split("-"); mk("text",{x:X(dd),y:H-8,"text-anchor":"middle","class":"ax"},(+p3[2])+"/"+(+p3[1])); }
+    } else {
+      var dt=new Date(d0*86400000), y=dt.getUTCFullYear(), m=dt.getUTCMonth()+1;
+      for(var k=0;k<400;k++){
+        var yy=y+Math.floor(m/12), mm=m%12, n=Math.floor(Date.UTC(yy,mm,1)/86400000);
+        m++; if(n>d1) break; if(n<=d0+4) continue;
+        if(yrs? (mm!==0||(yy%(months/12))!==0) : (mm%months!==0)) continue;
+        mk("line",{x1:X(n),x2:X(n),y1:T,y2:H-B,"class":"gl",style:"opacity:.5"});
+        mk("text",{x:X(n),y:H-8,"text-anchor":"middle","class":"ax"},yrs?String(yy):MES3[mm]+(span>300?" "+String(yy).slice(2):""));
+      }
+    }
+    function path(arr){
+      var st2=Math.ceil(arr.length/500), pts=arr.filter(function(r,i){ return i%st2===0||i===arr.length-1; });
+      return pts.map(function(r,i){ return (i?"L":"M")+X(r[0]).toFixed(1)+" "+Y(r[1]).toFixed(1); }).join(" ");
+    }
     if(bench&&bench.length) mk("path",{d:path(bench),fill:"none",stroke:"#8a9a98","stroke-width":2,"stroke-dasharray":"5 5"});
     series.forEach(function(s){ mk("path",{d:path(s.p),fill:"none",stroke:s.c,"stroke-width":3,"stroke-linejoin":"round","stroke-linecap":"round"}); var l=s.p[s.p.length-1]; mk("circle",{cx:X(l[0]),cy:Y(l[1]),r:5,fill:s.c}); });
-    // cursor
     var cur=mk("line",{y1:T,y2:H-B,stroke:"var(--muted)","stroke-width":1,style:"display:none"});
     var tip=mk("text",{"class":"ax",style:"display:none;font-weight:700"});
     function at(e){
       var rc=sv.getBoundingClientRect(), x=(e.clientX-rc.left)/rc.width*W; var d=Math.round(d0+(x-L)/(W-L-R)*(d1-d0)); d=Math.max(d0,Math.min(d1,d));
       cur.setAttribute("x1",X(d)); cur.setAttribute("x2",X(d)); cur.style.display="";
-      var parts=[dayStr(d).split("-").reverse().join("/")];
+      var parts=[fmtD(d)];
       series.forEach(function(s){ var best=null; s.p.forEach(function(r){ if(r[0]<=d) best=r; }); if(best) parts.push(s.n+" "+pctTxt(best[1])); });
       tip.textContent=parts.join(" · "); tip.setAttribute("x",L); tip.setAttribute("y",T+10); tip.style.display="";
     }
@@ -1274,6 +1355,15 @@
     sv.addEventListener("pointerleave",function(){ cur.style.display="none"; tip.style.display="none"; });
     return sv;
   }
+  // ---------- Menú ----------
+  var dlgMenu=$("dlgMenu");
+  dlgMenu.addEventListener("click",function(e){ if(e.target===dlgMenu) dlgMenu.close(); });
+  $("btnMenu").addEventListener("click",function(){ renderProfile(); dlgMenu.showModal(); });
+  $("menuClose").addEventListener("click",function(){ dlgMenu.close(); });
+  ["btnRefresh","btnSettings","btnCmp","menuProf","menuOut"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
+  $("btnCmp").addEventListener("click",openCmp);
+  $("menuProf").addEventListener("click",function(){ if(cmpOpen) setCmp(false); $("btnProf").click(); });
+  $("menuOut").addEventListener("click",function(){ setTimeout(function(){ $("acctOut").click(); },0); });
 
   // ---------- Ajustes ----------
   function openSettings(){ renderAccount(); mountGoogleButton(); dlgSet.showModal(); }
@@ -1843,7 +1933,7 @@
     var locked=!!GOOGLE_CLIENT_ID && !auth;
     $("gate").hidden=!locked;
     document.querySelector("body>header").hidden=locked;
-    document.querySelector("main").hidden=locked;
+    document.querySelector("main").hidden=locked||cmpOpen;
     var gm=$("gateMsg"); gm.textContent=cloudStatus||""; gm.hidden=!(locked&&cloudStatus);
     if(locked){ mountGoogleButton(); }
     else if(!gateDone){ gateDone=true; handleHash(); }
