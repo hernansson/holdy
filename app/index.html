@@ -70,6 +70,19 @@
   .row-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px 10px; margin-top:10px}
   .row-actions{display:flex; gap:8px; margin-top:10px}
   .row-actions button{padding:6px 12px; min-height:34px; font-size:13px}
+  dialog#dlgCal{width:min(380px,100%)}
+  .calhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .calhead button{min-height:40px;min-width:40px;padding:4px 10px;font-size:18px;border-radius:999px}
+  .calhead .caltitle{flex:1;font-size:16px;font-weight:700;text-transform:capitalize;background:transparent;border:0}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .calgrid.big{grid-template-columns:repeat(3,1fr);max-height:300px;overflow:auto}
+  .calgrid .wd{font-size:12px;color:var(--muted);text-align:center;padding:4px 0}
+  .calgrid button{min-height:42px;padding:0;border-radius:12px;border:1px solid transparent;background:transparent;font-size:15px}
+  .calgrid.big button{min-height:48px}
+  .calgrid button.today{border-color:var(--brand)}
+  .calgrid button.sel{background:var(--brand);color:var(--brand-ink);font-weight:700}
+  .calgrid button:disabled{opacity:.3}
+  .datebtn{cursor:pointer;text-align:left;background:var(--card)}
   .cmpsel{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .cmpleg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;font-weight:700}
   .cmpleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
@@ -264,6 +277,22 @@
   </form>
 </dialog>
 
+<dialog id="dlgCal" class="sheet">
+  <div style="padding:16px 16px calc(16px + env(safe-area-inset-bottom))">
+    <div class="calhead">
+      <button type="button" id="calPrev" aria-label="Anterior">‹</button>
+      <button type="button" class="caltitle" id="calTitle"></button>
+      <button type="button" id="calNext" aria-label="Siguiente">›</button>
+    </div>
+    <div id="calBody"></div>
+    <div class="btns" style="margin-top:12px">
+      <button type="button" id="calClear">Borrar</button>
+      <button type="button" id="calToday">Hoy</button>
+      <button type="button" id="calCancel">Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="dlgCmp" class="sheet">
   <form method="dialog" id="formCmp">
     <h3>Comparar rendimientos</h3>
@@ -283,7 +312,7 @@
     <div class="help" style="font-size:14px;color:var(--muted)">¿La vendiste? Si cargás la fecha y el precio de venta, la guardamos en “Vendidas” y se usa para calcular tu rendimiento.</div>
     <div class="two">
       <label>Fecha de venta
-        <input id="sellDate" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off">
+        <input id="sellDate" type="text">
       </label>
       <label>Precio de venta
         <input id="sellPrice" type="number" inputmode="decimal" step="any" min="0" placeholder="0.00">
@@ -818,6 +847,80 @@
   function syncSource(){ $("fManualWrap").hidden=($("fSource").value!=="manual"); }
   $("fSource").addEventListener("change",syncSource);
 
+  // ---------- Calendario propio (el selector nativo no abre en algunos celulares) ----------
+  var MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var dlgCal=$("dlgCal"), calCb=null, calSel="", calV={y:2026,m:0,mode:"d"}, calClearable=false;
+  dlgCal.addEventListener("click",function(e){ if(e.target===dlgCal) dlgCal.close(); });
+  function pad2(n){ return ("0"+n).slice(-2); }
+  function openCal(iso,cb,clearable){
+    calCb=cb; calSel=iso||""; calClearable=!!clearable;
+    var t=(iso||todayStr()).split("-"); calV={y:+t[0],m:+t[1]-1,mode:"d"};
+    $("calClear").hidden=!calClearable||!iso;
+    drawCal(); dlgCal.showModal();
+  }
+  function pickCal(iso){ var cb=calCb; calCb=null; dlgCal.close(); if(cb) cb(iso); }
+  function drawCal(){
+    var body=$("calBody"), today=todayStr(), ty=+today.slice(0,4), tm=+today.slice(5,7)-1; body.textContent="";
+    var title=$("calTitle");
+    if(calV.mode==="d"){
+      title.textContent=MESES[calV.m]+" "+calV.y;
+      var g=el("div","calgrid");
+      ["L","M","M","J","V","S","D"].forEach(function(w){ g.appendChild(el("div","wd",w)); });
+      var first=(new Date(Date.UTC(calV.y,calV.m,1)).getUTCDay()+6)%7, n=new Date(Date.UTC(calV.y,calV.m+1,0)).getUTCDate();
+      for(var i=0;i<first;i++) g.appendChild(el("div"));
+      for(var d=1; d<=n; d++){
+        (function(d){
+          var iso=calV.y+"-"+pad2(calV.m+1)+"-"+pad2(d);
+          var b=el("button",(iso===today?"today ":"")+(iso===calSel?"sel":""),String(d)); b.type="button";
+          if(iso>today||iso<"1990-01-01") b.disabled=true;
+          b.addEventListener("click",function(){ pickCal(iso); });
+          g.appendChild(b);
+        })(d);
+      }
+      body.appendChild(g);
+    } else if(calV.mode==="m"){
+      title.textContent=String(calV.y);
+      var gm=el("div","calgrid big");
+      MESES.forEach(function(nm,mi){
+        var b=el("button",(calV.y===ty&&mi===tm?"today":""),nm.slice(0,3)); b.type="button"; b.style.textTransform="capitalize";
+        if(calV.y>ty||(calV.y===ty&&mi>tm)) b.disabled=true;
+        b.addEventListener("click",function(){ calV.m=mi; calV.mode="d"; drawCal(); });
+        gm.appendChild(b);
+      });
+      body.appendChild(gm);
+    } else {
+      title.textContent="Elegí el año";
+      var gy=el("div","calgrid big");
+      for(var y=ty; y>=1990; y--){
+        (function(y){
+          var b=el("button",(y===calV.y?"sel":""),String(y)); b.type="button";
+          b.addEventListener("click",function(){ calV.y=y; if(calV.y===ty&&calV.m>tm) calV.m=tm; calV.mode="m"; drawCal(); });
+          gy.appendChild(b);
+        })(y);
+      }
+      body.appendChild(gy);
+      setTimeout(function(){ var s=gy.querySelector(".sel"); if(s) s.scrollIntoView({block:"center"}); },0);
+    }
+    $("calPrev").disabled=(calV.mode==="d"&&calV.y<=1990&&calV.m===0)||(calV.mode!=="d"&&calV.y<=1990)||calV.mode==="y";
+    $("calNext").disabled=(calV.mode==="d"&&calV.y===ty&&calV.m>=tm)||(calV.mode==="m"&&calV.y>=ty)||calV.mode==="y";
+  }
+  $("calTitle").addEventListener("click",function(){ calV.mode=calV.mode==="d"?"m":(calV.mode==="m"?"y":"d"); drawCal(); });
+  $("calPrev").addEventListener("click",function(){
+    if(calV.mode==="d"){ calV.m--; if(calV.m<0){ calV.m=11; calV.y--; } } else if(calV.mode==="m") calV.y--;
+    drawCal();
+  });
+  $("calNext").addEventListener("click",function(){
+    if(calV.mode==="d"){ calV.m++; if(calV.m>11){ calV.m=0; calV.y++; } } else if(calV.mode==="m") calV.y++;
+    drawCal();
+  });
+  $("calToday").addEventListener("click",function(){ pickCal(todayStr()); });
+  $("calClear").addEventListener("click",function(){ pickCal(""); });
+  $("calCancel").addEventListener("click",function(){ calCb=null; dlgCal.close(); });
+  function dateField(inp,iso,clearable){
+    inp.readOnly=true; inp.className+=" datebtn"; inp.placeholder="Elegir fecha"; inp.setAttribute("inputmode","none");
+    inp.dataset.iso=iso||""; inp.value=fromISO(iso);
+    inp.addEventListener("click",function(){ openCal(inp.dataset.iso,function(v){ inp.dataset.iso=v; inp.value=fromISO(v); },clearable); });
+  }
   // Fechas como texto dd/mm/aaaa (el selector nativo no abre en algunos celulares).
   function toISO(v){
     var m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v||"").trim()); if(!m) return null;
@@ -846,13 +949,13 @@
     var ib=document.createElement("input"); ib.className="lb"; ib.type="number"; ib.inputMode="decimal"; ib.step="any"; ib.min="0"; ib.required=true; ib.placeholder="170.50"; ib.value=l.b===""||l.b==null?"":l.b; b.appendChild(ib);
     two.appendChild(a); two.appendChild(b); r.appendChild(two);
     var dl=document.createElement("label"); dl.appendChild(document.createTextNode("Fecha de compra (opcional)"));
-    var id=document.createElement("input"); id.className="ld"; id.type="text"; id.inputMode="numeric"; id.maxLength=10; id.placeholder="dd/mm/aaaa"; id.autocomplete="off"; id.value=fromISO(l.d); maskDate(id); dl.appendChild(id); r.appendChild(dl);
+    var id=document.createElement("input"); id.className="ld"; id.type="text"; dateField(id,l.d||"",true); dl.appendChild(id); r.appendChild(dl);
     r.addEventListener("input",refreshLots);
     lotsBox.appendChild(r);
   }
   function readLots(){
     return [].slice.call(lotsBox.querySelectorAll(".lotrow")).map(function(r){
-      return {q:parseFloat(r.querySelector(".lq").value), b:parseFloat(r.querySelector(".lb").value), d:(function(v){ v=v.trim(); if(!v) return ""; return toISO(v)||"?"; })(r.querySelector(".ld").value)};
+      return {q:parseFloat(r.querySelector(".lq").value), b:parseFloat(r.querySelector(".lb").value), d:r.querySelector(".ld").dataset.iso||""};
     });
   }
   function refreshLots(){
@@ -924,14 +1027,14 @@
 
   // ---------- Venta / eliminación ----------
   var dlgSell=$("dlgSell"), sellingId=null;
-  maskDate($("sellDate"));
+  (function(){ var sd=$("sellDate"); sd.readOnly=true; sd.className+=" datebtn"; sd.setAttribute("inputmode","none"); sd.addEventListener("click",function(){ openCal(sd.dataset.iso,function(v){ if(v){ sd.dataset.iso=v; sd.value=fromISO(v); } },false); }); })();
   dlgSell.addEventListener("click",function(e){ if(e.target===dlgSell) dlgSell.close(); });
   function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
   function openSell(p){
     if(isRO()) return;
     sellingId=p.id;
     $("sellTitle").textContent="Eliminar "+p.ticker;
-    $("sellDate").value=fromISO(todayStr());
+    $("sellDate").dataset.iso=todayStr(); $("sellDate").value=fromISO(todayStr());
     var cp=currentPrice(p); $("sellPrice").value=cp!==null?(Math.round(cp*10000)/10000):"";
     dlgSell.showModal();
   }
@@ -944,8 +1047,8 @@
   $("formSell").addEventListener("submit",function(ev){
     ev.preventDefault();
     var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p||isRO()) return;
-    var d=toISO($("sellDate").value)||"", sp=parseFloat($("sellPrice").value);
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Poné la fecha de venta como dd/mm/aaaa (no puede ser futura)."); return; }
+    var d=$("sellDate").dataset.iso||"", sp=parseFloat($("sellPrice").value);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Elegí la fecha de venta."); return; }
     if(!(sp>0)){ alert("Poné el precio de venta."); return; }
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
     pr.closed.push(Object.assign({},p,{sold:{d:d,p:sp}}));
