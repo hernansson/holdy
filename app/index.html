@@ -66,6 +66,9 @@
   button.danger{color:var(--neg)}
   button:disabled{opacity:.55; cursor:default}
   .status{font-size:13px; color:var(--muted); margin:2px 0 12px}
+  .status[hidden]{display:none}
+  .skel{display:inline-block; border-radius:8px; background:linear-gradient(90deg,var(--line) 25%,var(--chip) 50%,var(--line) 75%); background-size:200% 100%; animation:skl 1.2s linear infinite; color:transparent!important; user-select:none}
+  @keyframes skl{to{background-position:-200% 0}}
   .banner{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--warn); border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:14px}
   .banner.err{border-left-color:var(--neg)}
   .summary{display:grid; gap:12px; margin-bottom:16px}
@@ -73,17 +76,16 @@
   .summary>.sum-card:only-child{grid-column:1/-1}
   .sum-card h2{margin:0 0 8px; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
   .big{font-size:30px; font-weight:800; letter-spacing:-.01em; line-height:1.1}
+  .sum-hd{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .sum-hd h2{margin:0}
+  .sum-tg{display:inline-flex; align-items:center; gap:5px; border:0; background:transparent; color:var(--muted); font-size:12px; min-height:28px; padding:0 2px; box-shadow:none}
+  .sum-tg svg{transition:transform .15s} .sum-tg.open svg{transform:rotate(180deg)}
   .gain-line{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-top:6px}
   .gain-line .gl-main{font-size:17px; font-weight:700}
   .gain-line .gl-sub,.day-line{font-size:12px; color:var(--muted); font-weight:500}
   .day-line{margin-top:2px}
   .day-line.pos{color:var(--pos)} .day-line.neg{color:var(--neg)}
   .gain-line{font-size:15px; font-weight:700; margin-top:4px}
-  details.sum-det{margin-top:10px}
-  details.sum-det>summary{cursor:pointer; color:var(--muted); font-size:12px; padding:4px 0; list-style:none; display:flex; justify-content:flex-end; align-items:center; gap:4px}
-  details.sum-det>summary::-webkit-details-marker{display:none}
-  details.sum-det>summary::after{content:"›"; font-size:16px; line-height:1; transform:rotate(90deg); transition:transform .15s}
-  details.sum-det[open]>summary::after{transform:rotate(-90deg)}
   .recibo{margin-top:4px; border-top:1px solid var(--line); display:grid}
   .rrow{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--line)}
   .rrow:last-child{border-bottom:0}
@@ -657,7 +659,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text!==undefined) e.textContent=text; return e; }
+  function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
   var nfCache={};
   function fmt(n,ccy){
@@ -813,11 +815,8 @@
   function renderStatus(){
     var s=$("status");
     var autoCount=positions.filter(function(p){return p.source!=="manual"&&!p.fi;}).length;
-    if(!positions.length){ s.textContent=""; return; }
-    if(autoCount && !apiKey && !PROXY_URL){ s.textContent="Falta la API key de Finnhub (Ajustes) para actualizar precios automáticos."; return; }
-    if(refreshing){ s.textContent="Actualizando precios…"; return; }
-    if(lastRefresh){ s.textContent="Última consulta: "+new Date(lastRefresh).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})+". Se actualiza sola cada minuto mientras la app está abierta."; }
-    else s.textContent="Sin consultar todavía en esta sesión.";
+    if(positions.length && autoCount && !apiKey && !PROXY_URL){ s.textContent="Falta la API key de Finnhub (Ajustes) para actualizar precios automáticos."; s.hidden=false; }
+    else { s.textContent=""; s.hidden=true; }
   }
 
   var sumOpen={};
@@ -845,15 +844,22 @@
 
       var card=el("div","sum-card");
       var npos=positions.filter(function(p){return p.ccy===ccy;}).length, inc=g.inc||0;
-      card.appendChild(el("h2",null,"Tu cartera hoy"));
+      var hd=el("div","sum-hd"); hd.appendChild(el("h2",null,"Tu cartera hoy")); card.appendChild(hd);
+      if(costPriced<=0 && refreshing){
+        card.appendChild(el("div","big",el("span","skel","US$ 000.000")));
+        var gk=el("div","gain-line"); gk.appendChild(el("span","skel","Ganaste US$ 0.000 · +0,00%")); card.appendChild(gk);
+      } else {
       card.appendChild(el("div","big",mR(g.value+inc,ccy)));
       if(costPriced>0){
         var diff=g.value-costPriced, tot=g.value+inc-costPriced;
-        var gl=el("div","gain-line "+cls(tot)); gl.appendChild(el("span",null,arrow(tot)+mRs(tot,ccy)+" · "+fmtPct(tot/costPriced))); card.appendChild(gl);
-        var dt=document.createElement("details"); dt.className="sum-det"; dt.open=!!sumOpen[ccy];
-        dt.addEventListener("toggle",function(){ sumOpen[ccy]=dt.open; });
-        dt.appendChild(el("summary",null,"Ver detalle"));
-        var rc=el("div","recibo");
+        var gl=el("div","gain-line "+cls(tot)); gl.appendChild(el("span",null,(tot<0?"Perdiste ":"Ganaste ")+mR(Math.abs(tot),ccy)+" · "+fmtPct(tot/costPriced)));
+        card.appendChild(gl);
+        var rc=el("div","recibo"); rc.hidden=!sumOpen[ccy];
+        var tg=el("button","sum-tg",""); tg.type="button"; tg.setAttribute("aria-expanded",String(!!sumOpen[ccy]));
+        tg.appendChild(el("span",null,"Detalle")); tg.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
+        if(sumOpen[ccy]) tg.classList.add("open");
+        tg.addEventListener("click",function(){ sumOpen[ccy]=rc.hidden; rc.hidden=!rc.hidden; tg.classList.toggle("open",!rc.hidden); tg.setAttribute("aria-expanded",String(!rc.hidden)); });
+        hd.appendChild(tg);
         function rrow(lbl,val,c,strong,sub){
           var r=el("div","rrow"+(strong?" strong":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
           r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
@@ -861,8 +867,9 @@
         rrow("Capital invertido",mR(costPriced,ccy),"",false,"lo que pusiste de tu bolsillo");
         rrow("Valor actual de las inversiones",mR(g.value,ccy),"",false,"lo que valen hoy ("+mRs(diff,ccy)+" vs. el capital)");
         if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"plata cobrada, sin invertir");
-        dt.appendChild(rc); card.appendChild(dt);
+        card.appendChild(rc);
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
+      }
       if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
       box.appendChild(card);
     });
@@ -945,14 +952,15 @@
       var subTxt="", subCls="";
       if(p.fi) subTxt="≈"+p.fi.r.toFixed(1).replace(".",",")+"% anual";
       else if(dpct!==null){ subTxt="hoy "+fmtPct(dpct); subCls=cls(dpct); }
-      else if(cp===null) subTxt="sin precio";
+      else if(cp===null && !refreshing) subTxt="sin precio";
       var sb=el("div","sub-line"); sb.appendChild(el("span","bk",p.broker.replace(" + "," · ")));
       if(subTxt){ sb.appendChild(el("span","dot","·")); sb.appendChild(el("span",subCls,subTxt)); }
       l.appendChild(sb);
       sum.appendChild(l);
       var rr=el("div","acc-r");
-      rr.appendChild(el("div","acc-val",value===null?"—":mR(value,p.ccy)));
-      rr.appendChild(el("div","acc-pl "+cls(pl),pl===null?"—":"("+mRs(pl,p.ccy)+" · "+fmtPct(pct)+")"));
+      if(value===null && refreshing){ rr.appendChild(el("div","acc-val",el("span","skel","US$ 00.000"))); rr.appendChild(el("div","acc-pl",el("span","skel","(+US$ 0.000 · +0,00%)"))); }
+      else { rr.appendChild(el("div","acc-val",value===null?"—":mR(value,p.ccy)));
+      rr.appendChild(el("div","acc-pl "+cls(pl),pl===null?"—":"("+mRs(pl,p.ccy)+" · "+fmtPct(pct)+")")); }
       sum.appendChild(rr);
       det.appendChild(sum);
 
