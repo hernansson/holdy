@@ -97,6 +97,10 @@
   .calgrid button.sel{background:var(--brand);color:var(--brand-ink);font-weight:700}
   .calgrid button:disabled{opacity:.3}
   .datebtn{cursor:pointer;text-align:left;background:var(--card)}
+  .scr{max-width:860px;margin:0 auto;padding:14px 0 40px;display:grid;gap:4px}
+  .scr[hidden]{display:none}
+  .scr .cmphdr{padding:0 16px}
+  .scr form{padding:8px 16px 18px}
   #cmpView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px}
   #cmpView[hidden]{display:none}
   .cmphdr{display:flex;align-items:center;gap:10px}
@@ -176,7 +180,12 @@
   .row-actions{flex-wrap:wrap}
   .profbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px}
   .profbar button{border-radius:999px; font-weight:600; min-height:38px}
-  #profSel{width:auto; max-width:70%; min-height:38px; padding:0 34px 0 16px; border-radius:999px; font-weight:700; font-size:15px; background-color:var(--chip); border:1px solid var(--line); appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center}
+  #profSel{display:inline-flex; align-items:center; gap:8px; min-height:38px; padding:0 14px 0 16px; border-radius:999px; font-weight:700; font-size:15px; max-width:70%}
+  #profSel span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .pk-item{display:flex; align-items:center; width:100%; text-align:left; gap:10px; border:0; background:transparent; border-radius:10px; padding:13px 10px; font-size:16px}
+  .pk-item:active{background:var(--chip)}
+  .pk-item.on{font-weight:700}
+  .pk-item .ck{margin-left:auto; color:var(--brand)}
   .profbar .tag{font-size:11px; padding:2px 8px; border-radius:999px; border:1px dashed var(--warn); color:var(--warn)}
   .profinfo{font-size:12px; color:var(--muted)}
   .grp{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:8px 2px 0}
@@ -228,7 +237,7 @@
     <div class="dr-user" id="menuUser"></div>
     <button type="button" class="dr-item" id="btnRefresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span>Actualizar precios</span></button>
     <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
-    <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3 5-6.5 5S15.5 16.5 15.5 20"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Administrar perfiles</span></button>
+    <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Administrar perfiles</span></button>
     <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Cuenta y respaldo</span></button>
     <div class="dr-sep"></div>
     <button type="button" class="dr-item danger" id="menuOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></svg><span>Cerrar sesión</span></button>
@@ -250,7 +259,7 @@
   <div id="notice"></div>
   <div id="notice2"></div>
   <div class="profbar" id="profbar">
-    <select id="profSel" aria-label="Perfil activo"></select>
+    <button type="button" id="profSel" aria-haspopup="dialog" aria-label="Elegir perfil"></button>
     <span class="tag" id="roTag" hidden>solo lectura</span>
     <span class="profinfo" id="profInfo"></span>
   </div>
@@ -356,9 +365,16 @@
   </form>
 </dialog>
 
-<dialog id="dlgProf" class="sheet">
-  <form method="dialog" id="formProf">
-    <h3>Perfiles</h3>
+<dialog id="dlgPick" class="sheet">
+  <form method="dialog" id="formPick">
+    <h3>Elegir perfil</h3>
+    <div id="pickList"></div>
+  </form>
+</dialog>
+
+<section id="dlgProf" class="scr" hidden>
+  <div class="cmphdr"><button type="button" id="pfClose" aria-label="Volver">←</button><h2>Administrar perfiles</h2></div>
+  <div id="formProf" style="padding:8px 16px 18px;display:grid;gap:14px">
     <div id="profList"></div>
     <div class="sharebox" id="shareBox" hidden>
       <strong id="shareTitle"></strong>
@@ -396,9 +412,8 @@
       <button type="button" id="pfDemo">Crear perfil de ejemplo (datos ficticios)</button>
       <div class="help" id="pfDemoMsg" hidden></div>
     </div>
-    <div class="btns"><button type="button" id="pfClose" class="primary wide">Cerrar</button></div>
-  </form>
-</dialog>
+  </div>
+</section>
 
 <dialog id="dlgShare" class="sheet">
   <form method="dialog" id="formShare">
@@ -414,9 +429,9 @@
   </form>
 </dialog>
 
-<dialog id="dlgSet" class="sheet">
-  <form method="dialog" id="formSet">
-    <h3>Ajustes</h3>
+<section id="dlgSet" class="scr" hidden>
+  <div class="cmphdr"><button type="button" id="sClose" aria-label="Volver">←</button><h2>Cuenta y respaldo</h2></div>
+  <div id="formSet" style="padding:8px 16px 18px;display:grid;gap:12px">
     <div class="sec" id="acctSec" style="border-top:0;padding-top:0" hidden>
       <div class="sec-t">Cuenta</div>
       <div class="help" id="acctInfo"></div>
@@ -439,9 +454,8 @@
       <div class="sec-t">Instalar</div>
       <button type="button" id="sInstall">Instalar app</button>
     </div>
-    <div class="btns"><button type="button" id="sClose" class="primary wide">Cerrar</button></div>
-  </form>
-</dialog>
+  </div>
+</section>
 
 <script>
 (function(){
@@ -593,7 +607,8 @@
   function renderProfile(){
     var c=cur();
     var ps=$("profSel"); ps.textContent="";
-    profData.profiles.forEach(function(pr){ var o=document.createElement("option"); o.value=pr.id; o.textContent=pr.name; if(pr.id===profData.active) o.selected=true; ps.appendChild(o); });
+    ps.appendChild(el("span",null,c.name));
+    ps.insertAdjacentHTML("beforeend",'<svg width="12" height="8" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>');
     $("roTag").hidden=!c.readOnly;
     var info="";
     if(c.readOnly){
@@ -874,8 +889,8 @@
   }
 
   // ---------- Formularios ----------
-  var dlgPos=$("dlgPos"), dlgSet=$("dlgSet");
-  [dlgPos,dlgSet].forEach(function(d){ d.addEventListener("click",function(e){ if(e.target===d) d.close(); }); });
+  var dlgPos=$("dlgPos");
+  [dlgPos].forEach(function(d){ d.addEventListener("click",function(e){ if(e.target===d) d.close(); }); });
   function syncSource(){ $("fManualWrap").hidden=($("fSource").value!=="manual"); }
   $("fSource").addEventListener("change",syncSource);
 
@@ -1184,12 +1199,21 @@
 
   var cmpView=$("cmpView"), cmpRun=0, cmpOpen=false, cmpData=null, cmpRange="all";
   var MES3=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  function setCmp(on){
-    cmpOpen=on; cmpView.hidden=!on;
-    document.querySelector("main").hidden=on||(!!GOOGLE_CLIENT_ID&&!auth);
-    $("btnAdd").hidden=on||!!cur().readOnly;
+  var dlgProf=$("dlgProf"), dlgSet=$("dlgSet");
+  var SCREENS=[cmpView,dlgProf,dlgSet];
+  function setScr(el){
+    SCREENS.forEach(function(x){ x.hidden=x!==el; });
+    cmpOpen=!!el;
+    document.querySelector("main").hidden=!!el||(!!GOOGLE_CLIENT_ID&&!auth);
+    $("btnAdd").hidden=!!el||!!cur().readOnly;
     window.scrollTo(0,0);
   }
+  function setCmp(on){ setScr(on?cmpView:null); }
+  [dlgProf,dlgSet].forEach(function(x){
+    Object.defineProperty(x,"open",{get:function(){ return !x.hidden; }});
+    x.showModal=function(){ setScr(x); try{ history.pushState({scr:1},""); }catch(e){} };
+    x.close=function(){ if(x.hidden) return; if(history.state&&history.state.scr) history.back(); else setScr(null); };
+  });
   function openCmp(){
     if(profData.profiles.length<2) return;
     var a=$("cmpA"), b=$("cmpB"); a.textContent=""; b.textContent="";
@@ -1199,11 +1223,11 @@
     a.value=profData.active;
     var other=profData.profiles.filter(function(x){return x.id!==profData.active;})[0]; b.value=other?other.id:profData.active;
     cmpRange="Todo"; setCmp(true);
-    try{ history.pushState({cmp:1},""); }catch(e){}
+    try{ history.pushState({scr:1},""); }catch(e){}
     runCompare();
   }
-  $("cmpBack").addEventListener("click",function(){ if(history.state&&history.state.cmp) history.back(); else setCmp(false); });
-  window.addEventListener("popstate",function(){ if(cmpOpen) setCmp(false); });
+  $("cmpBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setCmp(false); });
+  window.addEventListener("popstate",function(){ if(cmpOpen) setScr(null); });
   $("cmpA").addEventListener("change",runCompare); $("cmpB").addEventListener("change",runCompare);
   function pctTxt(v){ return fmtPct(v/100); }
   function fmtD(n){ return dayStr(n).split("-").reverse().join("/"); }
@@ -1415,8 +1439,8 @@
   $("btnHide").addEventListener("click",function(){ ui.hide=!ui.hide; save(LS_UI,ui); render(); });
 
   // ---------- Perfiles ----------
-  var dlgProf=$("dlgProf"), dlgShare=$("dlgShare");
-  [dlgProf,dlgShare].forEach(function(d){ d.addEventListener("click",function(e){ if(e.target===d) d.close(); }); });
+  var dlgShare=$("dlgShare");
+  [dlgShare].forEach(function(d){ d.addEventListener("click",function(e){ if(e.target===d) d.close(); }); });
 
   function setActive(id){
     if(!profData.profiles.some(function(x){return x.id===id;})) return;
@@ -1704,7 +1728,22 @@
   $("shareNative").addEventListener("click",function(){
     try{ navigator.share({title:"Holdy",text:"Mi cartera en Holdy",url:$("shareLink").value}).catch(function(){}); }catch(e){}
   });
-  $("profSel").addEventListener("change",function(){ setActive(this.value); });
+  var dlgPick=$("dlgPick");
+  dlgPick.addEventListener("click",function(e){ if(e.target===dlgPick) dlgPick.close(); });
+  $("profSel").addEventListener("click",function(){
+    var box=$("pickList"); box.textContent="";
+    profData.profiles.forEach(function(pr){
+      var b=el("button","pk-item"+(pr.id===profData.active?" on":""),pr.name); b.type="button";
+      if(pr.readOnly) b.appendChild(el("span","chip","solo lectura"));
+      if(pr.id===profData.active) b.appendChild(el("span","ck","✓"));
+      b.addEventListener("click",function(){ dlgPick.close(); if(pr.id!==profData.active) setActive(pr.id); });
+      box.appendChild(b);
+    });
+    var m=el("button","pk-item","Administrar perfiles…"); m.type="button"; m.style.color="var(--muted)";
+    m.addEventListener("click",function(){ dlgPick.close(); $("btnProfAdm").click(); });
+    box.appendChild(m);
+    dlgPick.showModal();
+  });
   $("btnProfAdm").addEventListener("click",function(){ $("shareBox").hidden=true; $("pfName").value=""; $("pfLink").value=""; renderProfList(); dlgProf.showModal(); });
   $("pfClose").addEventListener("click",function(){ dlgProf.close(); });
   $("pfAdd").addEventListener("click",function(){
