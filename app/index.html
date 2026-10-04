@@ -2,6 +2,10 @@
 <html lang="es-AR">
 <head>
 <meta charset="utf-8">
+<script>
+// Sin sesión no hay pantalla de ingreso en la app: se vuelve a la página de inicio, que es donde se entra.
+(function(){ try{ var x=JSON.parse(localStorage.getItem("cartera.auth.v1")||"null"); if(!x||!/^[a-f0-9]{64}$/.test(String(x.session||""))){ document.documentElement.style.visibility="hidden"; location.replace("../"); setTimeout(function(){ document.documentElement.style.visibility=""; },3000); } }catch(e){ document.documentElement.style.visibility="hidden"; location.replace("../"); } })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Holdy</title>
 <meta name="theme-color" content="#0f766e">
@@ -2686,6 +2690,8 @@
   var gateDone=false;
   function updateGate(){
     var locked=!!GOOGLE_CLIENT_ID && !auth;
+    if(locked){ try{ document.documentElement.style.visibility="hidden"; location.replace("../"); }catch(e){} }
+    $("btnAdd").hidden=locked||cmpOpen||!!cur().readOnly;
     $("gate").hidden=!locked;
     document.querySelector("body>header").hidden=locked;
     document.querySelector("main").hidden=locked||cmpOpen;

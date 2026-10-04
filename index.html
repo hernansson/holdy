@@ -6,6 +6,10 @@
 <title>Holdy · Tus acciones, claras</title>
 <meta name="description" content="Holdy muestra cuánto ganás o perdés en cada acción desde tu precio de compra, con precios al día. Gratis, en el celu y en la compu.">
 <meta name="theme-color" content="#0f766e">
+<script>
+// Quien ya inició sesión entra directo a la app, antes de pintar nada (con ?home se ve esta página).
+(function(){ try{ if(localStorage.getItem("cartera.auth.v1") && !/[?&]home\b/.test(location.search)){ document.documentElement.style.visibility="hidden"; location.replace("app/"); setTimeout(function(){ document.documentElement.style.visibility=""; },3000); } }catch(e){} })();
+</script>
 <link rel="icon" href="app/icon-192.png">
 <link rel="apple-touch-icon" href="app/apple-touch-icon.png">
 <style>
@@ -355,8 +359,6 @@
     // La landing vieja y la app vieja compartían dirección: se limpia cualquier service worker de esta ruta.
     if("serviceWorker" in navigator){ navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ if(r.scope===location.origin+location.pathname.replace(/[^/]*$/,"")) r.unregister(); }); }); }
     // Quien ya inició sesión entra directo; el resto ve el ingreso con Google al abrir la app a la app (se puede ver esta página con ?home).
-    var has=localStorage.getItem("cartera.auth.v1");
-    if(has && !/[?&]home\b/.test(location.search)) location.replace("app/");
   }catch(e){}
 })();
 </script>
