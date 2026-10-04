@@ -160,7 +160,7 @@
   form h3{margin:0 0 2px; font-size:18px}
   label{display:grid; gap:4px; font-size:13px; color:var(--muted)}
   [hidden]{display:none !important}
-  input,select{
+  input,select,textarea{
     font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line);
     border-radius:10px; padding:10px; min-height:42px; width:100%;
   }
@@ -403,6 +403,17 @@
       <div class="inrow">
         <input id="pfLink" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Código (ABCDE-FGHJK) o link" aria-label="Código o link del perfil">
         <button type="button" id="pfImport">Agregar</button>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-t">Importar operaciones de IBKR</div>
+      <div class="help">Subí el CSV de un Flex Query con la sección Trades. Se arma un perfil nuevo con tus compras y ventas, con fechas.</div>
+      <input type="file" id="ibFile" accept=".csv,text/csv,text/plain" aria-label="Archivo CSV de IBKR">
+      <textarea id="ibText" rows="3" placeholder="…o pegá acá el contenido del CSV" aria-label="Contenido del CSV"></textarea>
+      <button type="button" id="ibRead">Leer lo pegado</button>
+      <div class="help" id="ibMsg" role="status" aria-live="polite" hidden></div>
+      <div id="ibAct" hidden>
+        <div class="inrow"><input id="ibName" maxlength="40" value="IBKR" aria-label="Nombre del perfil nuevo"><button type="button" id="ibCreate" class="primary">Crear perfil</button></div>
       </div>
     </div>
     <div class="sec">
@@ -1828,6 +1839,132 @@
         save(LS_PROF,profData); say(""); dlgProf.close(); render(); refresh(true);
       }).catch(function(){ say("No se pudo armar el ejemplo ahora. Probá de nuevo en un rato."); })
       .then(function(){ btn.disabled=false; });
+  });
+  // <ibkr-core>
+  function parseCsv(text){
+    var rows=[], row=[], f="", q=false, i=0, n=text.length;
+    for(;i<n;i++){
+      var c=text.charAt(i);
+      if(q){ if(c==='"'){ if(text.charAt(i+1)==='"'){ f+='"'; i++; } else q=false; } else f+=c; }
+      else if(c==='"') q=true;
+      else if(c===","){ row.push(f); f=""; }
+      else if(c==="\n"||c==="\r"){ if(c==="\r"&&text.charAt(i+1)==="\n") i++; row.push(f); f=""; if(row.length>1||row[0]!=="") rows.push(row); row=[]; }
+      else f+=c;
+    }
+    if(f!==""||row.length){ row.push(f); if(row.length>1||row[0]!=="") rows.push(row); }
+    return rows;
+  }
+  function ibDate(s){
+    s=String(s||"").trim(); var m;
+    if((m=/^(\d{4})(\d{2})(\d{2})/.exec(s))) return m[1]+"-"+m[2]+"-"+m[3];
+    if((m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s))) return m[0];
+    if((m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s))) return m[3]+"-"+("0"+m[1]).slice(-2)+"-"+("0"+m[2]).slice(-2);
+    return "";
+  }
+  // Lee el CSV de un Flex Query de IBKR (sección Trades). Devuelve compras y ventas ya normalizadas.
+  function ibkrParse(text){
+    var rows=parseCsv(String(text||"").replace(/^﻿/,"")), out={trades:[],other:0,nonUsd:0,rows:rows.length};
+    if(!rows.length){ out.error="vacio"; return out; }
+    function norm(s){ return String(s).toLowerCase().replace(/[^a-z\/]/g,""); }
+    var hi=-1, ix={};
+    for(var r=0;r<Math.min(rows.length,5);r++){
+      var nm=rows[r].map(norm);
+      if(nm.indexOf("symbol")>=0 && (nm.indexOf("quantity")>=0||nm.indexOf("tradeprice")>=0)){ hi=r; nm.forEach(function(k,j){ if(!(k in ix)) ix[k]=j; }); break; }
+    }
+    var C;
+    if(hi>=0){
+      function g(){ for(var a=0;a<arguments.length;a++) if(arguments[a] in ix) return ix[arguments[a]]; return -1; }
+      C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail")};
+      if(C.sym<0||C.qty<0||C.px<0||(C.date<0&&C.dt<0)){ out.error="columnas"; return out; }
+    } else if(rows[0].length>=72 && /^(BUY|SELL)$/.test(rows[0][54]||"")){
+      C={asset:5,ccy:3,sym:7,date:30,dt:28,qty:35,px:36,side:54,lvl:71}; hi=-1;
+    } else { out.error="formato"; return out; }
+    for(var k=hi+1;k<rows.length;k++){
+      var w=rows[k]; if(w.length<8) continue;
+      var asset=C.asset>=0?String(w[C.asset]).toUpperCase():"STK";
+      if(asset!=="STK"){ out.other++; continue; }
+      if(C.lvl>=0 && w[C.lvl] && String(w[C.lvl]).toUpperCase()!=="EXECUTION") continue;
+      var sym=String(w[C.sym]||"").trim().toUpperCase().replace(/\s+/g,"-");
+      var qty=parseFloat(w[C.qty]), px=parseFloat(w[C.px]);
+      var d=ibDate(C.date>=0?w[C.date]:"")||ibDate(C.dt>=0?w[C.dt]:"");
+      var side=C.side>=0?String(w[C.side]).toUpperCase():(qty<0?"SELL":"BUY");
+      if(!sym||!d||!isFinite(qty)||!isFinite(px)||qty===0||px<=0||(side!=="BUY"&&side!=="SELL")) continue;
+      var ccy=C.ccy>=0?String(w[C.ccy]).toUpperCase():"USD";
+      if(ccy!=="USD"){ out.nonUsd++; continue; }
+      out.trades.push({sym:sym,d:d,q:Math.abs(qty),p:px,s:side==="SELL"?"s":"b"});
+    }
+    return out;
+  }
+  // Une las ejecuciones del mismo día y acción, y arma lotes abiertos y ventas cerradas (primero en entrar, primero en salir).
+  function ibkrBuild(trades){
+    var agg={}, order=[];
+    trades.forEach(function(t){
+      var k=t.sym+"|"+t.d+"|"+t.s;
+      if(!agg[k]){ agg[k]={sym:t.sym,d:t.d,s:t.s,q:0,c:0}; order.push(k); }
+      agg[k].q+=t.q; agg[k].c+=t.q*t.p;
+    });
+    var list=order.map(function(k){ var a=agg[k]; return {sym:a.sym,d:a.d,s:a.s,q:a.q,p:a.c/a.q}; });
+    list.sort(function(a,b){ return a.d<b.d?-1:a.d>b.d?1:(a.s===b.s?0:(a.s==="b"?-1:1)); });
+    var by={}, orphan=0;
+    list.forEach(function(t){
+      var st=by[t.sym]||(by[t.sym]={q:[],closed:{}});
+      if(t.s==="b"){ st.q.push({q:t.q,b:Math.round(t.p*10000)/10000,d:t.d}); return; }
+      var rem=t.q;
+      while(rem>1e-9 && st.q.length){
+        var l=st.q[0], take=Math.min(rem,l.q), key=t.d+"|"+t.p;
+        (st.closed[key]||(st.closed[key]={d:t.d,p:Math.round(t.p*10000)/10000,lots:[]})).lots.push({q:Math.round(take*1e6)/1e6,b:l.b,d:l.d});
+        l.q-=take; rem-=take; if(l.q<=1e-9) st.q.shift();
+      }
+      if(rem>1e-9) orphan++;
+    });
+    var open=[], closed=[], dmin="9999", dmax="";
+    Object.keys(by).forEach(function(sym){
+      var st=by[sym];
+      if(st.q.length) open.push({tk:sym,lots:st.q.map(function(l){ return {q:Math.round(l.q*1e6)/1e6,b:l.b,d:l.d}; })});
+      Object.keys(st.closed).forEach(function(k){ var c=st.closed[k]; closed.push({tk:sym,lots:c.lots,sold:{d:c.d,p:c.p}}); });
+    });
+    list.forEach(function(t){ if(t.d<dmin) dmin=t.d; if(t.d>dmax) dmax=t.d; });
+    return {open:open,closed:closed,orphan:orphan,dmin:dmin,dmax:dmax,fills:list.length};
+  }
+  // </ibkr-core>
+
+  var ibState=null;
+  function ibMsg(t){ var m=$("ibMsg"); m.textContent=t||""; m.hidden=!t; }
+  function ibRead(text){
+    $("ibAct").hidden=true; ibState=null;
+    var P=ibkrParse(text);
+    if(P.error){
+      ibMsg(P.error==="vacio"?"El archivo está vacío.":P.error==="columnas"?"Al archivo le faltan columnas (hacen falta Symbol, Quantity, TradePrice y la fecha). Revisá que el Flex Query tenga todos los campos de Trades.":"No reconozco este formato. Tiene que ser el CSV de un Flex Query con la sección Trades.");
+      return;
+    }
+    if(!P.trades.length){ ibMsg("No encontré compras ni ventas de acciones en USD en ese archivo."+(P.nonUsd?" ("+P.nonUsd+" en otra moneda quedaron afuera.)":"")); return; }
+    var B=ibkrBuild(P.trades), pos=[], closed=[];
+    B.open.forEach(function(x){ var c=cleanPos({broker:"IBKR",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de IBKR"},false); if(c) pos.push(c); });
+    B.closed.forEach(function(x){ var c=cleanPos({broker:"IBKR",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de IBKR"},false); if(c&&c.sold) closed.push(c); });
+    if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."); return; }
+    ibState={pos:pos,closed:closed};
+    var tks={}; pos.concat(closed).forEach(function(c){ tks[c.ticker]=1; });
+    function fd(s){ return s.split("-").reverse().join("/"); }
+    var msg="Encontré "+B.fills+" operaciones de "+Object.keys(tks).length+" acciones, entre el "+fd(B.dmin)+" y el "+fd(B.dmax)+": "+pos.length+" posiciones abiertas y "+closed.length+" ventas.";
+    if(P.nonUsd||P.other) msg+=" Quedaron afuera "+(P.nonUsd+P.other)+" operaciones en otra moneda o que no son acciones.";
+    if(B.orphan) msg+=" "+B.orphan+" venta(s) no tienen compra previa en el archivo (quizás compraste antes del rango) y se ignoraron.";
+    ibMsg(msg); $("ibAct").hidden=false;
+  }
+  $("ibFile").addEventListener("change",function(){
+    var f=this.files&&this.files[0]; if(!f) return;
+    if(f.size>5*1024*1024){ ibMsg("El archivo es demasiado grande."); return; }
+    var rd=new FileReader(); rd.onload=function(){ ibRead(String(rd.result||"")); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
+  });
+  $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } ibRead(t); });
+  $("ibCreate").addEventListener("click",function(){
+    if(!ibState) return;
+    if(profData.profiles.length>=20){ ibMsg("Llegaste al máximo de 20 perfiles."); return; }
+    var n=cleanName($("ibName").value)||"IBKR";
+    cur().positions=positions;
+    var np={id:rid(),name:n,positions:ibState.pos,closed:ibState.closed,readOnly:false,mod:Date.now()};
+    profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null; ibState=null;
+    save(LS_PROF,profData); $("ibAct").hidden=true; $("ibText").value=""; $("ibFile").value=""; ibMsg("");
+    dlgProf.close(); render(); refresh(true);
   });
   $("pfImport").addEventListener("click",function(){
     var v=$("pfLink").value.trim(), i=v.indexOf("#share=");
