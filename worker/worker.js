@@ -17,6 +17,10 @@ const GOOGLE_CLIENT_ID = "554911510319-s9etahete05ilh86dd2r2bfnilq1jgkm.apps.goo
 const TTL_MS = 60 * 1000;
 const MAX_CACHED = 500;
 const cache = new Map();
+// EQAC (EQQQ Nasdaq-100 Acc en dólares) cotiza en la bolsa suiza (.SW), no en Londres.
+const ALIAS = { EQAC: "EQAC.SW" };
+const HIST_TTL_MS = 6 * 60 * 60 * 1000;
+const histCache = new Map();
 
 export default {
   async fetch(request, env) {
@@ -42,6 +46,7 @@ export default {
     if (url.pathname.startsWith("/p/")) return profile(request, env, url, cors);
     if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data") return account(request, env, url, cors);
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
+    if (url.pathname === "/history") return history(url, cors);
     if (url.pathname !== "/quote") return json({ error: "not_found" }, 404, cors);
 
     const symbol = (url.searchParams.get("symbol") || "").toUpperCase();
@@ -79,8 +84,6 @@ export default {
     }
 
     // Respaldo: Yahoo Finance. Sin punto se prueba la bolsa de Londres (.L) y la suiza (.SW); VUAA cotiza en Londres y EQAC en Suiza, ambos en dólares.
-    // EQAC (EQQQ Nasdaq-100 Acc en dólares) cotiza en la bolsa suiza (.SW), no en Londres.
-    const ALIAS = { EQAC: "EQAC.SW" };
     const candidates = symbol.includes(".") ? [symbol] : (ALIAS[symbol] ? [ALIAS[symbol]] : [symbol + ".L", symbol + ".SW"]);
     for (const c of candidates) {
       const q = await yahooQuote(c);
@@ -278,4 +281,64 @@ async function account(request, env, url, cors) {
     }
   }
   return json({ error: "not_found" }, 404, cors);
+}
+
+// ---------- Historial de precios (para comparar rendimientos) ----------
+//   GET /history?symbols=AAPL,VUAA&from=2025-01-01  ->  { data: { AAPL: { currency, pts: [["2025-01-02", 243.1], ...] } } }
+// Cierres diarios sin ajustar por dividendos, desde Yahoo Finance (no oficial).
+async function history(url, cors) {
+  const syms = (url.searchParams.get("symbols") || "").toUpperCase().split(",").map((x) => x.trim()).filter(Boolean);
+  if (!syms.length || syms.length > 20 || syms.some((x) => !/^[A-Z0-9.\-]{1,12}$/.test(x))) return json({ error: "bad_symbols" }, 400, cors);
+  const from = url.searchParams.get("from") || "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) return json({ error: "bad_from" }, 400, cors);
+  const t0 = Date.parse(from + "T00:00:00Z");
+  const floor = Date.now() - 5 * 365 * 86400000;
+  const p1 = Math.floor(Math.max(t0 - 7 * 86400000, floor) / 1000);
+  const p2 = Math.floor(Date.now() / 1000) + 86400;
+  const out = {};
+  await Promise.all(syms.map(async (sym) => {
+    const key = sym + "|" + new Date(p1 * 1000).toISOString().slice(0, 10);
+    const hit = histCache.get(key);
+    if (hit && Date.now() - hit.at < HIST_TTL_MS) { out[sym] = hit.data; return; }
+    const cands = sym.includes(".") ? [sym] : (ALIAS[sym] ? [ALIAS[sym]] : [sym, sym + ".L", sym + ".SW"]);
+    for (const c of cands) {
+      const d = await yahooHistory(c, p1, p2);
+      if (d) {
+        histCache.set(key, { at: Date.now(), data: d });
+        if (histCache.size > 300) histCache.delete(histCache.keys().next().value);
+        out[sym] = d;
+        return;
+      }
+    }
+    out[sym] = null;
+  }));
+  return json({ data: out }, 200, cors);
+}
+
+async function yahooHistory(symbol, p1, p2) {
+  try {
+    const r = await fetch(
+      "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(symbol) + "?period1=" + p1 + "&period2=" + p2 + "&interval=1d",
+      { headers: { "User-Agent": "Mozilla/5.0 (compatible; Holdy/1.0)", "Accept": "application/json" } }
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    const res = j && j.chart && j.chart.result && j.chart.result[0];
+    if (!res || !Array.isArray(res.timestamp) || !res.indicators || !res.indicators.quote || !res.indicators.quote[0]) return null;
+    const closes = res.indicators.quote[0].close || [];
+    const off = (res.meta && typeof res.meta.gmtoffset === "number") ? res.meta.gmtoffset : 0;
+    let cur = String((res.meta && res.meta.currency) || "").trim();
+    let k = 1;
+    if (cur === "GBp" || cur === "GBX") { k = 0.01; cur = "GBP"; }
+    const pts = [];
+    for (let i = 0; i < res.timestamp.length; i++) {
+      const c = closes[i];
+      if (typeof c !== "number" || !(c > 0)) continue;
+      pts.push([new Date((res.timestamp[i] + off) * 1000).toISOString().slice(0, 10), Math.round(c * k * 1e6) / 1e6]);
+    }
+    if (pts.length < 2) return null;
+    return { currency: cur.toUpperCase(), pts };
+  } catch (e) {
+    return null;
+  }
 }
