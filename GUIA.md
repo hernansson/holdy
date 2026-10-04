@@ -56,3 +56,9 @@ Usa el mismo Worker de precios, con un almacén KV:
 2. Tu Worker → Settings → Bindings → Add → KV namespace, variable `HOLDY_KV` → elegí `holdy-profiles`.
 3. Edit code → pegá el contenido actual de `worker/worker.js` → Deploy.
 Plan gratuito de KV: unas 1.000 escrituras por día; Holdy agrupa los cambios para gastar pocas.
+
+
+## Estructura y direcciones
+- `index.html` (raíz): página de presentación. `app/`: la app (PWA). La dirección principal es https://holdy.pages.dev (Cloudflare Pages, se actualiza solo con cada cambio en GitHub); https://hernansson.github.io/holdy/ sigue activa.
+- Login con Google: proyecto "Holdy" en Google Cloud (ID de cliente en `app/index.html` y `worker/worker.js`). La app está en modo "Prueba": solo entran los emails agregados como usuarios de prueba (Google Auth Platform → Público). Para que entre cualquiera, hay que publicarla.
+- El Worker (`worker/worker.js`) verifica el token de Google y guarda la cartera de cada usuario en el KV. Tras cambiarlo hay que pegarlo en Cloudflare y desplegar.
