@@ -70,6 +70,11 @@
   .row-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px 10px; margin-top:10px}
   .row-actions{display:flex; gap:8px; margin-top:10px}
   .row-actions button{padding:6px 12px; min-height:34px; font-size:13px}
+  .lotrow{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:8px}
+  .lothead{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600}
+  .lothead button{min-height:32px;padding:4px 10px;font-size:13px}
+  .lotlist{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:grid;gap:4px}
+  .lotline{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
   .note{font-size:12px; color:var(--muted); margin-top:6px}
   .empty{text-align:center; color:var(--muted); padding:36px 12px; background:var(--card); border:1px dashed var(--line); border-radius:14px}
   .fab{
@@ -217,14 +222,9 @@
       <input id="fTicker" autocapitalize="characters" autocomplete="off" placeholder="AAPL, VUAA, EQAC" required>
       <span class="hint" style="font-size:12px;color:var(--muted);font-weight:400">Acciones de EE.UU. y ETFs europeos (VUAA, EQAC: bolsa de Londres, en USD). Otra bolsa: agregá el sufijo, por ejemplo VUAA.DE.</span>
     </label>
-    <div class="two">
-      <label>Cantidad
-        <input id="fQty" type="number" inputmode="decimal" step="any" min="0" required placeholder="10">
-      </label>
-      <label>Precio de compra
-        <input id="fBuy" type="number" inputmode="decimal" step="any" min="0" required placeholder="170.50">
-      </label>
-    </div>
+    <div id="lotsBox" style="display:grid;gap:10px"></div>
+    <button type="button" id="lotAdd">+ Agregar otra compra</button>
+    <div class="hint" id="lotSum" style="font-size:13px;color:var(--muted)" hidden></div>
     <label>Fuente del precio actual
       <select id="fSource">
         <option value="auto">Automática (Finnhub, acciones de EE.UU.)</option>
@@ -357,13 +357,23 @@
     if(!p || typeof p!=="object") return null;
     var t=String(p.ticker==null?"":p.ticker).trim().toUpperCase().slice(0,20);
     if(strict ? !/^[A-Z0-9.\-]{1,20}$/.test(t) : !t) return null;
-    var qty=+p.qty, buy=+p.buy;
+    var qty=+p.qty, buy=+p.buy, lots=[];
+    if(Array.isArray(p.lots)) p.lots.slice(0,30).forEach(function(l){
+      if(!l) return;
+      var q=+(l.q!==undefined?l.q:l[0]), b=+(l.b!==undefined?l.b:l[1]), d=String((l.d!==undefined?l.d:l[2])||"");
+      if(isFinite(q)&&isFinite(b)&&q>0&&b>0) lots.push({q:q,b:b,d:/^\d{4}-\d{2}-\d{2}$/.test(d)?d:""});
+    });
+    if(lots.length){
+      var tq=0,tc=0; lots.forEach(function(l){ tq+=l.q; tc+=l.q*l.b; });
+      qty=tq; buy=tc/tq;
+      if(lots.length<2 && !lots[0].d) lots=[];
+    }
     if(!isFinite(qty)||!isFinite(buy)||!(qty>0)||!(buy>0)) return null;
     var mp=+p.manualPrice; if(!isFinite(mp)||mp<0) mp=0;
     var src=p.source==="manual"?"manual":"auto";
     if(src==="manual" && !(mp>0)) src="auto";
     return { id:rid()+Math.random().toString(36).slice(2,4), broker:p.broker==="Balanz"?"Balanz":"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
-      ticker:t, qty:qty, buy:buy, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
+      ticker:t, qty:qty, buy:buy, lots:lots, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
       note:String(p.note||"").replace(/[\u0000-\u001f]/g," ").slice(0,200) };
   }
   function initProfiles(){
@@ -636,13 +646,24 @@
       var g=el("div","row-grid");
       function cell(k,v,c){ var d=el("div"); d.appendChild(el("div","k",k)); d.appendChild(el("div","v"+(c?" "+c:""),v)); g.appendChild(d); }
       cell("Cantidad",qq(p.qty));
-      cell("Compra",mm(p.buy,p.ccy));
+      cell(p.lots&&p.lots.length>1?"Compra promedio":"Compra",mm(p.buy,p.ccy));
       cell("Actual",cp===null?"—":fmt(cp,p.ccy));
       cell("Día",dpct===null?"—":arrow(dpct)+fmtPct(dpct),dpct===null?"":cls(dpct));
       cell("Valor",value===null?"—":mm(value,p.ccy));
       cell("Ganancia desde compra",pl===null?"—":mms(pl,p.ccy)+" ("+fmtPct(pct)+")",cls(pl));
       cell("Peso",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       body.appendChild(g);
+      if(p.lots && p.lots.length){
+        var ll=el("div","lotlist"); ll.appendChild(el("div","k","Tus compras"));
+        p.lots.forEach(function(l,i){
+          var ln=el("div","lotline");
+          var dd=l.d?" · "+l.d.split("-").reverse().join("/"):"";
+          ln.appendChild(el("span",null,(p.lots.length>1?(i+1)+". ":"")+qq(l.q)+" × "+mm(l.b,p.ccy)+dd));
+          if(cp!==null){ var lp=(cp-l.b)/l.b; ln.appendChild(el("span",cls(lp),arrow(lp)+fmtPct(lp))); }
+          ll.appendChild(ln);
+        });
+        body.appendChild(ll);
+      }
 
       var stamp=priceStamp(p);
       var notes=[];
@@ -739,6 +760,38 @@
   function syncSource(){ $("fManualWrap").hidden=($("fSource").value!=="manual"); }
   $("fSource").addEventListener("change",syncSource);
 
+  var lotsBox=$("lotsBox");
+  function addLotRow(l){
+    var r=document.createElement("div"); r.className="lotrow";
+    var h=el("div","lothead"); h.appendChild(el("span","lotn",""));
+    var rm=el("button",null,"Quitar"); rm.type="button"; rm.addEventListener("click",function(){ r.remove(); refreshLots(); }); h.appendChild(rm);
+    r.appendChild(h);
+    var two=el("div","two");
+    var a=document.createElement("label"); a.appendChild(document.createTextNode("Cantidad"));
+    var iq=document.createElement("input"); iq.className="lq"; iq.type="number"; iq.inputMode="decimal"; iq.step="any"; iq.min="0"; iq.required=true; iq.placeholder="10"; iq.value=l.q===""||l.q==null?"":l.q; a.appendChild(iq);
+    var b=document.createElement("label"); b.appendChild(document.createTextNode("Precio de compra"));
+    var ib=document.createElement("input"); ib.className="lb"; ib.type="number"; ib.inputMode="decimal"; ib.step="any"; ib.min="0"; ib.required=true; ib.placeholder="170.50"; ib.value=l.b===""||l.b==null?"":l.b; b.appendChild(ib);
+    two.appendChild(a); two.appendChild(b); r.appendChild(two);
+    var dl=document.createElement("label"); dl.appendChild(document.createTextNode("Fecha de compra (opcional)"));
+    var id=document.createElement("input"); id.className="ld"; id.type="date"; id.value=l.d||""; dl.appendChild(id); r.appendChild(dl);
+    r.addEventListener("input",refreshLots);
+    lotsBox.appendChild(r);
+  }
+  function readLots(){
+    return [].slice.call(lotsBox.querySelectorAll(".lotrow")).map(function(r){
+      return {q:parseFloat(r.querySelector(".lq").value), b:parseFloat(r.querySelector(".lb").value), d:r.querySelector(".ld").value||""};
+    });
+  }
+  function refreshLots(){
+    var rows=[].slice.call(lotsBox.querySelectorAll(".lotrow"));
+    rows.forEach(function(r,i){ r.querySelector(".lotn").textContent=rows.length>1?"Compra "+(i+1):"Compra"; r.querySelector(".lothead button").hidden=rows.length<2; });
+    var ls=readLots().filter(function(l){return l.q>0&&l.b>0;}), sm=$("lotSum");
+    if(ls.length<2){ sm.hidden=true; return; }
+    var tq=0,tc=0; ls.forEach(function(l){ tq+=l.q; tc+=l.q*l.b; });
+    sm.hidden=false; sm.textContent="Promedio: "+fmt(tc/tq,$("fCcy").value)+" por acción · Total: "+qq(tq)+" · Invertido: "+fmt(tc,$("fCcy").value);
+  }
+  $("lotAdd").addEventListener("click",function(){ if(lotsBox.children.length<30){ addLotRow({q:"",b:"",d:""}); refreshLots(); var l=lotsBox.lastChild.querySelector(".lq"); l.focus(); } });
+  $("fCcy").addEventListener("change",refreshLots);
   function openPos(id){
     editingId=id||null;
     var p=id?positions.filter(function(x){return x.id===id;})[0]:null;
@@ -746,8 +799,10 @@
     $("fBroker").value=p?p.broker:"IBKR";
     $("fCcy").value=p?p.ccy:"USD";
     $("fTicker").value=p?p.ticker:"";
-    $("fQty").value=p?p.qty:"";
-    $("fBuy").value=p?p.buy:"";
+    lotsBox.textContent="";
+    var ls=p?((p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}]):[{q:"",b:"",d:""}];
+    ls.forEach(function(l){ addLotRow(l); });
+    refreshLots();
     $("fSource").value=p?(p.source||"auto"):"auto";
     $("fManual").value=(p&&p.manualPrice)?p.manualPrice:"";
     $("fNote").value=p?(p.note||""):"";
@@ -760,16 +815,20 @@
   $("formPos").addEventListener("submit",function(ev){
     ev.preventDefault();
     var ticker=$("fTicker").value.trim().toUpperCase();
-    var qty=parseFloat($("fQty").value), buy=parseFloat($("fBuy").value);
+    var lots=readLots();
     var source=$("fSource").value, manual=parseFloat($("fManual").value);
     if(isRO()) return;
     if(!ticker){ alert("Falta el ticker."); return; }
     if(source==="auto" && !/^[A-Z0-9.\-]{1,12}$/.test(ticker)){ alert("El ticker solo puede tener letras, números, punto o guion (máx. 12)."); return; }
-    if(!(qty>0)){ alert("La cantidad tiene que ser mayor a 0."); return; }
-    if(!(buy>0)){ alert("El precio de compra tiene que ser mayor a 0."); return; }
+    for(var li=0;li<lots.length;li++){
+      if(!(lots[li].q>0)){ alert("La cantidad tiene que ser mayor a 0."); return; }
+      if(!(lots[li].b>0)){ alert("El precio de compra tiene que ser mayor a 0."); return; }
+    }
+    var qty=0,cst=0; lots.forEach(function(l){ qty+=l.q; cst+=l.q*l.b; }); var buy=cst/qty;
+    var keepLots=(lots.length>1||!!lots[0].d)?lots.map(function(l){return {q:l.q,b:l.b,d:l.d};}):[];
     if(source==="manual" && !(manual>0)){ alert("Cargá el precio actual manual."); return; }
     var data={
-      broker:$("fBroker").value, ccy:$("fCcy").value, ticker:ticker, qty:qty, buy:buy,
+      broker:$("fBroker").value, ccy:$("fCcy").value, ticker:ticker, qty:qty, buy:buy, lots:keepLots,
       source:source, manualPrice:source==="manual"?manual:0, note:$("fNote").value.trim()
     };
     if(editingId){
@@ -885,10 +944,11 @@
     }
     return p.then(function(u){ return JSON.parse(new TextDecoder().decode(u)); });
   }
+  function lotsT(p){ return (p.lots&&p.lots.length)?[p.lots.map(function(l){return [l.q,l.b,l.d||""];})]:[]; }
   function buildPayload(pr){
     if(!pr.shareKey){ pr.shareKey=rid()+Math.random().toString(36).slice(2,8); save(LS_PROF,profData); }
     return {v:2,i:pr.shareKey,n:pr.name,t:Date.now(),p:pr.positions.map(function(x){
-      return [x.broker==="Balanz"?1:0,x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,x.source==="manual"?1:0,x.manualPrice||0,x.note||""]; })};
+      return [x.broker==="Balanz"?1:0,x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,x.source==="manual"?1:0,x.manualPrice||0,x.note||""].concat(lotsT(x)); })};
   }
   // Devuelve {id,name,t,positions,dropped} o lanza error. Todo lo que viene del link se trata como no confiable.
   function parsePayload(o){
@@ -899,7 +959,7 @@
     var out=[];
     raw.forEach(function(r){
       if(!Array.isArray(r)){ dropped++; return; }
-      var c=cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:t,note:r[7]},true);
+      var c=cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:t,note:r[7],lots:r[8]},true);
       if(c) out.push(c); else dropped++;
     });
     if(!out.length) throw new Error("vacío");
@@ -1152,10 +1212,10 @@
   if(!auth || !/^[a-f0-9]{64}$/.test(String(auth.session||""))) auth=null;
   var cloudBusy=false, cloudTimer=null, cloudStatus="", cloudQuiet=false;
   function isDisposable(pr){ return !pr.readOnly && !pr.sync && !(pr.positions&&pr.positions.length) && pr.name==="Mis acciones"; }
-  function posTuple(p){ return [p.broker==="Balanz"?1:0,p.ccy==="ARS"?1:0,p.ticker,p.qty,p.buy,p.source==="manual"?1:0,p.manualPrice||0,p.manualTs||0,p.note||""]; }
+  function posTuple(p){ return [p.broker==="Balanz"?1:0,p.ccy==="ARS"?1:0,p.ticker,p.qty,p.buy,p.source==="manual"?1:0,p.manualPrice||0,p.manualTs||0,p.note||""].concat(lotsT(p)); }
   function posFromTuple(r){
     if(!Array.isArray(r)) return null;
-    return cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:r[7],note:r[8]},false);
+    return cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:r[7],note:r[8],lots:r[9]},false);
   }
   function serProfile(pr){
     var o={id:pr.id,name:pr.name,mod:pr.mod||0,readOnly:!!pr.readOnly,p:pr.syncCode?[]:pr.positions.map(posTuple)};
