@@ -406,9 +406,9 @@
       </div>
     </div>
     <div class="sec">
-      <div class="sec-t">Importar operaciones de IBKR</div>
-      <div class="help">Subí el CSV de un Flex Query con la sección Trades. Se arma un perfil nuevo con tus compras y ventas, con fechas.</div>
-      <input type="file" id="ibFile" accept=".csv,text/csv,text/plain" aria-label="Archivo CSV de IBKR">
+      <div class="sec-t">Importar operaciones (IBKR o Balanz)</div>
+      <div class="help">IBKR: el CSV de un Flex Query con la sección Trades. Balanz: el Excel “Resultados por info completa”. Se arma un perfil nuevo con tus compras y ventas, con fechas.</div>
+      <input type="file" id="ibFile" accept=".csv,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Archivo de IBKR o Balanz">
       <textarea id="ibText" rows="3" placeholder="…o pegá acá el contenido del CSV" aria-label="Contenido del CSV"></textarea>
       <button type="button" id="ibRead">Leer lo pegado</button>
       <div class="help" id="ibMsg" role="status" aria-live="polite" hidden></div>
@@ -1932,6 +1932,117 @@
   }
   // </ibkr-core>
 
+  // <balanz-core>
+  // Lee un .xlsx (zip con XML) sin librerías. Devuelve {nombreDeHoja: [filas]} con celdas como texto o número.
+  function xlsxRead(buf){
+    var u8=new Uint8Array(buf), dv=new DataView(buf), dec=new TextDecoder("utf-8");
+    var eocd=-1; for(var i=u8.length-22;i>=Math.max(0,u8.length-70000);i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+    if(eocd<0) return Promise.reject(new Error("zip"));
+    var n=dv.getUint16(eocd+10,true), off=dv.getUint32(eocd+16,true), files={}, p=off;
+    for(var k=0;k<n;k++){
+      if(dv.getUint32(p,true)!==0x02014b50) break;
+      var meth=dv.getUint16(p+10,true), csz=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el_=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), lo=dv.getUint32(p+42,true);
+      var name=dec.decode(u8.subarray(p+46,p+46+nl));
+      files[name]={m:meth,c:csz,o:lo}; p+=46+nl+el_+cl;
+    }
+    function get(name){
+      var f=files[name]; if(!f) return Promise.resolve(null);
+      var ln=dv.getUint16(f.o+26,true), le=dv.getUint16(f.o+28,true), st=f.o+30+ln+le, data=u8.subarray(st,st+f.c);
+      if(f.m===0) return Promise.resolve(dec.decode(data));
+      if(f.m!==8||typeof DecompressionStream==="undefined") return Promise.reject(new Error("deflate"));
+      var ds=new DecompressionStream("deflate-raw"), w=ds.writable.getWriter(); w.write(data); w.close();
+      return new Response(ds.readable).arrayBuffer().then(function(b){ return dec.decode(b); });
+    }
+    function unesc(s){ return s.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#(\d+);/g,function(m,c){ return String.fromCharCode(+c); }).replace(/&amp;/g,"&"); }
+    function colIdx(ref){ var m=/^([A-Z]+)/.exec(ref)[1], x=0; for(var i=0;i<m.length;i++) x=x*26+(m.charCodeAt(i)-64); return x-1; }
+    return Promise.all([get("xl/workbook.xml"),get("xl/_rels/workbook.xml.rels"),get("xl/sharedStrings.xml")]).then(function(r){
+      if(!r[0]||!r[1]) throw new Error("xlsx");
+      var ss=[]; if(r[2]){ var re=/<si>([\s\S]*?)<\/si>/g, m; while((m=re.exec(r[2]))){ var t=""; m[1].replace(/<t[^>]*>([\s\S]*?)<\/t>/g,function(a,b){ t+=b; return ""; }); ss.push(unesc(t)); } }
+      var rels={}; r[1].replace(/<Relationship\b[^>]*>/g,function(tag){ var id=/\bId="([^"]*)"/.exec(tag), tg=/\bTarget="([^"]*)"/.exec(tag); if(id&&tg) rels[id[1]]=tg[1]; return ""; });
+      var sheets=[]; r[0].replace(/<sheet\b[^>]*>/g,function(tag){ var nm=/\bname="([^"]*)"/.exec(tag), id=/\br:id="([^"]*)"/.exec(tag); if(nm&&id&&rels[id[1]]) sheets.push([unesc(nm[1]),rels[id[1]]]); return ""; });
+      return Promise.all(sheets.map(function(s){
+        var path=s[1].replace(/^\//,""); if(path.indexOf("xl/")!==0) path="xl/"+path;
+        return get(path).then(function(xml){
+          var rows=[]; if(!xml) return [s[0],rows];
+          xml.replace(/<row\b[^>]*>([\s\S]*?)<\/row>/g,function(a,body){
+            var row=[]; body.replace(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,function(a2,at,inner){
+              var ref=/\br="([A-Z]+\d+)"/.exec(at); if(!ref) return ""; var t=/\bt="([^"]*)"/.exec(at); t=t?t[1]:"n";
+              var v=null, vm=/<v>([\s\S]*?)<\/v>/.exec(inner||"");
+              if(t==="inlineStr"){ var tt=""; (inner||"").replace(/<t[^>]*>([\s\S]*?)<\/t>/g,function(x,y){ tt+=y; return ""; }); v=unesc(tt); }
+              else if(vm){ v=t==="s"?ss[+vm[1]]:(t==="str"||t==="e"?unesc(vm[1]):(t==="b"?vm[1]==="1":parseFloat(vm[1]))); }
+              row[colIdx(ref[1])]=v; return "";
+            });
+            rows.push(row); return "";
+          });
+          return [s[0],rows];
+        });
+      })).then(function(all){ var o={}; all.forEach(function(x){ o[x[0]]=x[1]; }); return o; });
+    });
+  }
+  function xlDate(v){
+    if(typeof v==="number"&&v>20000&&v<80000) return new Date(Math.round((v-25569)*86400)*1000).toISOString().slice(0,10);
+    return ibDate(v);
+  }
+  var CEDEAR_RATIOS=[1,2,3,4,5,6,8,10,12,15,16,18,20,24,25,29,30,32,40,48,50,56,58,60,72,80,100,120,144];
+  function snapRatio(x){
+    var best=null, bd=1e9; CEDEAR_RATIOS.forEach(function(r){ var dd=Math.abs(r-x)/x; if(dd<bd){ bd=dd; best=r; } });
+    return bd<=0.05?best:Math.max(1,Math.round(x));
+  }
+  // Lee el Excel "resultados por info completa" de Balanz: CEDEARs abiertos (lotes finales) y vendidos (realizado).
+  function balanzParse(sheets){
+    var names=Object.keys(sheets), out={open:[],sold:[],skipped:{},zero:0,pesos:0};
+    function sheet(re){ var k=names.filter(function(n){ return re.test(n.toLowerCase()); })[0]; return k?sheets[k]:null; }
+    function table(rows){
+      if(!rows||!rows.length) return [];
+      var h=(rows[0]||[]).map(function(x){ return String(x==null?"":x).trim().toLowerCase(); }), res=[];
+      for(var i=1;i<rows.length;i++){ var o={}, r=rows[i]||[]; h.forEach(function(k,j){ if(k) o[k]=r[j]; }); res.push(o); }
+      return res;
+    }
+    function skip(t){ t=String(t||"otros"); out.skipped[t]=(out.skipped[t]||0)+1; }
+    function usd(price,cur,ccl){
+      price=+price; if(!(price>0)) return null;
+      if(/peso/i.test(String(cur||""))){ ccl=+ccl; if(!(ccl>0)) return null; out.pesos++; return price/ccl; }
+      return price;
+    }
+    var fin=table(sheet(/finales/)), rea=table(sheet(/realizado/));
+    if(!fin.length&&!rea.length){ out.error="hojas"; return out; }
+    fin.forEach(function(r){
+      if(!r.ticker) return;
+      if(String(r.tipo||"").toLowerCase()!=="cedears"){ skip(r.tipo); return; }
+      var q=+r.cantidad, d=xlDate(r.fecha), p=usd(r["precio compra"],r.moneda,r.dolarccl);
+      if(!(q>0)||!d) return;
+      if(p===null){ out.zero++; return; }
+      out.open.push({tk:String(r.ticker).toUpperCase().trim(),q:q,d:d,p:p});
+    });
+    rea.forEach(function(r){
+      if(!r.ticker||String(r["tipo movimiento"]||"")!=="Orden") return;
+      if(String(r.tipo||"").toLowerCase()!=="cedears"){ skip(r.tipo); return; }
+      var q=+r.cantidad, ds=xlDate(r.fecha), db=xlDate(r.fechacompra);
+      var pb=usd(r["precio compra"],r["moneda compra"],r.operacioncompradolarccl), ps=usd(r.precioventa,r["moneda venta"],r.operacionventadolarccl);
+      if(!(q>0)||!ds||!db) return;
+      if(pb===null||ps===null){ out.zero++; return; }
+      out.sold.push({tk:String(r.ticker).toUpperCase().trim(),q:q,db:db,pb:pb,ds:ds,ps:ps});
+    });
+    return out;
+  }
+  // Pasa de "CEDEARs" a acciones reales: cantidad/ratio y precio*ratio, con el ratio deducido del precio real de esa fecha.
+  function balanzBuild(P,hist){
+    function closeOn(tk,iso){ var h=hist[tk]; if(!h||!h.pts||!h.pts.length) return null; var v=null; h.pts.forEach(function(r){ if(r[0]<=iso) v=r[1]; }); return v||h.pts[0][1]; }
+    function ratio(tk,iso,p){ var c=closeOn(tk,iso); return c?snapRatio(c/p):null; }
+    var open={}, closed={}, noHist={}, ok=0;
+    P.open.forEach(function(x){
+      var r=ratio(x.tk,x.d,x.p); if(!r){ noHist[x.tk]=1; return; }
+      (open[x.tk]||(open[x.tk]=[])).push({q:x.q/r,b:Math.round(x.p*r*10000)/10000,d:x.d}); ok++;
+    });
+    P.sold.forEach(function(x){
+      var rb=ratio(x.tk,x.db,x.pb), rs=ratio(x.tk,x.ds,x.ps); if(!rb||!rs){ noHist[x.tk]=1; return; }
+      var key=x.tk+"|"+x.ds+"|"+x.ps, c=closed[key]||(closed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*rs*10000)/10000},lots:[]});
+      c.lots.push({q:x.q/rb,b:Math.round(x.pb*rb*10000)/10000,d:x.db}); ok++;
+    });
+    return {open:Object.keys(open).map(function(tk){ return {tk:tk,lots:open[tk]}; }),closed:Object.keys(closed).map(function(k){ return closed[k]; }),noHist:Object.keys(noHist),ok:ok};
+  }
+  // </balanz-core>
+
   var ibState=null;
   function ibMsg(t){ var m=$("ibMsg"); m.textContent=t||""; m.hidden=!t; }
   function ibRead(text){
@@ -1954,10 +2065,51 @@
     if(B.orphan) msg+=" "+B.orphan+" venta(s) no tienen compra previa en el archivo (quizás compraste antes del rango) y se ignoraron.";
     ibMsg(msg); $("ibAct").hidden=false;
   }
+  function ibFinish(pos,closed,extra){
+    if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."+(extra||"")); return; }
+    ibState={pos:pos,closed:closed};
+    var tks={}; pos.concat(closed).forEach(function(c){ tks[c.ticker]=1; });
+    ibMsg("Armé "+pos.length+" posiciones abiertas y "+closed.length+" ventas de "+Object.keys(tks).length+" acciones."+(extra||"")); $("ibAct").hidden=false;
+  }
+  function balanzRead(buf){
+    $("ibAct").hidden=true; ibState=null; ibMsg("Leyendo el archivo…");
+    xlsxRead(buf).then(function(sheets){
+      var P=balanzParse(sheets);
+      if(P.error){ ibMsg("No encontré las hojas de lotes y realizado. Tiene que ser el Excel “Resultados por info completa” de Balanz."); return; }
+      if(!P.open.length&&!P.sold.length){ ibMsg("No encontré CEDEARs en ese archivo."); return; }
+      if(!navigator.onLine){ ibMsg("Necesito conexión para convertir los CEDEARs a acciones con el precio de cada fecha."); return; }
+      var tks={}, from="9999-99-99";
+      P.open.forEach(function(x){ tks[x.tk]=1; if(x.d<from) from=x.d; });
+      P.sold.forEach(function(x){ tks[x.tk]=1; if(x.db<from) from=x.db; });
+      var list=Object.keys(tks);
+      if(list.length>20){ ibMsg("Son demasiadas acciones distintas (máximo 20)."); return; }
+      ibMsg("Trayendo precios para convertir los CEDEARs…");
+      return fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(list.join(","))+"&from="+from,{cache:"no-store"})
+        .then(function(r){ if(!r.ok) throw new Error("http"); return r.json(); })
+        .then(function(j){
+          var B=balanzBuild(P,j.data||{}), pos=[], closed=[];
+          B.open.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c) pos.push(c); });
+          B.closed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c&&c.sold) closed.push(c); });
+          var extra="", sk=Object.keys(P.skipped);
+          if(sk.length){ var n=0; sk.forEach(function(k){ n+=P.skipped[k]; }); extra+=" Quedaron afuera "+n+" lotes que no son CEDEARs ("+sk.join(", ")+")."; }
+          if(P.zero) extra+=" "+P.zero+" lote(s) sin costo o sin cotización quedaron afuera.";
+          if(B.noHist.length) extra+=" Sin precio histórico: "+B.noHist.join(", ")+".";
+          ibFinish(pos,closed,extra);
+        });
+    }).catch(function(e){
+      try{ console.error("holdy-balanz",e); }catch(x){}
+      ibMsg(e&&e.message==="deflate"?"Este navegador no puede abrir el Excel. Probá con uno más nuevo.":"No pude leer el archivo. ¿Es el Excel de Balanz?");
+    });
+  }
   $("ibFile").addEventListener("change",function(){
     var f=this.files&&this.files[0]; if(!f) return;
     if(f.size>5*1024*1024){ ibMsg("El archivo es demasiado grande."); return; }
-    var rd=new FileReader(); rd.onload=function(){ ibRead(String(rd.result||"")); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
+    var rd=new FileReader();
+    if(/\.xlsx$/i.test(f.name)){
+      rd.onload=function(){ balanzRead(rd.result); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsArrayBuffer(f);
+    } else {
+      rd.onload=function(){ ibRead(String(rd.result||"")); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
+    }
   });
   $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } ibRead(t); });
   $("ibCreate").addEventListener("click",function(){
