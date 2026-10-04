@@ -14,7 +14,10 @@
   *{box-sizing:border-box} html,body{margin:0}
   body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; -webkit-font-smoothing:antialiased}
   .wrap{max-width:980px; margin:0 auto; padding:0 20px}
-  nav{display:flex; align-items:center; justify-content:space-between; padding:18px 0}
+  nav{display:flex; align-items:center; justify-content:space-between; padding:12px 20px; margin:0 -20px; position:sticky; top:0; z-index:10; background:color-mix(in srgb,var(--bg) 82%,transparent); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); border-bottom:1px solid transparent}
+  nav .btn{padding:9px 18px}
+  html{scroll-behavior:smooth} #como{scroll-margin-top:80px}
+  dialog.sheet{color-scheme:light dark}
   .logo{font-weight:800; font-size:20px; letter-spacing:-.02em; display:flex; align-items:center; gap:8px}
   .logo i{width:26px; height:26px; border-radius:8px; background:var(--brand); display:inline-block}
   .btn{display:inline-block; font:inherit; font-weight:600; text-decoration:none; padding:12px 22px; border-radius:12px; background:var(--brand); color:var(--brand-ink); border:1px solid var(--brand)}
@@ -54,7 +57,7 @@
   .x{display:block;margin:14px auto 0;background:none;border:0;color:var(--muted);font:inherit;cursor:pointer}
   dialog.sheet[open]{animation:sheet-up .3s cubic-bezier(.2,.8,.2,1)}
   dialog.sheet[open]::backdrop{animation:sheet-fade .3s ease-out}
-  @keyframes sheet-up{from{transform:translateY(100%);opacity:.6}to{transform:none;opacity:1}}
+  @keyframes sheet-up{from{transform:translateY(100%)}to{transform:none;opacity:1}}
   @keyframes sheet-fade{from{opacity:0}to{opacity:1}}
   @media (min-width:600px){ @keyframes sheet-up{from{transform:translateY(24px) scale(.97);opacity:0}to{transform:none;opacity:1}} }
   @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
@@ -71,6 +74,7 @@
 <div class="wrap">
   <nav>
     <div class="logo"><i aria-hidden="true"></i>Holdy</div>
+    <a class="btn" href="app/" data-open>Entrar a Holdy</a>
   </nav>
 
   <header class="hero">
@@ -78,7 +82,6 @@
       <h1>Tus acciones, <em>claras</em>.</h1>
       <p class="lead">Cargá lo que compraste y Holdy te muestra cuánto ganás o perdés en cada acción desde tu precio de compra, con precios al día. Gratis, en el celu y en la compu.</p>
       <div class="cta">
-        <a class="btn" href="app/" data-open>Abrir Holdy</a>
         <a class="btn ghost" href="#como">Cómo funciona</a>
       </div>
     </div>
@@ -161,6 +164,7 @@
       e.preventDefault(); say(""); dlg.showModal(); mount();
     });
   });
+  if("requestIdleCallback" in window) requestIdleCallback(mount,{timeout:2500}); else setTimeout(mount,800);
   document.getElementById("gclose").addEventListener("click",function(){ dlg.close(); });
   dlg.addEventListener("click",function(e){ if(e.target===dlg) dlg.close(); });
 })();
