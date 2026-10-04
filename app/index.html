@@ -558,7 +558,9 @@
     if(!isFinite(qty)||!isFinite(buy)||!(qty>0)||!(buy>0)) return null;
     var fi=null;
     if(p.fi){ var fr=+(p.fi.r!==undefined?p.fi.r:p.fi[0]), fm=String((p.fi.m!==undefined?p.fi.m:p.fi[1])||"");
-      var fc=+(p.fi.c!==undefined?p.fi.c:p.fi[2]); if(isFinite(fr)&&fr>-20&&fr<200) fi={r:fr,m:/^\d{4}-\d{2}-\d{2}$/.test(fm)?fm:"",c:(isFinite(fc)&&fc>0&&fc<100)?fc:0}; }
+      var fc=+(p.fi.c!==undefined?p.fi.c:p.fi[2]), fcp=(p.fi.cp!==undefined?p.fi.cp:p.fi[3]);
+      if(isFinite(fr)&&fr>-20&&fr<200){ fi={r:fr,m:/^\d{4}-\d{2}-\d{2}$/.test(fm)?fm:"",c:(isFinite(fc)&&fc>0&&fc<100)?fc:0};
+        if(Array.isArray(fcp)) fi.cp=fcp.map(function(x){ return [String(x[0]||""),+x[1]]; }).filter(function(x){ return /^\d{4}-\d{2}-\d{2}$/.test(x[0])&&isFinite(x[1])&&x[1]>0; }); } }
     var mp=+p.manualPrice; if(!isFinite(mp)||mp<0) mp=0;
     var src=p.source==="manual"?"manual":"auto";
     if(src==="manual" && !(mp>0)) src="auto";
@@ -894,11 +896,17 @@
       cell("Ganancia desde compra",pl===null?"—":mms(pl,p.ccy)+" ("+fmtPct(pct)+")",cls(pl));
       if(p.fi){
         cell("Rendimiento anual estimado",p.fi.r.toFixed(2).replace(".",",")+"%"); cell("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
-        var cu=fiCoupons(p);
-        if(cu){
-          cell("Cupones cobrados",mm(cu.total,p.ccy)+" ("+cu.paid+(cu.paid===1?" pago":" pagos")+")","pos");
-          cell("Próximo cupón",cu.next?dayStr(cu.next).split("-").reverse().join("/")+" · "+mm(cu.per,p.ccy):"Ya pagó todos");
-        } else cell("Cupones cobrados","Cargá cupón y vencimiento en Editar");
+        if(p.fi.cp){
+          var tot=p.fi.cp.reduce(function(x,y){return x+y[1];},0), lc=p.fi.cp[p.fi.cp.length-1];
+          cell("Cupones cobrados",p.fi.cp.length?mm(tot,p.ccy)+" ("+p.fi.cp.length+(p.fi.cp.length===1?" pago":" pagos")+")":"Todavía ninguno",p.fi.cp.length?"pos":"");
+          if(lc) cell("Último cupón",lc[0].split("-").reverse().join("/")+" · "+mm(lc[1],p.ccy));
+        } else {
+          var cu=fiCoupons(p);
+          if(cu){
+            cell("Cupones cobrados (estimado)",mm(cu.total,p.ccy)+" ("+cu.paid+(cu.paid===1?" pago":" pagos")+")","pos");
+            cell("Próximo cupón (estimado)",cu.next?dayStr(cu.next).split("-").reverse().join("/")+" · "+mm(cu.per,p.ccy):"Ya pagó todos");
+          } else cell("Cupones cobrados","Importá el Excel de Balanz o cargá cupón y vencimiento en Editar");
+        }
       }
       cell("Peso",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       body.appendChild(g);
@@ -1193,7 +1201,7 @@
     };
     var fiR=parseFloat($("fFiR").value), fiM=$("fFiM").dataset.iso||"";
     if(fiM==="?"){ alert("El vencimiento no es válido. Escribilo como dd/mm/aaaa."); return; }
-    var fiC=parseFloat($("fFiC").value); data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM,c:(isFinite(fiC)&&fiC>0&&fiC<100)?fiC:0}:null;
+    var fiC=parseFloat($("fFiC").value); var oldP=editingId?positions.filter(function(x){return x.id===editingId;})[0]:null; data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM,c:(isFinite(fiC)&&fiC>0&&fiC<100)?fiC:0}:null; if(data.fi&&oldP&&oldP.fi&&oldP.fi.cp) data.fi.cp=oldP.fi.cp;
     if(editingId){
       positions=positions.map(function(x){
         if(x.id!==editingId) return x;
@@ -1677,7 +1685,7 @@
   }
   function lotsT(p){
     var L=(p.lots&&p.lots.length)?p.lots.map(function(l){return [l.q,l.b,l.d||""];}):0, S=p.sold?[p.sold.d,p.sold.p]:0;
-    var F=p.fi?[p.fi.r,p.fi.m||"",p.fi.c||0]:0;
+    var F=p.fi?[p.fi.r,p.fi.m||"",p.fi.c||0].concat(p.fi.cp?[p.fi.cp]:[]):0;
     return F?[L,S,F]:(S?[L,S]:(L?[L]:[]));
   }
   function buildPayload(pr){
@@ -2196,7 +2204,7 @@
   }
   // Lee el Excel "resultados por info completa" de Balanz: CEDEARs abiertos (lotes finales) y vendidos (realizado).
   function balanzParse(sheets){
-    var names=Object.keys(sheets), out={open:[],sold:[],fixed:[],fixedSold:[],skipped:{},zero:0,pesos:0};
+    var names=Object.keys(sheets), out={open:[],sold:[],fixed:[],fixedSold:[],coupons:[],skipped:{},zero:0,pesos:0};
     function sheet(re){ var k=names.filter(function(n){ return re.test(n.toLowerCase()); })[0]; return k?sheets[k]:null; }
     function table(rows){
       if(!rows||!rows.length) return [];
@@ -2228,6 +2236,11 @@
       out.open.push({tk:String(r.ticker).toUpperCase().trim(),q:q,d:d,p:p});
     });
     rea.forEach(function(r){
+      if(r.ticker&&String(r["tipo movimiento"]||"")==="Cupón"){
+        var ca=+r.cupones, cc=+r.operacionventadolarccl, cd=xlDate(r.fecha);
+        if(ca>0&&cc>0&&cd) out.coupons.push({tk:String(r.ticker).toUpperCase().trim(),d:cd,a:Math.round(ca/cc*100)/100});
+        return;
+      }
       if(!r.ticker||String(r["tipo movimiento"]||"")!=="Orden") return;
       var tp2=String(r.tipo||"").toLowerCase();
       if(tp2.indexOf("bonos")===0||tp2.indexOf("corporativos")===0){
@@ -2266,7 +2279,7 @@
       f.lots.push({q:x.q,b:Math.round(x.p*1e6)/1e6,d:x.d});
       var y=fiYield(f.terms,x.p,x.d); if(y===null) f.noY++; else { f.w+=x.q*x.p; f.wr+=x.q*x.p*y; }
     });
-    var fixed=Object.keys(fx).map(function(k){ var f=fx[k]; return {tk:f.tk,lots:f.lots,fi:f.w>0?{r:Math.round(f.wr/f.w*100)/100,m:f.terms.m||"",c:f.terms.c>0?f.terms.c:0}:null}; });
+    var fixed=Object.keys(fx).map(function(k){ var f=fx[k]; return {tk:f.tk,lots:f.lots,fi:f.w>0?{r:Math.round(f.wr/f.w*100)/100,m:f.terms.m||"",c:f.terms.c>0?f.terms.c:0,cp:(P.coupons||[]).filter(function(x){return x.tk===f.tk;}).map(function(x){return [x.d,x.a];}).sort(function(a,b){return a[0]<b[0]?-1:1;})}:null}; });
     var fclosed={};
     (P.fixedSold||[]).forEach(function(x){
       var key=x.tk+"|"+x.ds+"|"+x.ps, c=fclosed[key]||(fclosed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*1e6)/1e6},lots:[]});
