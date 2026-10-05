@@ -1045,22 +1045,22 @@
       var g=el("div","dwrap");
       var tiles=el("div","dtiles");
       function tile(k,v,c){ var t=el("div","dtile"); t.appendChild(el("span","k",k)); t.appendChild(el("span","v"+(c?" "+c:""),v)); tiles.appendChild(t); }
-      tile("Invertiste",mR(cost,p.ccy));
-      tile(p.fi?"Hoy vale":"Hoy vale",value===null?"—":mR(value,p.ccy));
+      tile("Costo total",mR(cost,p.ccy));
+      tile("Valor actual",value===null?"—":mR(value,p.ccy));
       g.appendChild(tiles);
       var pg=el("div","pgrid");
       function pair(k,v,c,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
       pair("Cantidad",qq(p.qty));
       pair(p.lots&&p.lots.length>1?"Compra promedio":"Precio de compra",mm(p.buy,p.ccy));
-      pair(p.fi?"Se mide contra":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
-      pair("Peso en cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
-      if(dpct!==null) pair("Hoy",fmtPct(dpct),cls(dpct));
+      pair(p.fi?"Valor de rescate":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
+      pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
+      if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
       if(!p.parts) pair("Broker",p.broker==="IBKR"?"Interactive Brokers":p.broker);
-      if(p.lots&&p.lots.length===1&&p.lots[0].d) pair("Comprado",p.lots[0].d.split("-").reverse().join("/"));
+      if(p.lots&&p.lots.length===1&&p.lots[0].d) pair("Fecha de compra",p.lots[0].d.split("-").reverse().join("/"));
       if(p.fi){
         var fs=el("div","dsec-t","Renta fija"); pg.appendChild(fs); fs.style.gridColumn="1/-1";
         pair("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
-        pair("Rinde por año","≈"+p.fi.r.toFixed(1).replace(".",",")+"%");
+        pair("Rendimiento anual est.","≈"+p.fi.r.toFixed(1).replace(".",",")+"%");
         if(p.fi.cp){
           var tot=p.fi.cp.reduce(function(x,y){return x+y[1];},0), lc=p.fi.cp[p.fi.cp.length-1];
           pair("Cupones cobrados",p.fi.cp.length?mm(tot,p.ccy):"Ninguno todavía",p.fi.cp.length?"pos":"",p.fi.cp.length?(p.fi.cp.length+(p.fi.cp.length===1?" pago":" pagos")+(lc?" · último "+lc[0].split("-").reverse().slice(0,2).join("/"):"")):"");
