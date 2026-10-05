@@ -1045,7 +1045,7 @@
       var g=el("div","dwrap");
       var tiles=el("div","dtiles");
       function tile(k,v,c){ var t=el("div","dtile"); t.appendChild(el("span","k",k)); t.appendChild(el("span","v"+(c?" "+c:""),v)); tiles.appendChild(t); }
-      tile("Costo total",mR(cost,p.ccy));
+      tile("Capital invertido",mR(cost,p.ccy));
       tile("Valor actual",value===null?"—":mR(value,p.ccy));
       g.appendChild(tiles);
       var pg=el("div","pgrid");
