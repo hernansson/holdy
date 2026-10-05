@@ -696,6 +696,8 @@
   function isRO(){ return !!cur().readOnly; }
   function saveProfiles(){ cur().positions=positions; cur().mod=Date.now(); save(LS_PROF,profData); if(typeof queuePush==="function") queuePush(cur()); }
   var openId=null;
+  function posKey(p){ return p.parts?String(p.id):(p.ticker+"|"+p.broker+"|"+p.ccy+"|"+(p.fi?"f":"a")+"|"+((p.lots&&p.lots[0]&&p.lots[0].d)||"")+"|"+p.buy); }
+  function soldKey(c){ return "s|"+c.ticker+"|"+c.broker+"|"+c.sold.d+"|"+c.sold.p+"|"+c.buy; }
   var prices=load(LS_PRICES,{});      // { TICKER: {price, t(ms de la cotización), fetched(ms)} }
   var apiKey=loadKey();
   var errors={};                       // { TICKER: mensaje }
@@ -957,15 +959,17 @@
     defs.forEach(function(x){
       var b=el("button",ui.tab===x[0]?"on":"",x[1]); b.type="button"; b.setAttribute("role","tab"); b.setAttribute("aria-selected",String(ui.tab===x[0]));
       b.appendChild(el("small",null,String(x[2])));
-      b.addEventListener("click",function(){ if(ui.tab===x[0]) return; ui.tab=x[0]; save(LS_UI,ui); renderTabs(); renderList(); syncToolbar(); });
+      b.addEventListener("click",function(){ if(ui.tab===x[0]) return; ui.tab=x[0]; openId=null; save(LS_UI,ui); renderTabs(); renderList(); syncToolbar(); });
       t.appendChild(b);
     });
   }
   function renderSoldList(box){
-    var cl=(cur().closed||[]).slice().sort(function(a,b){return a.sold.d<b.sold.d?1:-1;});
+    var soldEls=[], cl=(cur().closed||[]).slice().sort(function(a,b){return a.sold.d<b.sold.d?1:-1;});
+    if(openId && !cl.some(function(c){return soldKey(c)===openId;})) openId=null;
     cl.forEach(function(c){
       var cost=c.qty*c.buy, proceeds=c.qty*c.sold.p, gain=proceeds-cost, pct=cost>0?gain/cost:null;
-      var det=document.createElement("details"); det.className="acc";
+      var det=document.createElement("details"); det.className="acc"; det.setAttribute("data-id",soldKey(c));
+      if(openId===soldKey(c)) det.open=true;
       var sum=document.createElement("summary");
       var l=el("div","acc-l"); l.appendChild(el("span","tick",c.ticker)); sum.appendChild(l);
       var rr=el("div","acc-r");
@@ -991,6 +995,11 @@
       }
       det.appendChild(body);
       sum.addEventListener("click",function(e){ if(reduceMo) return; e.preventDefault(); if(det.open) closeDet(det); else { det.open=true; slide(body,true); } });
+      det.addEventListener("toggle",function(){
+        if(det.open){ openId=soldKey(c); soldEls.forEach(function(o){ if(o!==det && o.open) closeDet(o); }); }
+        else if(openId===soldKey(c)) openId=null;
+      });
+      soldEls.push(det);
       box.appendChild(det);
     });
   }
@@ -1050,7 +1059,7 @@
     var multiCcy=Object.keys(ccys).length>1;
     var brokersUsed={}; positions.forEach(function(p){ brokersUsed[p.broker]=1; });
     var multiBroker=Object.keys(brokersUsed).length>1;
-    if(openId && !sorted.some(function(p){return p.id===openId;})) openId=null;
+    if(openId && !sorted.some(function(p){return posKey(p)===openId;})) openId=null;
     
     var detailEls=[], lastCcy=null, lastFi=false;
     sorted=sorted.filter(function(p){return !p.fi;}).concat(sorted.filter(function(p){return !!p.fi;}));
@@ -1063,8 +1072,8 @@
       var weight=(value===null||!totalByCcy[p.ccy])?null:value/totalByCcy[p.ccy];
       var di=dayInfo(p), dpct=(di&&di.base>0)?di.amt/di.base:null;
 
-      var det=document.createElement("details"); det.className="acc"; det.setAttribute("data-id",p.id);
-      if(openId===p.id) det.open=true;
+      var det=document.createElement("details"); det.className="acc"; det.setAttribute("data-id",posKey(p));
+      if(openId===posKey(p)) det.open=true;
       var sum=document.createElement("summary");
       var l=el("div","acc-l");
       l.appendChild(el("span","tick",p.ticker));
