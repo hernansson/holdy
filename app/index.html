@@ -77,7 +77,7 @@
   .sum-card h2{margin:0 0 8px; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
   .big{font-size:30px; font-weight:800; letter-spacing:-.01em; line-height:1.1}
   .tabs{display:flex; gap:4px; background:var(--chip); border-radius:12px; padding:4px; margin:18px 0 14px}
-  .tabs button{flex:1; border:0; background:transparent; border-radius:9px; min-height:36px; font-size:14px; font-weight:600; color:var(--muted); box-shadow:none; display:flex; align-items:center; justify-content:center; gap:6px}
+  .tabs button{flex:1; min-width:0; padding:0 4px; border:0; background:transparent; border-radius:9px; min-height:36px; font-size:14px; font-weight:600; color:var(--muted); box-shadow:none; display:flex; align-items:center; justify-content:center; gap:6px}
   .tabs button.on{background:var(--card); color:var(--text,inherit); box-shadow:var(--shadow)}
   .tabs button small{font-size:11.5px; font-weight:600; opacity:.7}
   .sum-main{margin-top:14px}
@@ -705,7 +705,7 @@
     filter:["all","IBKR"].indexOf(uiRaw.filter)>=0?uiRaw.filter:"all",
     sort:["value","plpct","pl","day","ticker"].indexOf(uiRaw.sort)>=0?uiRaw.sort:"value",
     hide:!!uiRaw.hide,
-    tab:uiRaw.tab==="fi"?"fi":"acc"
+    tab:uiRaw.tab==="fi"?"fi":(uiRaw.tab==="sold"?"sold":"acc")
   };
 
   var $=function(id){ return document.getElementById(id); };
@@ -824,7 +824,8 @@
   // ---------- Render ----------
   var SORTS={value:"Mayor valor",plpct:"Ganancia %",pl:"Ganancia $",day:"Variación del día",ticker:"Ticker A–Z"};
   function syncToolbar(){
-    $("toolbar").hidden=!positions.length;
+    $("toolbar").hidden=!(positions.length||(cur().closed||[]).length);
+    $("btnSort").hidden=(ui.tab==="sold");
     ui.filter="all";
     $("btnHide").setAttribute("aria-pressed",String(ui.hide));
     var eye='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ui.hide?'<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4 9.5 6a14 14 0 0 1-2.6 3.4M6.5 7.6A14 14 0 0 0 2.5 12c1 2 4.5 6 9.5 6 1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>':'<path d="M2.5 12c1-2 4.5-6 9.5-6s8.5 4 9.5 6c-1 2-4.5 6-9.5 6s-8.5-4-9.5-6z"/><circle cx="12" cy="12" r="3"/>')+'</svg>';
@@ -863,7 +864,6 @@
     renderAcctNotice();
     renderSummary();
     renderList();
-    renderSold();
     renderStatus();
   }
 
@@ -949,18 +949,55 @@
   }
 
   function renderTabs(){
-    var t=$("tabs"); t.hidden=!positions.length; t.textContent="";
+    var t=$("tabs"), cl=(cur().closed||[]).length;
+    if(ui.tab==="sold" && !cl) ui.tab="acc";
+    t.hidden=!(positions.length||cl); t.textContent="";
     var nF=positions.filter(function(p){return p.fi;}).length, nA=positions.length-nF;
-    [["acc","Acciones",nA],["fi","Renta fija",nF]].forEach(function(x){
+    var defs=[["acc","Acciones",nA],["fi","Renta fija",nF]]; if(cl) defs.push(["sold","Vendidas",cl]);
+    defs.forEach(function(x){
       var b=el("button",ui.tab===x[0]?"on":"",x[1]); b.type="button"; b.setAttribute("role","tab"); b.setAttribute("aria-selected",String(ui.tab===x[0]));
       b.appendChild(el("small",null,String(x[2])));
-      b.addEventListener("click",function(){ if(ui.tab===x[0]) return; ui.tab=x[0]; save(LS_UI,ui); renderTabs(); renderList(); });
+      b.addEventListener("click",function(){ if(ui.tab===x[0]) return; ui.tab=x[0]; save(LS_UI,ui); renderTabs(); renderList(); syncToolbar(); });
       t.appendChild(b);
+    });
+  }
+  function renderSoldList(box){
+    var cl=(cur().closed||[]).slice().sort(function(a,b){return a.sold.d<b.sold.d?1:-1;});
+    cl.forEach(function(c){
+      var cost=c.qty*c.buy, proceeds=c.qty*c.sold.p, gain=proceeds-cost, pct=cost>0?gain/cost:null;
+      var det=document.createElement("details"); det.className="acc";
+      var sum=document.createElement("summary");
+      var l=el("div","acc-l"); l.appendChild(el("span","tick",c.ticker)); sum.appendChild(l);
+      var rr=el("div","acc-r");
+      rr.appendChild(el("span","acc-gn "+cls(gain),(ui.hide?MASK:mRs(gain,c.ccy).replace(/[A-Z]*\$\s?/,""))+" ("+fmtPct(pct)+")"));
+      rr.appendChild(el("span","acc-val",mR(proceeds,c.ccy)));
+      sum.appendChild(rr); det.appendChild(sum);
+      var body=el("div","acc-body"), g=el("div","dwrap"), tiles=el("div","dtiles");
+      function tile(k,v){ var t=el("div","dtile"); t.appendChild(el("span","k",k)); t.appendChild(el("span","v",v)); tiles.appendChild(t); }
+      tile("Capital invertido",mR(cost,c.ccy)); tile("Monto de venta",mR(proceeds,c.ccy)); g.appendChild(tiles);
+      var pg=el("div","pgrid");
+      function pair(k,v,cc){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(cc?" "+cc:""),v)); pg.appendChild(d); }
+      pair("Cantidad",qq(c.qty)); pair("Resultado",mRs(gain,c.ccy),cls(gain));
+      pair("Precio de compra",mm(c.buy,c.ccy)); pair("Precio de venta",mm(c.sold.p,c.ccy));
+      pair("Fecha de venta",c.sold.d.split("-").reverse().join("/")); pair("Broker",c.broker==="IBKR"?"Interactive Brokers":c.broker);
+      g.appendChild(pg); body.appendChild(g);
+      if(!isRO()){
+        var acts=el("div","row-actions"), bd=el("button","danger","Eliminar"); bd.type="button";
+        bd.addEventListener("click",function(){
+          if(!confirm("¿Borrar "+c.ticker+" de las vendidas? Deja de contar para el rendimiento.")) return;
+          cur().closed=cur().closed.filter(function(x){return x.id!==c.id;}); saveProfiles(); render();
+        });
+        acts.appendChild(bd); body.appendChild(acts);
+      }
+      det.appendChild(body);
+      sum.addEventListener("click",function(e){ if(reduceMo) return; e.preventDefault(); if(det.open) closeDet(det); else { det.open=true; slide(body,true); } });
+      box.appendChild(det);
     });
   }
   function renderList(){
     renderTabs();
     var box=$("list"); box.textContent="";
+    if(ui.tab==="sold"){ renderSoldList(box); return; }
     if(!positions.length){
       var e=el("div","empty");
       e.appendChild(el("div",null,"Todavía no cargaste ninguna posición."));
