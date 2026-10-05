@@ -76,7 +76,7 @@
   .summary>.sum-card:only-child{grid-column:1/-1}
   .sum-card h2{margin:0 0 8px; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
   .big{font-size:30px; font-weight:800; letter-spacing:-.01em; line-height:1.1}
-  .tabs{display:flex; gap:4px; background:var(--chip); border-radius:12px; padding:4px; margin:14px 0 4px}
+  .tabs{display:flex; gap:4px; background:var(--chip); border-radius:12px; padding:4px; margin:18px 0 14px}
   .tabs button{flex:1; border:0; background:transparent; border-radius:9px; min-height:36px; font-size:14px; font-weight:600; color:var(--muted); box-shadow:none; display:flex; align-items:center; justify-content:center; gap:6px}
   .tabs button.on{background:var(--card); color:var(--text,inherit); box-shadow:var(--shadow)}
   .tabs button small{font-size:11.5px; font-weight:600; opacity:.7}
@@ -236,10 +236,12 @@
   .btns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
   .help{font-size:12px; color:var(--muted)}
   a{color:var(--brand)}
-  .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:0 0 10px}
+  .toolbar{display:flex; gap:8px; align-items:center; margin:2px 0 14px}
+  .tbtn{display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 13px; border-radius:999px; font-size:13px; font-weight:500; background:var(--card); border:1px solid var(--line); color:var(--text); box-shadow:none}
+  .tbtn svg{flex:0 0 auto; color:var(--muted)}
+  .tbtn .tb-k{color:var(--muted)}
+  .tbtn[aria-pressed="true"]{background:var(--chip); color:var(--text); border-color:var(--line); font-weight:500}
   .chips{display:flex; gap:6px}
-  .toolbar button{border-radius:999px; min-height:36px; padding:6px 14px; font-size:13px}
-  .toolbar button[aria-pressed="true"]{background:var(--brand); color:var(--brand-ink); border-color:var(--brand); font-weight:600}
   .toolbar .sortlbl{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted)}
   .toolbar select{width:auto; min-height:36px; padding:6px 10px; font-size:13px}
   .toolbar .spacer{flex:1}
@@ -281,20 +283,21 @@
   details.acc>summary::-webkit-details-marker{display:none}
   details.acc>summary::after{content:"▾"; color:var(--muted); transition:transform .15s}
   details.acc[open]>summary::after{transform:rotate(180deg)}
-  .acc-l{flex:1; min-width:0; display:flex; flex-direction:row; align-items:center; gap:8px}
+  .acc-l{flex:1; min-width:0; display:flex; flex-direction:row; align-items:center; align-self:stretch; gap:8px}
   .bk-tag{font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); background:var(--chip); border-radius:6px; padding:2px 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
   .acc-r{flex-direction:row!important; align-items:center!important; gap:8px!important}
-  .acc-r .acc-val{min-width:84px; text-align:right; font-size:14.5px}
-  .acc-amt{min-width:70px; text-align:right; font-size:12.5px; font-weight:600; white-space:nowrap}
-  .acc-pc{min-width:54px; text-align:right; font-size:12.5px; font-weight:700; white-space:nowrap}
+  .acc-r .acc-val{min-width:78px; text-align:right; font-size:14px; font-weight:600}
+  .acc-amt{min-width:72px; text-align:right; font-size:12px; font-weight:500; white-space:nowrap; margin-right:-2px}
+  .acc-pc{min-width:56px; text-align:center; font-size:11.5px; font-weight:600; white-space:nowrap; padding:3px 0; border-radius:6px; background:var(--chip)}
+  .acc-pc.pos{background:color-mix(in srgb,var(--pos) 14%,transparent)} .acc-pc.neg{background:color-mix(in srgb,var(--neg) 14%,transparent)}
   details.acc>summary{padding:6px 12px!important; min-height:44px!important; gap:8px!important}
   details.acc>summary::after{font-size:12px}
-  .acc-r{gap:8px!important}
+  .acc-r{gap:6px!important}
   .acc-gain{display:flex; flex-direction:column; align-items:flex-end; min-width:80px; line-height:1.2}
   .acc-gain b{font-size:13px; font-weight:700; white-space:nowrap} .acc-gain i{font-size:11.5px; font-style:normal; font-weight:600; opacity:.9}
   .acc-pill{display:inline-block; min-width:68px; text-align:center; font-size:12.5px; font-weight:700; padding:4px 0; border-radius:8px; background:var(--chip); white-space:nowrap}
   .acc-pill.pos{background:color-mix(in srgb,var(--pos) 13%,transparent)} .acc-pill.neg{background:color-mix(in srgb,var(--neg) 13%,transparent)}
-  .acc-l .tick{font-size:16px; font-weight:700; line-height:1.15}
+  .acc-l .tick{font-size:14.5px; font-weight:600; line-height:1.15; letter-spacing:.01em}
   .sub-line{display:flex; gap:5px; align-items:center; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden}
   .sub-line .bk{text-transform:uppercase; letter-spacing:.04em; font-size:10px; opacity:.85}
   .acc-r{display:flex; flex-direction:column; align-items:flex-end; gap:0; flex:0 0 auto}
@@ -380,17 +383,9 @@
   <section class="summary" id="summary" aria-label="Resumen"></section>
   <div class="tabs" id="tabs" role="tablist" hidden></div>
   <div class="toolbar" id="toolbar" hidden>
-    <label class="sortlbl">Ordenar
-      <select id="sortSel" aria-label="Ordenar posiciones">
-        <option value="value">Mayor valor</option>
-        <option value="plpct">Ganancia %</option>
-        <option value="pl">Ganancia $</option>
-        <option value="day">Variación del día</option>
-        <option value="ticker">Ticker A–Z</option>
-      </select>
-    </label>
+    <button type="button" id="btnSort" class="tbtn" aria-haspopup="dialog"></button>
     <span class="spacer"></span>
-    <button type="button" id="btnHide" aria-pressed="false">Ocultar montos</button>
+    <button type="button" id="btnHide" class="tbtn" aria-pressed="false"></button>
   </div>
   <section class="list" id="list" aria-label="Posiciones"></section>
   <div id="soldBox"></div>
@@ -493,6 +488,13 @@
   <form method="dialog" id="formPick">
     <h3>Elegir perfil</h3>
     <div id="pickList"></div>
+  </form>
+</dialog>
+
+<dialog id="dlgSort" class="sheet">
+  <form method="dialog" id="formSort">
+    <h3>Ordenar por</h3>
+    <div id="sortList"></div>
   </form>
 </dialog>
 
@@ -812,12 +814,15 @@
   function clearBanner(){ $("banners").textContent=""; }
 
   // ---------- Render ----------
+  var SORTS={value:"Mayor valor",plpct:"Ganancia %",pl:"Ganancia $",day:"Variación del día",ticker:"Ticker A–Z"};
   function syncToolbar(){
     $("toolbar").hidden=!positions.length;
     ui.filter="all";
-    $("sortSel").value=ui.sort;
     $("btnHide").setAttribute("aria-pressed",String(ui.hide));
-    $("btnHide").textContent=ui.hide?"Mostrar montos":"Ocultar montos";
+    var eye='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ui.hide?'<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4 9.5 6a14 14 0 0 1-2.6 3.4M6.5 7.6A14 14 0 0 0 2.5 12c1 2 4.5 6 9.5 6 1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>':'<path d="M2.5 12c1-2 4.5-6 9.5-6s8.5 4 9.5 6c-1 2-4.5 6-9.5 6s-8.5-4-9.5-6z"/><circle cx="12" cy="12" r="3"/>')+'</svg>';
+    $("btnHide").innerHTML=eye+"<span>"+(ui.hide?"Mostrar":"Ocultar")+"</span>";
+    $("btnSort").innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg><span></span>';
+    $("btnSort").lastChild.textContent=SORTS[ui.sort]||"Mayor valor";
   }
 
   function renderProfile(){
@@ -1020,10 +1025,10 @@
       l.appendChild(el("span","tick",p.ticker));
       sum.appendChild(l);
       var rr=el("div","acc-r");
-      if(value===null && refreshing){ rr.appendChild(el("span","acc-val",el("span","skel","US$ 00.000"))); rr.appendChild(el("span","acc-amt",el("span","skel","+US$ 0.000"))); rr.appendChild(el("span","acc-pc",el("span","skel","+0,0%"))); }
+      if(value===null && refreshing){ rr.appendChild(el("span","acc-val",el("span","skel","US$ 00.000"))); rr.appendChild(el("span","acc-amt",el("span","skel","(+US$ 0.000)"))); rr.appendChild(el("span","acc-pc",el("span","skel","+0,0%"))); }
       else { rr.appendChild(el("span","acc-val",value===null?"—":mR(value,p.ccy)));
         if(pl===null){ rr.appendChild(el("span","acc-amt",cp===null?"s/ precio":"—")); }
-        else { rr.appendChild(el("span","acc-amt "+cls(pl),mRs(pl,p.ccy))); rr.appendChild(el("span","acc-pc "+cls(pl),fmtPct(pct))); } }
+        else { rr.appendChild(el("span","acc-amt "+cls(pl),"("+mRs(pl,p.ccy)+")")); rr.appendChild(el("span","acc-pc "+cls(pl),fmtPct(pct))); } }
       sum.appendChild(rr);
       det.appendChild(sum);
 
@@ -1797,7 +1802,18 @@
   $("btnRefresh").addEventListener("click",function(){ clearBanner(); refresh(true); pullFollowers(); cloudSync(); });
 
   // ---------- Filtros, orden y modo privado ----------
-  $("sortSel").addEventListener("change",function(){ ui.sort=$("sortSel").value; save(LS_UI,ui); render(); });
+  var dlgSort=$("dlgSort");
+  dlgSort.addEventListener("click",function(e){ if(e.target===dlgSort) dlgSort.close(); });
+  $("btnSort").addEventListener("click",function(){
+    var box=$("sortList"); box.textContent="";
+    Object.keys(SORTS).forEach(function(k){
+      var b=el("button","pk-item"+(ui.sort===k?" on":""),SORTS[k]); b.type="button";
+      if(ui.sort===k) b.appendChild(el("span","ck","✓"));
+      b.addEventListener("click",function(){ dlgSort.close(); ui.sort=k; save(LS_UI,ui); render(); });
+      box.appendChild(b);
+    });
+    dlgSort.showModal();
+  });
   $("btnHide").addEventListener("click",function(){ ui.hide=!ui.hide; save(LS_UI,ui); render(); });
 
   // ---------- Perfiles ----------
