@@ -254,9 +254,9 @@
   #profSel{display:inline-flex; align-items:center; gap:7px; min-height:32px; padding:0 11px 0 4px; border-radius:999px; font-weight:600; font-size:13.5px; max-width:70%}
   #profSel svg{color:var(--muted); flex:0 0 auto; transition:transform .15s}
   #profSel .pav{display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--brand); color:#fff; font-style:normal; font-size:12px; font-weight:700; flex:0 0 auto}
-  header #profSel{border:0; background:rgba(255,255,255,.16); color:#fff; opacity:1; max-width:58%; margin-right:2px; padding:0 10px 0 4px}
-  header #profSel .pav{background:#fff; color:var(--brand)}
-  header #profSel svg{color:rgba(255,255,255,.8)}
+  header #profSel{border:0; background:#fff; color:#14201f; opacity:1; box-shadow:0 1px 3px rgba(0,0,0,.2); max-width:58%; margin-right:2px; padding:0 10px 0 4px}
+  header #profSel .pav{background:var(--brand); color:#fff}
+  header #profSel svg{color:#5b6b69}
   #profSel span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .pmenu{position:absolute; top:calc(100% + 6px); left:0; z-index:30; min-width:220px; max-width:calc(100vw - 32px); background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 8px 28px rgba(0,0,0,.18); padding:6px; opacity:0; transform:translateY(-6px) scale(.98); transform-origin:top left; transition:opacity .12s, transform .12s}
   .pmenu[hidden]{display:none}
@@ -284,7 +284,12 @@
   .acc-l{flex:1; min-width:0; display:flex; flex-direction:row; align-items:center; gap:8px}
   .bk-tag{font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); background:var(--chip); border-radius:6px; padding:2px 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
   .acc-r{flex-direction:row!important; align-items:center!important; gap:8px!important}
-  .acc-r .acc-val{min-width:96px; text-align:right}
+  .acc-r .acc-val{min-width:84px; text-align:right; font-size:14.5px}
+  .acc-amt{min-width:70px; text-align:right; font-size:12.5px; font-weight:600; white-space:nowrap}
+  .acc-pc{min-width:54px; text-align:right; font-size:12.5px; font-weight:700; white-space:nowrap}
+  details.acc>summary{padding:6px 12px!important; min-height:44px!important; gap:8px!important}
+  details.acc>summary::after{font-size:12px}
+  .acc-r{gap:8px!important}
   .acc-gain{display:flex; flex-direction:column; align-items:flex-end; min-width:80px; line-height:1.2}
   .acc-gain b{font-size:13px; font-weight:700; white-space:nowrap} .acc-gain i{font-size:11.5px; font-style:normal; font-weight:600; opacity:.9}
   .acc-pill{display:inline-block; min-width:68px; text-align:center; font-size:12.5px; font-weight:700; padding:4px 0; border-radius:8px; background:var(--chip); white-space:nowrap}
@@ -1013,15 +1018,12 @@
       var sum=document.createElement("summary");
       var l=el("div","acc-l");
       l.appendChild(el("span","tick",p.ticker));
-      l.appendChild(el("span","bk-tag",p.broker.replace(" + "," · ")));
       sum.appendChild(l);
       var rr=el("div","acc-r");
-      if(value===null && refreshing){ rr.appendChild(el("span","acc-val",el("span","skel","US$ 00.000"))); var gk=el("span","acc-gain"); gk.appendChild(el("b",null,el("span","skel","+US$ 0.000"))); gk.appendChild(el("i",null,el("span","skel","+0,0%"))); rr.appendChild(gk); }
+      if(value===null && refreshing){ rr.appendChild(el("span","acc-val",el("span","skel","US$ 00.000"))); rr.appendChild(el("span","acc-amt",el("span","skel","+US$ 0.000"))); rr.appendChild(el("span","acc-pc",el("span","skel","+0,0%"))); }
       else { rr.appendChild(el("span","acc-val",value===null?"—":mR(value,p.ccy)));
-        var gn=el("span","acc-gain "+cls(pl));
-        if(pl===null) gn.appendChild(el("b",null,cp===null?"s/ precio":"—"));
-        else { gn.appendChild(el("b",null,mRs(pl,p.ccy))); gn.appendChild(el("i",null,fmtPct(pct))); }
-        rr.appendChild(gn); }
+        if(pl===null){ rr.appendChild(el("span","acc-amt",cp===null?"s/ precio":"—")); }
+        else { rr.appendChild(el("span","acc-amt "+cls(pl),mRs(pl,p.ccy))); rr.appendChild(el("span","acc-pc "+cls(pl),fmtPct(pct))); } }
       sum.appendChild(rr);
       det.appendChild(sum);
 
@@ -1033,6 +1035,7 @@
       cell(p.fi?"Ganancia con cupones":"Ganancia desde la compra",pl===null?"—":mRs(pl,p.ccy)+" · "+fmtPct(pct),cls(pl));
       if(dpct!==null) cell("Hoy",fmtPct(dpct),cls(dpct));
       sec("Tu posición");
+      if(!p.parts) cell("Broker",p.broker==="IBKR"?"Interactive Brokers":p.broker);
       cell("Cantidad",qq(p.qty));
       cell(p.lots&&p.lots.length>1?"Compra promedio":"Precio de compra",mm(p.buy,p.ccy));
       cell(p.fi?"Se mide contra":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
@@ -1075,7 +1078,6 @@
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
       if(p.fi) notes.push("Renta fija: se mide contra 1, que es lo que te devuelven al vencimiento"+(p.fi.m?" ("+p.fi.m.split("-").reverse().join("/")+")":"")+". Ganás (1 − lo que pagaste) si compraste debajo de 1, o perdés si compraste arriba, más los cupones que vas cobrando. No sigue el precio de mercado.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
-      if(!p.parts && (multiBroker||p.broker==="Balanz")) notes.push("Broker: "+(p.broker==="IBKR"?"Interactive Brokers":"Balanz")+".");
       if(p.note) notes.push(p.note);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
 
