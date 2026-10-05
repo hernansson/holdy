@@ -306,6 +306,16 @@
   .acc-pct{font-weight:700; font-size:15px; min-width:78px; text-align:right; white-space:nowrap}
   .list-head{display:flex; justify-content:flex-end; font-size:11px; color:var(--muted); padding:0 12px; margin-bottom:-4px}
   .list{gap:5px}
+  .dwrap{display:grid; gap:14px; padding-top:14px; padding-bottom:4px}
+  .dtiles{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .dtile{background:var(--chip); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:2px}
+  .dtile .k,.pair .k{font-size:11.5px; color:var(--muted); font-weight:500}
+  .dtile .v{font-size:17px; font-weight:700}
+  .pgrid{display:grid; grid-template-columns:1fr 1fr; gap:14px 12px}
+  .pgrid .dsec-t{font-size:11.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-top:2px; padding-top:12px; border-top:1px solid var(--line)}
+  .pair{display:flex; flex-direction:column; gap:1px; min-width:0}
+  .pair .v{font-size:14.5px; font-weight:600}
+  .pair small{font-size:11.5px; color:var(--muted)}
   .acc-body{contain:layout paint; padding:0 14px 12px; border-top:1px solid var(--line)}
   .pcards{display:grid;gap:10px}
   .pcard{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card);min-height:60px}
@@ -1032,38 +1042,41 @@
       det.appendChild(sum);
 
       var body=el("div","acc-body");
-      var g=el("div","dgrid"), rowsEl=null;
-      function sec(title){ var d=el("div","dsec"); d.appendChild(el("div","dsec-t",title)); rowsEl=el("div","drows"); d.appendChild(rowsEl); g.appendChild(d); }
-      function cell(k,v,c){ var d=el("div","drow"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); rowsEl.appendChild(d); }
-      sec("Resultado");
-      cell(p.fi?"Ganancia con cupones":"Ganancia desde la compra",pl===null?"—":mRs(pl,p.ccy)+" · "+fmtPct(pct),cls(pl));
-      if(dpct!==null) cell("Hoy",fmtPct(dpct),cls(dpct));
-      sec("Tu posición");
-      if(!p.parts) cell("Broker",p.broker==="IBKR"?"Interactive Brokers":p.broker);
-      cell("Cantidad",qq(p.qty));
-      cell(p.lots&&p.lots.length>1?"Compra promedio":"Precio de compra",mm(p.buy,p.ccy));
-      cell(p.fi?"Se mide contra":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
-      cell("Valor",value===null?"—":mR(value,p.ccy));
-      cell("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
+      var g=el("div","dwrap");
+      var tiles=el("div","dtiles");
+      function tile(k,v,c){ var t=el("div","dtile"); t.appendChild(el("span","k",k)); t.appendChild(el("span","v"+(c?" "+c:""),v)); tiles.appendChild(t); }
+      tile("Invertiste",mR(cost,p.ccy));
+      tile(p.fi?"Hoy vale":"Hoy vale",value===null?"—":mR(value,p.ccy));
+      g.appendChild(tiles);
+      var pg=el("div","pgrid");
+      function pair(k,v,c,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
+      pair("Cantidad",qq(p.qty));
+      pair(p.lots&&p.lots.length>1?"Compra promedio":"Precio de compra",mm(p.buy,p.ccy));
+      pair(p.fi?"Se mide contra":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
+      pair("Peso en cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
+      if(dpct!==null) pair("Hoy",fmtPct(dpct),cls(dpct));
+      if(!p.parts) pair("Broker",p.broker==="IBKR"?"Interactive Brokers":p.broker);
+      if(p.lots&&p.lots.length===1&&p.lots[0].d) pair("Comprado",p.lots[0].d.split("-").reverse().join("/"));
       if(p.fi){
-        sec("Renta fija");
-        cell("Rendimiento anual estimado",p.fi.r.toFixed(2).replace(".",",")+"%"); cell("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
+        var fs=el("div","dsec-t","Renta fija"); pg.appendChild(fs); fs.style.gridColumn="1/-1";
+        pair("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
+        pair("Rinde por año","≈"+p.fi.r.toFixed(1).replace(".",",")+"%");
         if(p.fi.cp){
           var tot=p.fi.cp.reduce(function(x,y){return x+y[1];},0), lc=p.fi.cp[p.fi.cp.length-1];
-          cell("Cupones cobrados",p.fi.cp.length?mm(tot,p.ccy)+" ("+p.fi.cp.length+(p.fi.cp.length===1?" pago":" pagos")+")":"Todavía ninguno",p.fi.cp.length?"pos":"");
-          if(lc) cell("Último cupón",lc[0].split("-").reverse().join("/")+" · "+mm(lc[1],p.ccy));
+          pair("Cupones cobrados",p.fi.cp.length?mm(tot,p.ccy):"Ninguno todavía",p.fi.cp.length?"pos":"",p.fi.cp.length?(p.fi.cp.length+(p.fi.cp.length===1?" pago":" pagos")+(lc?" · último "+lc[0].split("-").reverse().slice(0,2).join("/"):"")):"");
           var nx=fiNextCoupon(p);
-          cell("Próximo cupón",nx?dayStr(nx.d).split("-").reverse().join("/")+" · ≈"+mm(nx.a,p.ccy):"—");
+          pair("Próximo cupón",nx?dayStr(nx.d).split("-").reverse().join("/"):"—","",nx?"≈ "+mm(nx.a,p.ccy):"");
         } else {
           var cu=fiCoupons(p);
           if(cu){
-            cell("Cupones cobrados (estimado)",mm(cu.total,p.ccy)+" ("+cu.paid+(cu.paid===1?" pago":" pagos")+")","pos");
-            cell("Próximo cupón (estimado)",cu.next?dayStr(cu.next).split("-").reverse().join("/")+" · "+mm(cu.per,p.ccy):"Ya pagó todos");
-          } else cell("Cupones cobrados","Importá el Excel de Balanz o cargá cupón y vencimiento en Editar");
+            pair("Cupones cobrados",mm(cu.total,p.ccy),"pos",cu.paid+(cu.paid===1?" pago":" pagos")+" · estimado");
+            pair("Próximo cupón",cu.next?dayStr(cu.next).split("-").reverse().join("/"):"Ya pagó todos","",cu.next?"≈ "+mm(cu.per,p.ccy):"");
+          } else pair("Cupones","Importá el Excel de Balanz o cargá cupón y vencimiento en Editar");
         }
       }
+      g.appendChild(pg);
       body.appendChild(g);
-      if(p.lots && p.lots.length){
+      if(p.lots && p.lots.length>1){
         var ll=el("div","lotlist"); ll.appendChild(el("div","k","Tus compras"));
         p.lots.forEach(function(l,i){
           var ln=el("div","lotline");
@@ -1080,7 +1093,7 @@
       var mm_=ccyMismatch(p);
       if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
-      if(p.fi) notes.push("Renta fija: se mide contra 1, que es lo que te devuelven al vencimiento"+(p.fi.m?" ("+p.fi.m.split("-").reverse().join("/")+")":"")+". Ganás (1 − lo que pagaste) si compraste debajo de 1, o perdés si compraste arriba, más los cupones que vas cobrando. No sigue el precio de mercado.");
+      if(p.fi) notes.push("Se mide contra 1, lo que te devuelven al vencimiento, más los cupones.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       if(p.note) notes.push(p.note);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
