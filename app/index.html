@@ -488,7 +488,13 @@
 <dialog id="dlgCash" class="sheet">
   <form method="dialog" id="formCash">
     <h3>Efectivo</h3>
-    <div class="help">Plata que ingresaste o retiraste de tu cuenta, en dólares. Sirve para comparar rendimientos: el efectivo que queda sin invertir cuenta como parte de la cartera.</div>
+    <div class="help">Los depósitos y retiros sirven para comparar rendimientos entre carteras.</div>
+    <div class="fl" style="font-weight:600;color:var(--text)">Saldo disponible hoy</div>
+    <div class="help">La plata parada que ves en cada broker. Se suma a tu cartera.</div>
+    <div id="balList" style="display:grid;gap:8px"></div>
+    <div class="two"><label>Broker<select id="balBroker"></select></label><label>Saldo (US$)<input id="balAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="1500"></label></div>
+    <button type="button" id="balSave">Guardar saldo</button>
+    <div class="fl" style="font-weight:600;color:var(--text);margin-top:8px">Depósitos y retiros</div>
     <div class="seg" id="segCash"></div>
     <select id="cashType" hidden><option value="in">Depósito</option><option value="out">Retiro</option></select>
     <div class="two"><label>Monto (US$)<input id="cashAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="200"></label><label>Fecha<input id="cashDate" type="text"></label></div>
@@ -709,6 +715,14 @@
       if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&isFinite(a)&&a!==0&&Math.abs(a)<1e12) out.push({d:d,a:a}); });
     return out;
   }
+  // Saldo de efectivo disponible por broker (lo carga el usuario, en USD): [{b:"Balanz", a:1234.5}]
+  function cleanBal(arr){
+    var out=[], seen={}; if(!Array.isArray(arr)) return out;
+    arr.slice(0,20).forEach(function(x){ if(!x) return;
+      var b=String(x.b!==undefined?x.b:""), a=+(x.a!==undefined?x.a:0);
+      if(BROKERS.indexOf(b)>=0&&isFinite(a)&&a>0&&a<1e12&&!seen[b]){ seen[b]=1; out.push({b:b,a:a}); } });
+    return out;
+  }
   // Valida una posición (venga de un archivo o de un link). strict: ticker solo con caracteres seguros.
   function cleanPos(p,strict){
     if(!p || typeof p!=="object") return null;
@@ -745,7 +759,7 @@
   function initProfiles(){
     var d=load(LS_PROF,null);
     if(d && Array.isArray(d.profiles) && d.profiles.length){
-      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.closed=(Array.isArray(pr.closed)?pr.closed:[]).map(function(c){return cleanPos(c,false);}).filter(function(c){return c&&c.sold;}); pr.name=cleanName(pr.name)||"Perfil"; pr.cash=cleanCash(pr.cash); });
+      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.closed=(Array.isArray(pr.closed)?pr.closed:[]).map(function(c){return cleanPos(c,false);}).filter(function(c){return c&&c.sold;}); pr.name=cleanName(pr.name)||"Perfil"; pr.cash=cleanCash(pr.cash); pr.bal=cleanBal(pr.bal); });
       if(!d.profiles.some(function(x){return x.id===d.active;})) d.active=d.profiles[0].id;
       if(!d.tomb || typeof d.tomb!=="object") d.tomb={};
       return d;
@@ -1016,7 +1030,8 @@
         var gk=el("div","gain-line"); gk.appendChild(el("span","skel","+US$ 0.000 (+0,00%)")); card.appendChild(gk);
       } else {
       var mainRow=el("div","sum-main"); card.appendChild(mainRow);
-      mainRow.appendChild(el("div","big",mR(g.value+inc,ccy)));
+      var cashT=ccy==="USD"?balTotal():0;
+      mainRow.appendChild(el("div","big",mR(g.value+inc+cashT,ccy)));
       if(costPriced>0){
         var diff=g.value-costPriced, tot=g.value+inc-costPriced;
         var gl=el("div","gain-line "+cls(tot)); gl.appendChild(el("span",null,arrow(tot)+mRs(tot,ccy)));
@@ -1037,6 +1052,7 @@
         rrow("Capital invertido",mR(costPriced,ccy),"",false,"lo que pusiste de tu bolsillo");
         rrow("Valor actual de las inversiones",mR(g.value,ccy),"",false,"lo que valen hoy ("+mRs(diff,ccy)+" vs. el capital)");
         if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"plata cobrada, sin invertir");
+        if(cashT>0) rrow("Efectivo disponible",mR(cashT,ccy),"",false,"plata parada en tus brokers (la cargaste vos)");
         card.appendChild(rc);
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       }
@@ -1566,7 +1582,28 @@
   $("cashClose").addEventListener("click",function(){ dlgCash.close(); });
   dateField($("cashDate"),todayStr(),false);
   $("cashType").addEventListener("change",renderCash);
+  function balTotal(pr){ var t=0; ((pr||cur()).bal||[]).forEach(function(x){ t+=x.a; }); return t; }
+  function renderBal(){
+    var pr=cur(), ro=isRO(), sel=$("balBroker"), box=$("balList");
+    if(!sel.options.length) BROKERS.forEach(function(b){ var o=document.createElement("option"); o.value=b; o.textContent=brokerName(b); sel.appendChild(o); });
+    box.textContent="";
+    (pr.bal||[]).forEach(function(x){
+      var r=el("div","lotline"); r.appendChild(el("span",null,brokerName(x.b)+" · "+fmt(x.a,"USD")));
+      if(!ro){ var b=el("button",null,"Quitar"); b.type="button"; b.addEventListener("click",function(){ pr.bal=(pr.bal||[]).filter(function(y){return y!==x;}); saveProfiles(); renderBal(); render(); }); r.appendChild(b); }
+      box.appendChild(r);
+    });
+    if(!(pr.bal||[]).length) box.appendChild(el("div","help","Todavía no cargaste ningún saldo."));
+    [sel.closest("label"),$("balAmt").closest("label"),$("balSave")].forEach(function(e){ e.hidden=ro; });
+    $("balAmt").closest(".two").hidden=ro;
+  }
+  $("balSave").addEventListener("click",function(){
+    if(isRO()) return; var a=pnum($("balAmt").value), b=$("balBroker").value;
+    if(!(a>=0)){ alert("Poné el saldo en dólares."); return; }
+    var pr=cur(); pr.bal=(pr.bal||[]).filter(function(x){return x.b!==b;}); if(a>0) pr.bal.push({b:b,a:a});
+    saveProfiles(); $("balAmt").value=""; renderBal(); render();
+  });
   function renderCash(){
+    renderBal();
     var pr=cur(), ro=isRO();
     drawSeg($("segCash"),$("cashType"),{in:"Depósito",out:"Retiro"});
     ["segCash","cashAmt","cashDate","cashAdd"].forEach(function(id){ var e=$(id); (e.closest("label")||e).hidden=ro; });
@@ -2065,7 +2102,7 @@
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
   $("sClose").addEventListener("click",function(){ dlgSet.close(); });
   function doExport(){
-    var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions,closed:x.closed||[],cash:x.cash||[]}; })},null,2)],{type:"application/json"});
+    var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions,closed:x.closed||[],cash:x.cash||[],bal:x.bal||[]}; })},null,2)],{type:"application/json"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download="holdy-"+new Date().toISOString().slice(0,10)+".json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
@@ -2084,7 +2121,7 @@
           profs=j.profiles.slice(0,20).map(function(x){
             var ps=(Array.isArray(x.positions)?x.positions:[]).slice(0,300).map(function(p){return cleanPos(p,false);}).filter(Boolean);
             var cl=(Array.isArray(x.closed)?x.closed:[]).slice(0,300).map(function(p){return cleanPos(p,false);}).filter(function(c){return c&&c.sold;});
-            return {id:okId(x.id)?String(x.id):rid(),name:cleanName(x.name)||"Perfil",positions:ps,closed:cl,cash:cleanCash(x.cash),readOnly:!!x.readOnly,
+            return {id:okId(x.id)?String(x.id):rid(),name:cleanName(x.name)||"Perfil",positions:ps,closed:cl,cash:cleanCash(x.cash),bal:cleanBal(x.bal),readOnly:!!x.readOnly,
               owner:cleanName(x.owner),sharedAt:+x.sharedAt||0,shareKey:okId(x.shareKey)?x.shareKey:undefined,shareId:okId(x.shareId)?x.shareId:undefined};
           });
         } else {
@@ -3072,6 +3109,7 @@
     var o={id:pr.id,name:pr.name,mod:pr.mod||0,readOnly:!!pr.readOnly,p:pr.syncCode?[]:pr.positions.map(posTuple)};
     if(pr.closed&&pr.closed.length) o.c=pr.closed.map(posTuple);
     if(pr.cash&&pr.cash.length) o.m=pr.cash.map(function(c){return [c.d,c.a];});
+    if(pr.bal&&pr.bal.length) o.sb=pr.bal.map(function(c){return [bkCode(c.b),c.a];});
     if(pr.sync) o.sync=pr.sync;
     if(pr.shareKey) o.shareKey=pr.shareKey;
     if(pr.syncCode) o.syncCode=pr.syncCode;
@@ -3093,7 +3131,7 @@
       if(!x || !okId(x.id)) return;
       var o={id:String(x.id),name:cleanName(x.name)||"Perfil",mod:+x.mod||0,readOnly:!!x.readOnly,
         positions:(Array.isArray(x.p)?x.p:[]).slice(0,300).map(posFromTuple).filter(Boolean),
-        closed:(Array.isArray(x.c)?x.c:[]).slice(0,300).map(posFromTuple).filter(function(c){return c&&c.sold;}),cash:cleanCash(x.m)};
+        closed:(Array.isArray(x.c)?x.c:[]).slice(0,300).map(posFromTuple).filter(function(c){return c&&c.sold;}),cash:cleanCash(x.m),bal:cleanBal((Array.isArray(x.sb)?x.sb:[]).map(function(r){return {b:bkFrom(r[0]),a:r[1]};}))};
       if(x.sync && okCode(x.sync.code) && typeof x.sync.secret==="string" && /^[a-z0-9]{16,100}$/.test(x.sync.secret)) o.sync={code:String(x.sync.code),secret:String(x.sync.secret)};
       if(okId(x.shareKey)) o.shareKey=String(x.shareKey);
       if(okCode(x.syncCode)) o.syncCode=String(x.syncCode);
@@ -3107,7 +3145,7 @@
     return out;
   }
   function fromRemote(r,l){
-    var o={id:r.id,name:r.name,mod:r.mod,readOnly:r.readOnly,positions:r.syncCode?(l?l.positions:[]):r.positions,closed:r.syncCode?(l?(l.closed||[]):[]):(r.closed||[]),cash:r.syncCode?(l?(l.cash||[]):[]):(r.cash||[])};
+    var o={id:r.id,name:r.name,mod:r.mod,readOnly:r.readOnly,positions:r.syncCode?(l?l.positions:[]):r.positions,closed:r.syncCode?(l?(l.closed||[]):[]):(r.closed||[]),cash:r.syncCode?(l?(l.cash||[]):[]):(r.cash||[]),bal:r.syncCode?(l?(l.bal||[]):[]):(r.bal||[])};
     ["sync","shareKey","syncCode","shareId","owner","sharedAt"].forEach(function(k){ if(r[k]) o[k]=r[k]; });
     if(l){ if(l.syncUpdated) o.syncUpdated=l.syncUpdated; if(l.syncGone) o.syncGone=l.syncGone; }
     return o;
