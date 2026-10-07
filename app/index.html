@@ -1768,7 +1768,7 @@
       vPrev=v;
       out.push([d,(idx-1)*100]);
     }
-    return {pts:out,total:(idx-1)*100,contrib:contrib,value:vPrev};
+    return {pts:out,total:(idx-1)*100,contrib:contrib,value:vPrev,cash:cash};
   }
   // Resultado por posición (en %): abiertas contra el último cierre, vendidas contra el precio de venta.
   function cmpStats(items, hist){
@@ -1881,7 +1881,7 @@
         buildCompare(ents,hist,missing);
       }).catch(function(e){ try{ console.error("holdy-cmp",e); }catch(x){} if(my===cmpRun) st.textContent="No se pudieron traer los precios históricos. Probá de nuevo en un rato."; });
   }
-  var cmpCash=true, cmpCtx=null;
+  var cmpCash=false, cmpCtx=null;
   function buildCompare(ents,hist,missing){
     cmpCtx={ents:ents,hist:hist,missing:missing};
     var st=$("cmpStatus"), body=$("cmpBody"); body.textContent="";
@@ -1908,7 +1908,8 @@
         b.addEventListener("click",function(){ if(cmpCash!==o[0]){ cmpCash=o[0]; buildCompare(cmpCtx.ents,cmpCtx.hist,cmpCtx.missing); } });
         cc.appendChild(b);
       });
-      body.appendChild(el("div","help",cmpCash?"Cuenta el efectivo de tus ventas y depósitos como parte de la cartera.":"Mide solo las inversiones: el efectivo no cuenta y lo que vendés sale de la cartera."));
+      var idle=real.map(function(x){ return (cmpCash&&x.curve&&x.curve.cash>0.5)?x.name+": US$ "+Math.round(x.curve.cash).toLocaleString("es-AR"):""; }).filter(Boolean);
+      body.appendChild(el("div","help",cmpCash?"Cuenta el efectivo de tus ventas y depósitos como parte de la cartera, aunque en tu broker ya no esté."+(idle.length?" Efectivo sin invertir hoy según tus movimientos → "+idle.join(" · ")+". Si ya lo usaste o lo retiraste, cargalo como retiro en Efectivo.":""):"Mide solo las inversiones: el efectivo no cuenta y lo que vendés sale de la cartera. Es lo más parecido a tu broker si no dejás plata parada."));
     }
     if(csMax>csMin) body.appendChild(el("div","cmpchips")).id="cmpStartChips";
     body.appendChild(el("div","cmpchips")).id="cmpChips";
