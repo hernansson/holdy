@@ -839,13 +839,16 @@
   // CEDEARs: el CEDEAR cotiza al dólar CCL y IOL/Balanz lo muestran en dólares MEP, así que vale distinto de la acción.
   // Factor = CCL/MEP = AL30D / AL30C (el mismo bono en dólar MEP sobre el mismo bono en dólar cable).
   var LS_CED="cartera.ced.v1", cedInfo=load(LS_CED,null);
+  var cedErr="";
   function isCedPos(p){ return !p.fi && /CEDEAR/i.test(p.note||""); }
   function cedF(p){ return (isCedPos(p)&&cedInfo&&cedInfo.f>0)?cedInfo.f:1; }
   function fetchCedFactor(){
+    cedErr="";
     return Promise.all([fetchQuote("AL30D.BA"),fetchQuote("AL30C.BA")]).then(function(r){
       var f=r[0].price/r[1].price;
-      if(f>=0.95 && f<=1.12){ cedInfo={f:f,t:Date.now()}; save(LS_CED,cedInfo); }
-    }).catch(function(){});
+      if(f>=0.95 && f<=1.12){ cedInfo={f:f,t:Date.now(),d:r[0].price,c:r[1].price}; save(LS_CED,cedInfo); }
+      else cedErr="los bonos AL30D ("+r[0].price+") y AL30C ("+r[1].price+") dieron un factor fuera de rango ("+f.toFixed(3)+")";
+    }).catch(function(e){ cedErr=(e&&e.message)||"sin datos de los bonos AL30"; });
   }
   function ccyMismatch(p){ var c=prices[p.ticker]; return (p.source!=="manual" && !p.fi && c && c.cur && c.cur!==p.ccy) ? c.cur : null; }
   // Variación del día de una posición con precio automático (Finnhub: d = cambio por acción vs. cierre previo).
@@ -1190,6 +1193,7 @@
       var mm_=ccyMismatch(p);
       if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
+      if(isCedPos(p) && cedF(p)===1) notes.push("CEDEAR sin ajuste de prima: "+(cedErr?cedErr+".":(cedInfo?"el factor CCL/MEP dio 1,000 (AL30D "+cedInfo.d+" y AL30C "+cedInfo.c+").":"todavía no se calculó; actualizá los precios."))+" Se muestra el valor de la acción.");
       if(isCedPos(p) && cedF(p)!==1) notes.push("Valor ajustado por la prima del CEDEAR (dólar CCL / MEP: "+(cedF(p)>=1?"+":"")+((cedF(p)-1)*100).toFixed(1).replace(".",",")+"%).");
       if(p.fi) notes.push("Se mide contra 1, lo que te devuelven al vencimiento, más los cupones.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
