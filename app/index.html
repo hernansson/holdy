@@ -774,6 +774,11 @@
   function mR(n,ccy){ return ui.hide?MASK:fmtR(n,ccy); }
   function mRs(n,ccy){ return ui.hide?MASK:((n>=0?"+":"−")+fmtR(Math.abs(n),ccy)); }
   function qq(q){ return ui.hide?MASK:qtyFmt(q); }
+  function spanStr(d){
+    d=Math.round(d); if(d<1) return "Hoy"; if(d<60) return d+(d===1?" día":" días");
+    var m=Math.floor(d/30.44); if(m<12) return m+(m===1?" mes":" meses");
+    var y=Math.floor(m/12), r=m%12; return y+(y===1?" año":" años")+(r?" y "+r+(r===1?" mes":" meses"):"");
+  }
   function timeAgo(ms){
     if(!ms) return "";
     var s=Math.max(0,Math.round((Date.now()-ms)/1000));
@@ -1124,12 +1129,18 @@
       var pg=el("div","pgrid");
       function pair(k,v,c,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
       pair("Cantidad",qq(p.qty));
-      pair(p.lots&&p.lots.length>1?"Compra promedio":"Precio de compra",mm(p.buy,p.ccy));
+      var nL=p.lots&&p.lots.length>1?p.lots.length:0, dl_=(p.lots||[]).filter(function(l){return l.d;});
+      if(nL){ var ds_=dl_.map(function(l){return l.d;}).sort(); pair("Compras",String(nL),"",ds_.length>1?ds_[0].split("-").reverse().join("/")+" a "+ds_[ds_.length-1].split("-").reverse().join("/"):""); }
+      pair(nL?"Precio promedio de compra":"Precio de compra",mm(p.buy,p.ccy));
       pair(p.fi?"Valor de rescate":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
       pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
       if(!p.parts) pair("Broker",brokerName(p.broker));
       if(p.lots&&p.lots.length===1&&p.lots[0].d) pair("Fecha de compra",p.lots[0].d.split("-").reverse().join("/"));
+      if(dl_.length){
+        var now_=Date.now(), wc=0, ws=0; dl_.forEach(function(l){ var w=l.q*l.b; wc+=w; ws+=w*Math.max(0,(now_-new Date(l.d+"T12:00:00").getTime())/864e5); });
+        pair(nL?"Tiempo invertido promedio":"Tiempo invertido",spanStr(ws/wc),"",nL&&dl_.length<nL?"solo compras con fecha":"");
+      }
       if(p.fi){
         var fs=el("div","dsec-t","Renta fija"); pg.appendChild(fs); fs.style.gridColumn="1/-1";
         pair("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
