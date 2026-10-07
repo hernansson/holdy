@@ -837,18 +837,20 @@
     return c&&c.price>0?c.price*cedF(p):null;
   }
   // CEDEARs: el CEDEAR cotiza al dólar CCL y IOL/Balanz lo muestran en dólares MEP, así que vale distinto de la acción.
-  // Factor = CCL/MEP = AL30D / AL30C (el mismo bono en dólar MEP sobre el mismo bono en dólar cable).
+  // Factor = dólar CCL / dólar MEP (dolarapi.com).
   var LS_CED="cartera.ced.v1", cedInfo=load(LS_CED,null);
   var cedErr="";
   function isCedPos(p){ return !p.fi && /CEDEAR/i.test(p.note||""); }
   function cedF(p){ return (isCedPos(p)&&cedInfo&&cedInfo.f>0)?cedInfo.f:1; }
   function fetchCedFactor(){
     cedErr="";
-    return Promise.all([fetchQuote("AL30D.BA"),fetchQuote("AL30C.BA")]).then(function(r){
-      var f=r[0].price/r[1].price;
-      if(f>=0.95 && f<=1.12){ cedInfo={f:f,t:Date.now(),d:r[0].price,c:r[1].price}; save(LS_CED,cedInfo); }
-      else cedErr="los bonos AL30D ("+r[0].price+") y AL30C ("+r[1].price+") dieron un factor fuera de rango ("+f.toFixed(3)+")";
-    }).catch(function(e){ cedErr=(e&&e.message)||"sin datos de los bonos AL30"; });
+    return fetch("https://dolarapi.com/v1/dolares",{cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error("el servicio de dólares respondió "+r.status); return r.json(); }).then(function(a){
+      var m=null,c=null; (a||[]).forEach(function(x){ if(x.casa==="bolsa") m=x; if(x.casa==="contadoconliqui") c=x; });
+      if(!m||!c||!(m.venta>0)||!(c.venta>0)) throw new Error("no encontré el dólar MEP o CCL");
+      var f=c.venta/m.venta;
+      if(f>=0.95 && f<=1.12){ cedInfo={f:f,t:Date.now(),d:m.venta,c:c.venta}; save(LS_CED,cedInfo); }
+      else cedErr="MEP ("+m.venta+") y CCL ("+c.venta+") dieron un factor fuera de rango ("+f.toFixed(3)+")";
+    }).catch(function(e){ cedErr=(e&&e.message)||"no se pudo traer el dólar MEP y CCL"; });
   }
   function ccyMismatch(p){ var c=prices[p.ticker]; return (p.source!=="manual" && !p.fi && c && c.cur && c.cur!==p.ccy) ? c.cur : null; }
   // Variación del día de una posición con precio automático (Finnhub: d = cambio por acción vs. cierre previo).
@@ -1193,7 +1195,7 @@
       var mm_=ccyMismatch(p);
       if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
-      if(isCedPos(p) && cedF(p)===1) notes.push("CEDEAR sin ajuste de prima: "+(cedErr?cedErr+".":(cedInfo?"el factor CCL/MEP dio 1,000 (AL30D "+cedInfo.d+" y AL30C "+cedInfo.c+").":"todavía no se calculó; actualizá los precios."))+" Se muestra el valor de la acción.");
+      if(isCedPos(p) && cedF(p)===1) notes.push("CEDEAR sin ajuste de prima: "+(cedErr?cedErr+".":(cedInfo?"el factor CCL/MEP dio 1,000 (MEP "+cedInfo.d+" y CCL "+cedInfo.c+").":"todavía no se calculó; actualizá los precios."))+" Se muestra el valor de la acción.");
       if(isCedPos(p) && cedF(p)!==1) notes.push("Valor ajustado por la prima del CEDEAR (dólar CCL / MEP: "+(cedF(p)>=1?"+":"")+((cedF(p)-1)*100).toFixed(1).replace(".",",")+"%).");
       if(p.fi) notes.push("Se mide contra 1, lo que te devuelven al vencimiento, más los cupones.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
@@ -1282,7 +1284,7 @@
           if(/API key|límite|servidor de precios/.test(errors[t])) fatal=errors[t];
         }).then(worker);
     }
-    var needF=!apiKey && positions.some(function(p){ return p.source!=="manual" && isCedPos(p); });
+    var needF=positions.some(function(p){ return p.source!=="manual" && isCedPos(p); });
     return Promise.all([worker(),worker(),worker(),needF?fetchCedFactor():null]).then(function(){
       lastRefresh=Date.now(); save(LS_PRICES,prices);
       if(fatal) showBanner(fatal,true); else { clearBanner(); var bad=Object.keys(errors).filter(function(k){return tickers.indexOf(k)>=0;}); if(bad.length) showBanner("No se pudo obtener precio de: "+bad.join(", ")+". Si no se encuentran, probá con el sufijo de la bolsa (VUAA.DE) o usá precio manual.",false); }
