@@ -429,7 +429,7 @@
     <div id="cedBox" style="display:grid;gap:10px" hidden>
       <div class="two">
         <label>Cada cuántos CEDEARs = 1 acción
-          <input id="fRatio" type="number" inputmode="decimal" step="any" min="0" placeholder="Ej: 20">
+          <input id="fRatio" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej: 20">
         </label>
         <label>Precio del CEDEAR en
           <select id="fPxCcy">
@@ -455,13 +455,13 @@
       </select>
     </label>
     <label id="fManualWrap" hidden>Precio actual (manual)
-      <input id="fManual" type="number" inputmode="decimal" step="any" min="0" placeholder="225.00">
+      <input id="fManual" type="text" inputmode="decimal" autocomplete="off" placeholder="225.00">
     </label>
     <label>Renta fija: rendimiento anual estimado % (solo bonos y ONs, opcional)
-      <input id="fFiR" type="number" inputmode="decimal" step="any" min="-20" max="200" placeholder="Ej: 8,5">
+      <input id="fFiR" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej: 8,5">
     </label>
     <label>Cupón anual % (renta fija, paga cada 6 meses, opcional)
-      <input id="fFiC" type="number" inputmode="decimal" step="any" min="0" max="99" placeholder="Ej: 5">
+      <input id="fFiC" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej: 5">
     </label>
     <label id="fFiMWrap">Vencimiento (renta fija, opcional)
       <input id="fFiM" type="text">
@@ -503,7 +503,7 @@
         <input id="sellDate" type="text">
       </label>
       <label>Precio de venta
-        <input id="sellPrice" type="number" inputmode="decimal" step="any" min="0" placeholder="0.00">
+        <input id="sellPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
       </label>
     </div>
     <div class="btns">
@@ -774,6 +774,8 @@
   function mR(n,ccy){ return ui.hide?MASK:fmtR(n,ccy); }
   function mRs(n,ccy){ return ui.hide?MASK:((n>=0?"+":"−")+fmtR(Math.abs(n),ccy)); }
   function qq(q){ return ui.hide?MASK:qtyFmt(q); }
+  // Acepta coma o punto decimal (teclado de iPhone en español solo trae coma)
+  function pnum(v){ v=String(v==null?"":v).trim().replace(/\s/g,""); if(v.indexOf(",")>=0) v=v.replace(/\./g,"").replace(",","."); return v===""?NaN:Number(v); }
   function spanStr(d){
     d=Math.round(d); if(d<1) return "Hoy"; if(d<60) return d+(d===1?" día":" días");
     var m=Math.floor(d/30.44); if(m<12) return m+(m===1?" mes":" meses");
@@ -1376,12 +1378,12 @@
     r.appendChild(h);
     var two=el("div","two");
     var a=document.createElement("label"); var qlab=document.createTextNode("Cantidad"); a.appendChild(qlab);
-    var iq=document.createElement("input"); iq.className="lq"; iq.type="number"; iq.inputMode="decimal"; iq.step="any"; iq.min="0"; iq.required=true; iq.placeholder="10"; iq.value=l.q===""||l.q==null?"":l.q; a.appendChild(iq);
+    var iq=document.createElement("input"); iq.className="lq"; iq.type="text"; iq.inputMode="decimal"; iq.autocomplete="off"; iq.required=true; iq.placeholder="10"; iq.value=l.q===""||l.q==null?"":l.q; a.appendChild(iq);
     var b=document.createElement("label"); var blab=document.createTextNode("Precio de compra"); b.appendChild(blab);
-    var ib=document.createElement("input"); ib.className="lb"; ib.type="number"; ib.inputMode="decimal"; ib.step="any"; ib.min="0"; ib.required=true; ib.placeholder="170.50"; ib.value=l.b===""||l.b==null?"":l.b; b.appendChild(ib);
+    var ib=document.createElement("input"); ib.className="lb"; ib.type="text"; ib.inputMode="decimal"; ib.autocomplete="off"; ib.required=true; ib.placeholder="170.50"; ib.value=l.b===""||l.b==null?"":l.b; b.appendChild(ib);
     two.appendChild(a); two.appendChild(b); r.appendChild(two);
     var fl=document.createElement("label"); fl.className="lfxw"; fl.hidden=true; fl.appendChild(document.createTextNode("Dólar MEP ese día (pesos por dólar)"));
-    var ifx=document.createElement("input"); ifx.className="lfx"; ifx.type="number"; ifx.inputMode="decimal"; ifx.step="any"; ifx.min="0"; ifx.placeholder="1450"; ifx.value=l.fx||""; fl.appendChild(ifx); r.appendChild(fl);
+    var ifx=document.createElement("input"); ifx.className="lfx"; ifx.type="text"; ifx.inputMode="decimal"; ifx.autocomplete="off"; ifx.placeholder="1450"; ifx.value=l.fx||""; fl.appendChild(ifx); r.appendChild(fl);
     var dl=document.createElement("label"); dl.appendChild(document.createTextNode("Fecha de compra (opcional)"));
     var id=document.createElement("input"); id.className="ld"; id.type="text"; dateField(id,l.d||"",true); dl.appendChild(id); r.appendChild(dl);
     r.addEventListener("input",refreshLots);
@@ -1389,7 +1391,7 @@
   }
   function readLots(){
     return [].slice.call(lotsBox.querySelectorAll(".lotrow")).map(function(r){
-      return {q:parseFloat(r.querySelector(".lq").value), b:parseFloat(r.querySelector(".lb").value), fx:parseFloat(r.querySelector(".lfx").value), d:r.querySelector(".ld").dataset.iso||""};
+      return {q:pnum(r.querySelector(".lq").value), b:pnum(r.querySelector(".lb").value), fx:pnum(r.querySelector(".lfx").value), d:r.querySelector(".ld").dataset.iso||""};
     });
   }
   function refreshLots(){
@@ -1400,7 +1402,7 @@
       var fw=r.querySelector(".lfxw"); fw.hidden=!pes; r.querySelector(".lfx").required=pes; });
     var sm=$("lotSum");
     if(ced){
-      var R=parseFloat($("fRatio").value), cl=cedConv(readLots());
+      var R=pnum($("fRatio").value), cl=cedConv(readLots());
       if(!(R>0)||!cl||!cl.length){ sm.hidden=true; return; }
       var q2=0,c2=0; cl.forEach(function(l){ q2+=l.q; c2+=l.q*l.b; });
       sm.hidden=false; sm.textContent="Equivale a "+qq(q2)+" acciones a "+fmt(c2/q2,"USD")+" en promedio · Invertido: "+fmt(c2,"USD");
@@ -1416,7 +1418,7 @@
   function isCed(){ return $("fKind").value==="ced"; }
   // CEDEAR -> acción: cantidad/ratio, precio en USD de la acción = precio CEDEAR * ratio / dólar
   function cedConv(lots){
-    var R=parseFloat($("fRatio").value), pes=$("fPxCcy").value==="ARS", out=[];
+    var R=pnum($("fRatio").value), pes=$("fPxCcy").value==="ARS", out=[];
     if(!(R>0)) return null;
     for(var i=0;i<lots.length;i++){ var l=lots[i]; if(!(l.q>0&&l.b>0)||(pes&&!(l.fx>0))) continue; out.push({q:l.q/R,b:(pes?l.b/l.fx:l.b)*R,d:l.d}); }
     return out;
@@ -1467,13 +1469,13 @@
     ev.preventDefault();
     var ticker=$("fTicker").value.trim().toUpperCase();
     var lots=readLots();
-    var source=$("fSource").value, manual=parseFloat($("fManual").value);
+    var source=$("fSource").value, manual=pnum($("fManual").value);
     if(isRO()) return;
     if(!ticker){ alert("Falta el ticker."); return; }
     if(source==="auto" && !/^[A-Z0-9.\-]{1,12}$/.test(ticker)){ alert("El ticker solo puede tener letras, números, punto o guion (máx. 12)."); return; }
     var ced=isCed();
     if(ced){
-      if(!(parseFloat($("fRatio").value)>0)){ alert("Falta la relación del CEDEAR (cada cuántos CEDEARs equivalen a 1 acción)."); return; }
+      if(!(pnum($("fRatio").value)>0)){ alert("Falta la relación del CEDEAR (cada cuántos CEDEARs equivalen a 1 acción)."); return; }
       for(var ci=0;ci<lots.length;ci++){ if($("fPxCcy").value==="ARS"&&lots[ci].q>0&&lots[ci].b>0&&!(lots[ci].fx>0)){ alert("Cargá el dólar MEP de cada compra para pasar el costo a dólares."); return; } }
     }
     for(var li=0;li<lots.length;li++){
@@ -1489,10 +1491,10 @@
       broker:$("fBroker").value, ccy:$("fCcy").value, ticker:ticker, qty:qty, buy:buy, lots:keepLots,
       source:source, manualPrice:source==="manual"?manual:0, note:$("fNote").value.trim()
     };
-    if(ced){ data.ccy="USD"; var cn="CEDEAR 1:"+(+parseFloat($("fRatio").value).toFixed(4))+" (convertido a la acción)"; data.note=data.note?data.note+" · "+cn:cn; }
-    var fiR=parseFloat($("fFiR").value), fiM=$("fFiM").dataset.iso||"";
+    if(ced){ data.ccy="USD"; var cn="CEDEAR 1:"+(+pnum($("fRatio").value).toFixed(4))+" (convertido a la acción)"; data.note=data.note?data.note+" · "+cn:cn; }
+    var fiR=pnum($("fFiR").value), fiM=$("fFiM").dataset.iso||"";
     if(fiM==="?"){ alert("El vencimiento no es válido. Escribilo como dd/mm/aaaa."); return; }
-    var fiC=parseFloat($("fFiC").value); var oldP=editingId?positions.filter(function(x){return x.id===editingId;})[0]:null; data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM,c:(isFinite(fiC)&&fiC>0&&fiC<100)?fiC:0}:null; if(data.fi&&oldP&&oldP.fi){ if(oldP.fi.cp) data.fi.cp=oldP.fi.cp; if(oldP.fi.n) data.fi.n=oldP.fi.n; }
+    var fiC=pnum($("fFiC").value); var oldP=editingId?positions.filter(function(x){return x.id===editingId;})[0]:null; data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM,c:(isFinite(fiC)&&fiC>0&&fiC<100)?fiC:0}:null; if(data.fi&&oldP&&oldP.fi){ if(oldP.fi.cp) data.fi.cp=oldP.fi.cp; if(oldP.fi.n) data.fi.n=oldP.fi.n; }
     if(editingId){
       positions=positions.map(function(x){
         if(x.id!==editingId) return x;
@@ -1532,7 +1534,7 @@
   $("formSell").addEventListener("submit",function(ev){
     ev.preventDefault();
     var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p||isRO()) return;
-    var d=$("sellDate").dataset.iso||"", sp=parseFloat($("sellPrice").value);
+    var d=$("sellDate").dataset.iso||"", sp=pnum($("sellPrice").value);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Elegí la fecha de venta."); return; }
     if(!(sp>0)){ alert("Poné el precio de venta."); return; }
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
