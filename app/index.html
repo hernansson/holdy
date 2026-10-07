@@ -382,6 +382,7 @@
     <div class="dr-user" id="menuUser"></div>
     <button type="button" class="dr-item" id="btnRefresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span>Actualizar precios</span></button>
     <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
+    <button type="button" class="dr-item" id="btnCash"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Efectivo</span></button>
     <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Administrar perfiles</span></button>
     <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Cuenta y respaldo</span></button>
     <div class="dr-sep"></div>
@@ -481,6 +482,19 @@
       <button type="button" id="posCancel">Cancelar</button>
       <button type="submit" class="primary" id="posSave">Guardar</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="dlgCash" class="sheet">
+  <form method="dialog" id="formCash">
+    <h3>Efectivo</h3>
+    <div class="help">Plata que ingresaste o retiraste de tu cuenta, en dólares. Sirve para comparar rendimientos: el efectivo que queda sin invertir cuenta como parte de la cartera.</div>
+    <div class="seg" id="segCash"></div>
+    <select id="cashType" hidden><option value="in">Depósito</option><option value="out">Retiro</option></select>
+    <div class="two"><label>Monto (US$)<input id="cashAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="200"></label><label>Fecha<input id="cashDate" type="text"></label></div>
+    <button type="submit" class="primary" id="cashAdd">Agregar</button>
+    <div id="cashList" style="display:grid;gap:8px"></div>
+    <div class="btns"><button type="button" id="cashClose">Cerrar</button></div>
   </form>
 </dialog>
 
@@ -681,6 +695,14 @@
   var ID_RE=/^[A-Za-z0-9_\-]{4,40}$/;
   function okId(v){ return typeof v==="string" && ID_RE.test(v); }
   function okCode(v){ return typeof v==="string" && /^[A-Za-z0-9_\-]{8,40}$/.test(v); }
+  // Movimientos de efectivo del perfil: [{d:"aaaa-mm-dd", a:monto en USD (+ depósito, − retiro)}]
+  function cleanCash(arr){
+    var out=[]; if(!Array.isArray(arr)) return out;
+    arr.slice(0,400).forEach(function(c){ if(!c) return;
+      var d=String(c.d!==undefined?c.d:c[0]||""), a=+(c.a!==undefined?c.a:c[1]);
+      if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&isFinite(a)&&a!==0&&Math.abs(a)<1e12) out.push({d:d,a:a}); });
+    return out;
+  }
   // Valida una posición (venga de un archivo o de un link). strict: ticker solo con caracteres seguros.
   function cleanPos(p,strict){
     if(!p || typeof p!=="object") return null;
@@ -717,7 +739,7 @@
   function initProfiles(){
     var d=load(LS_PROF,null);
     if(d && Array.isArray(d.profiles) && d.profiles.length){
-      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.closed=(Array.isArray(pr.closed)?pr.closed:[]).map(function(c){return cleanPos(c,false);}).filter(function(c){return c&&c.sold;}); pr.name=cleanName(pr.name)||"Perfil"; });
+      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.closed=(Array.isArray(pr.closed)?pr.closed:[]).map(function(c){return cleanPos(c,false);}).filter(function(c){return c&&c.sold;}); pr.name=cleanName(pr.name)||"Perfil"; pr.cash=cleanCash(pr.cash); });
       if(!d.profiles.some(function(x){return x.id===d.active;})) d.active=d.profiles[0].id;
       if(!d.tomb || typeof d.tomb!=="object") d.tomb={};
       return d;
@@ -1531,6 +1553,38 @@
     try{ if(document.activeElement&&document.activeElement!==document.body) document.activeElement.blur(); }catch(e){}
   }
   $("btnAdd").addEventListener("click",function(){ openPos(null); });
+
+  // ---------- Efectivo (depósitos y retiros) ----------
+  var dlgCash=$("dlgCash");
+  dlgCash.addEventListener("click",function(e){ if(e.target===dlgCash) dlgCash.close(); });
+  $("cashClose").addEventListener("click",function(){ dlgCash.close(); });
+  dateField($("cashDate"),todayStr(),false);
+  $("cashType").addEventListener("change",renderCash);
+  function renderCash(){
+    var pr=cur(), ro=isRO();
+    drawSeg($("segCash"),$("cashType"),{in:"Depósito",out:"Retiro"});
+    ["segCash","cashAmt","cashDate","cashAdd"].forEach(function(id){ var e=$(id); (e.closest("label")||e).hidden=ro; });
+    $("cashDate").closest(".two").hidden=ro;
+    var box=$("cashList"); box.textContent="";
+    var ls=(pr.cash||[]).slice().sort(function(a,b){ return a.d<b.d?1:(a.d>b.d?-1:0); });
+    if(!ls.length){ box.appendChild(el("div","help","Todavía no cargaste movimientos.")); return; }
+    var net=0; ls.forEach(function(c){ net+=c.a; });
+    box.appendChild(el("div","help","Neto ingresado: "+fmt(net,"USD")));
+    ls.forEach(function(c){
+      var r=el("div","lotline"); r.appendChild(el("span",c.a>0?"pos":"neg",fromISO(c.d)+" · "+(c.a>0?"Depósito ":"Retiro ")+fmt(Math.abs(c.a),"USD")));
+      if(!ro){ var b=el("button",null,"Quitar"); b.type="button"; b.addEventListener("click",function(){ pr.cash=(pr.cash||[]).filter(function(x){ return x!==c; }); saveProfiles(); renderCash(); }); r.appendChild(b); }
+      box.appendChild(r);
+    });
+  }
+  $("formCash").addEventListener("submit",function(ev){
+    ev.preventDefault(); if(isRO()) return;
+    var a=pnum($("cashAmt").value), d=$("cashDate").dataset.iso||"";
+    if(!(a>0)){ alert("Poné un monto mayor a 0."); return; }
+    if(!d||d==="?"){ alert("Elegí la fecha."); return; }
+    var pr=cur(); pr.cash=(pr.cash||[]); pr.cash.push({d:d,a:$("cashType").value==="out"?-a:a});
+    saveProfiles(); $("cashAmt").value=""; renderCash();
+  });
+  $("btnCash").addEventListener("click",function(){ $("cashDate").dataset.iso=todayStr(); $("cashDate").value=fromISO(todayStr()); renderCash(); dlgCash.showModal(); });
   $("posCancel").addEventListener("click",function(){ dlgPos.close(); });
 
   var cedChecked=false;
@@ -1676,12 +1730,13 @@
     }
     (pr.positions||[]).forEach(function(p){ add(p,false); });
     (pr.closed||[]).forEach(function(p){ add(p,true); });
+    (pr.cash||[]).forEach(function(c){ ev.push({d:c.d,tk:"$",a:c.a,t:"c"}); });
     return {ev:ev,used:used,skipped:skipped,items:items,fis:fis};
   }
   // Curva de rendimiento ponderado por tiempo (en %), con "efectivo virtual": lo que cobrás de una venta
   // se usa primero para pagar compras; solo lo que falta cuenta como plata nueva.
-  function cmpCurve(events, hist, todayStr){
-    var ev=events.filter(function(e){ return hist[e.tk] && hist[e.tk].pts && hist[e.tk].pts.length; });
+  function cmpCurve(events, hist, todayStr, withCash){
+    var ev=events.filter(function(e){ return e.t==="c" ? withCash : (hist[e.tk] && hist[e.tk].pts && hist[e.tk].pts.length); });
     if(!ev.length) return null;
     var start=Infinity; ev.forEach(function(e){ var n=dayNum(e.d); if(n<start) start=n; });
     var end=dayNum(todayStr); if(!(end>=start)) return null;
@@ -1695,10 +1750,11 @@
       var list=(byDay[d]||[]).slice().sort(function(a,b){ return a.t===b.t?0:(a.t==="s"?-1:1); });
       var flow=0;
       list.forEach(function(e){
+        if(e.t==="c"){ cash+=e.a; flow+=e.a; return; }
         adv(e.tk,d);
         var a0=ad[e.tk]>0?ad[e.tk]:e.p, un=e.q*e.p/a0;
-        if(e.t==="s"){ hold[e.tk]=(hold[e.tk]||0)-un; cash+=e.q*e.p; }
-        else { hold[e.tk]=(hold[e.tk]||0)+un; var cost=e.q*e.p; if(cash>=cost) cash-=cost; else { flow+=cost-cash; cash=0; } }
+        if(e.t==="s"){ hold[e.tk]=(hold[e.tk]||0)-un; if(withCash) cash+=e.q*e.p; else flow-=e.q*e.p; }
+        else { hold[e.tk]=(hold[e.tk]||0)+un; var cost=e.q*e.p; if(!withCash) flow+=cost; else if(cash>=cost) cash-=cost; else { flow+=cost-cash; cash=0; } }
       });
       var v=cash;
       Object.keys(hold).forEach(function(tk){
@@ -1707,8 +1763,8 @@
         v+=hold[tk]*(ad[tk]>0?ad[tk]:last[tk]);
       });
       contrib+=flow;
-      var base=vPrev+flow;
-      if(base>0){ idx*=v/base; }
+      // Los movimientos se toman a precio de cierre del día: el rendimiento del día es el valor antes del movimiento sobre el de ayer.
+      if(vPrev>0 && v-flow>0){ idx*=(v-flow)/vPrev; }
       vPrev=v;
       out.push([d,(idx-1)*100]);
     }
@@ -1803,7 +1859,7 @@
     }
     var from="9999-99-99", tks={SPY:1};
     var fiMap={};
-    ents.forEach(function(x){ if(!x.spy){ Object.keys(x.e.fis).forEach(function(k){ fiMap[k]=x.e.fis[k]; }); x.e.ev.forEach(function(e){ if(e.d<from) from=e.d; if(e.tk.indexOf("FI:")!==0) tks[e.tk]=1; }); } });
+    ents.forEach(function(x){ if(!x.spy){ Object.keys(x.e.fis).forEach(function(k){ fiMap[k]=x.e.fis[k]; }); x.e.ev.forEach(function(e){ if(e.t==="c") return; if(e.d<from) from=e.d; if(e.tk.indexOf("FI:")!==0) tks[e.tk]=1; }); } });
     var list=Object.keys(tks);
     if(list.length>80){ st.textContent="Son demasiadas acciones distintas para comparar (máximo 80)."; return; }
     if(!navigator.onLine){ st.textContent="Necesito conexión para traer los precios históricos."; return; }
@@ -1825,12 +1881,14 @@
         buildCompare(ents,hist,missing);
       }).catch(function(e){ try{ console.error("holdy-cmp",e); }catch(x){} if(my===cmpRun) st.textContent="No se pudieron traer los precios históricos. Probá de nuevo en un rato."; });
   }
+  var cmpCash=true, cmpCtx=null;
   function buildCompare(ents,hist,missing){
+    cmpCtx={ents:ents,hist:hist,missing:missing};
     var st=$("cmpStatus"), body=$("cmpBody"); body.textContent="";
     var today=todayStr(), tn=dayNum(today);
     if(!hist.SPY){ st.textContent="No se pudo traer el S&P 500. Probá de nuevo en un rato."; return; }
     var starts=[];
-    ents.forEach(function(x){ if(x.spy) return; x.curve=cmpCurve(x.e.ev,hist,today); if(x.curve) starts.push(x.curve.pts[0][0]); x.stats=cmpStats(x.e.items,hist); });
+    ents.forEach(function(x){ if(x.spy) return; x.curve=cmpCurve(x.e.ev,hist,today,cmpCash); if(x.curve) starts.push(x.curve.pts[0][0]); x.stats=cmpStats(x.e.items,hist); });
     if(ents.some(function(x){ return !x.spy&&!x.curve; })){ st.textContent="No hay precios históricos suficientes para armar la comparación."; return; }
     var csMin=Math.min.apply(null,starts), csMax=Math.max.apply(null,starts), capped=false, cap=tn-5*365+10;
     if(csMin<cap){ csMin=cap; capped=true; } if(csMax<cap) csMax=cap;
@@ -1842,6 +1900,16 @@
     var hasFi=real.some(function(x){ return Object.keys(x.e.fis).length>0; });
     var TR=Object.keys(hist).some(function(tk){ return tk.indexOf("FI:")!==0 && hist[tk].pts[0].length>2; });
     st.textContent="Rendimiento ponderado por tiempo"+(TR?", con dividendos reinvertidos":"")+": no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"")+(hasFi?" La renta fija entra con su rendimiento estimado.":"");
+    var hasCash=real.some(function(x){ return x.e.ev.some(function(e){ return e.t==="s"||e.t==="c"; }); });
+    if(hasCash){
+      var cc=el("div","cmpchips"); cc.id="cmpCashChips"; body.appendChild(cc);
+      [[true,"Con efectivo"],[false,"Solo inversiones"]].forEach(function(o){
+        var b=el("button",cmpCash===o[0]?"on":"",o[1]); b.type="button";
+        b.addEventListener("click",function(){ if(cmpCash!==o[0]){ cmpCash=o[0]; buildCompare(cmpCtx.ents,cmpCtx.hist,cmpCtx.missing); } });
+        cc.appendChild(b);
+      });
+      body.appendChild(el("div","help",cmpCash?"Cuenta el efectivo de tus ventas y depósitos como parte de la cartera.":"Mide solo las inversiones: el efectivo no cuenta y lo que vendés sale de la cartera."));
+    }
     if(csMax>csMin) body.appendChild(el("div","cmpchips")).id="cmpStartChips";
     body.appendChild(el("div","cmpchips")).id="cmpChips";
     var leg=el("div","cmpleg"); leg.id="cmpLeg"; body.appendChild(leg);
@@ -1979,7 +2047,7 @@
   dlgMenu.addEventListener("click",function(e){ if(e.target===dlgMenu) dlgMenu.close(); });
   $("btnMenu").addEventListener("click",function(){ renderProfile(); dlgMenu.showModal(); });
   $("menuClose").addEventListener("click",function(){ dlgMenu.close(); });
-  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
+  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
   $("btnCmp").addEventListener("click",openCmp);
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
@@ -1988,7 +2056,7 @@
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
   $("sClose").addEventListener("click",function(){ dlgSet.close(); });
   function doExport(){
-    var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions,closed:x.closed||[]}; })},null,2)],{type:"application/json"});
+    var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions,closed:x.closed||[],cash:x.cash||[]}; })},null,2)],{type:"application/json"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download="holdy-"+new Date().toISOString().slice(0,10)+".json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
@@ -2007,7 +2075,7 @@
           profs=j.profiles.slice(0,20).map(function(x){
             var ps=(Array.isArray(x.positions)?x.positions:[]).slice(0,300).map(function(p){return cleanPos(p,false);}).filter(Boolean);
             var cl=(Array.isArray(x.closed)?x.closed:[]).slice(0,300).map(function(p){return cleanPos(p,false);}).filter(function(c){return c&&c.sold;});
-            return {id:okId(x.id)?String(x.id):rid(),name:cleanName(x.name)||"Perfil",positions:ps,closed:cl,readOnly:!!x.readOnly,
+            return {id:okId(x.id)?String(x.id):rid(),name:cleanName(x.name)||"Perfil",positions:ps,closed:cl,cash:cleanCash(x.cash),readOnly:!!x.readOnly,
               owner:cleanName(x.owner),sharedAt:+x.sharedAt||0,shareKey:okId(x.shareKey)?x.shareKey:undefined,shareId:okId(x.shareId)?x.shareId:undefined};
           });
         } else {
@@ -2988,6 +3056,7 @@
   function serProfile(pr){
     var o={id:pr.id,name:pr.name,mod:pr.mod||0,readOnly:!!pr.readOnly,p:pr.syncCode?[]:pr.positions.map(posTuple)};
     if(pr.closed&&pr.closed.length) o.c=pr.closed.map(posTuple);
+    if(pr.cash&&pr.cash.length) o.m=pr.cash.map(function(c){return [c.d,c.a];});
     if(pr.sync) o.sync=pr.sync;
     if(pr.shareKey) o.shareKey=pr.shareKey;
     if(pr.syncCode) o.syncCode=pr.syncCode;
@@ -3009,7 +3078,7 @@
       if(!x || !okId(x.id)) return;
       var o={id:String(x.id),name:cleanName(x.name)||"Perfil",mod:+x.mod||0,readOnly:!!x.readOnly,
         positions:(Array.isArray(x.p)?x.p:[]).slice(0,300).map(posFromTuple).filter(Boolean),
-        closed:(Array.isArray(x.c)?x.c:[]).slice(0,300).map(posFromTuple).filter(function(c){return c&&c.sold;})};
+        closed:(Array.isArray(x.c)?x.c:[]).slice(0,300).map(posFromTuple).filter(function(c){return c&&c.sold;}),cash:cleanCash(x.m)};
       if(x.sync && okCode(x.sync.code) && typeof x.sync.secret==="string" && /^[a-z0-9]{16,100}$/.test(x.sync.secret)) o.sync={code:String(x.sync.code),secret:String(x.sync.secret)};
       if(okId(x.shareKey)) o.shareKey=String(x.shareKey);
       if(okCode(x.syncCode)) o.syncCode=String(x.syncCode);
@@ -3023,7 +3092,7 @@
     return out;
   }
   function fromRemote(r,l){
-    var o={id:r.id,name:r.name,mod:r.mod,readOnly:r.readOnly,positions:r.syncCode?(l?l.positions:[]):r.positions,closed:r.syncCode?(l?(l.closed||[]):[]):(r.closed||[])};
+    var o={id:r.id,name:r.name,mod:r.mod,readOnly:r.readOnly,positions:r.syncCode?(l?l.positions:[]):r.positions,closed:r.syncCode?(l?(l.closed||[]):[]):(r.closed||[]),cash:r.syncCode?(l?(l.cash||[]):[]):(r.cash||[])};
     ["sync","shareKey","syncCode","shareId","owner","sharedAt"].forEach(function(k){ if(r[k]) o[k]=r[k]; });
     if(l){ if(l.syncUpdated) o.syncUpdated=l.syncUpdated; if(l.syncGone) o.syncGone=l.syncGone; }
     return o;
