@@ -528,6 +528,12 @@
         <input id="sellPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
       </label>
     </div>
+    <label>¿Qué hacés con esa plata?
+      <select id="sellCash">
+        <option value="keep">La reinvierto o queda en mi broker</option>
+        <option value="out">La retiro de mi broker</option>
+      </select>
+    </label>
     <div class="btns">
       <button type="button" id="sellCancel">Cancelar</button>
       <button type="button" id="sellJustDelete" class="danger">Solo eliminar</button>
@@ -1661,6 +1667,7 @@
     sellingId=p.id;
     $("sellTitle").textContent="Eliminar "+p.ticker;
     $("sellDate").dataset.iso=todayStr(); $("sellDate").value=fromISO(todayStr());
+    $("sellCash").value="keep";
     var cp=currentPrice(p); $("sellPrice").value=cp!==null?(Math.round(cp*10000)/10000):"";
     dlgSell.showModal();
   }
@@ -1678,6 +1685,7 @@
     if(!(sp>0)){ alert("Poné el precio de venta."); return; }
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
     pr.closed.push(Object.assign({},p,{sold:{d:d,p:sp}}));
+    if($("sellCash").value==="out" && p.ccy==="USD"){ pr.cash=pr.cash||[]; pr.cash.push({d:d,a:-Math.round(p.qty*sp*100)/100}); }
     positions=positions.filter(function(x){return x.id!==sellingId;});
     saveProfiles(); dlgSell.close(); render();
   });
