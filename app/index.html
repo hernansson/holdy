@@ -2965,6 +2965,12 @@
       ibFinish(pos,closed,extra,"IOL");
     }).catch(function(e){ try{ console.error("holdy-iol",e); }catch(x){} ibMsg("No pude traer los precios para convertir los CEDEARs. Probá de nuevo en un rato."); });
   }
+  // El CSV "Resultados por realizado" que baja la app de Balanz no trae precios ni fecha de compra: no alcanza para armar la cartera.
+  function balanzMobileCsv(tx){
+    if(!(/TipoMovimiento/.test(tx)&&/Operaci[oó]n Compra/i.test(tx)&&/Operaci[oó]n Venta/i.test(tx))) return false;
+    ibMsg("Este es el CSV “Resultados por realizado” de la app de Balanz. No trae el precio ni la fecha de compra (solo cantidades, la fecha de venta y los gastos), así que no alcanza para armar tu cartera. Bajá desde Balanz en la web el Excel “Resultados por info completa” (.xlsx). Desde el celular, abrí balanz.com en el navegador y pedí la versión de escritorio.");
+    return true;
+  }
   $("ibFile").addEventListener("change",function(){
     var f=this.files&&this.files[0]; if(!f) return;
     if(f.size>5*1024*1024){ ibMsg("El archivo es demasiado grande."); return; }
@@ -2972,10 +2978,10 @@
     if(/\.xlsx$/i.test(f.name)){
       rd.onload=function(){ balanzRead(rd.result); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsArrayBuffer(f);
     } else {
-      rd.onload=function(){ var tx=String(rd.result||""); if(/Tipo Mov\./i.test(tx)) iolRead(tx); else if(/^\s*(<|\xd0\xcf)/.test(tx)||/\.xls$/i.test(f.name)){ ibMsg("No reconozco este archivo. Para IOL tiene que ser el Excel de “Operaciones finalizadas” tal como lo descargás."); } else ibRead(tx); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
+      rd.onload=function(){ var tx=String(rd.result||""); if(/Tipo Mov\./i.test(tx)) iolRead(tx); else if(balanzMobileCsv(tx)){} else if(/^\s*(<|\xd0\xcf)/.test(tx)||/\.xls$/i.test(f.name)){ ibMsg("No reconozco este archivo. Para IOL tiene que ser el Excel de “Operaciones finalizadas” tal como lo descargás."); } else ibRead(tx); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
     }
   });
-  $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } if(/Tipo Mov\./i.test(t)) iolRead(t); else ibRead(t); });
+  $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } if(/Tipo Mov\./i.test(t)) iolRead(t); else if(balanzMobileCsv(t)){} else ibRead(t); });
   function isImp(x,br){ return x.broker===br && /^Importado de /.test(x.note||""); }
   function ibKeys(pos,closed){
     var m={}, n=0;
