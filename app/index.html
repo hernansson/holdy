@@ -1462,7 +1462,7 @@
     return out;
   }
   // Relaciones CEDEAR/acción más comunes (sugeridas; pueden cambiar con splits, por eso se pueden editar)
-  var CED_SUG={AAPL:20,MSFT:30,GOOGL:58,AMZN:144,META:24,NVDA:24,TSLA:15,MELI:120,KO:5,DIS:4,MA:33,MCD:24,WMT:6,DE:40,GE:30,AZN:3,JPM:5,V:18,PEP:3,XOM:5,AMD:10};
+  var CED_SUG={AAPL:20,MSFT:30,GOOGL:58,AMZN:144,META:24,NVDA:24,TSLA:15,MELI:120,KO:5,DIS:4,MA:33,MCD:24,WMT:18,DE:40,GE:30,AZN:3,JPM:5,V:18,PEP:18,XOM:5,AMD:10};
   var ratioTouched=false;
   function suggestRatio(){
     var h=$("fRatioHint"); if(!isCed()){ return; }
@@ -1503,10 +1503,10 @@
     drawSegs(); refreshLots();
   }
   $("fBroker").addEventListener("change",syncBroker);
-  $("fKind").addEventListener("change",syncKind); $("fPxCcy").addEventListener("change",function(){ drawSegs(); refreshLots(); }); $("fRatio").addEventListener("input",refreshLots);
+  $("fKind").addEventListener("change",syncKind); $("fPxCcy").addEventListener("change",function(){ drawSegs(); refreshLots(); }); $("fRatio").addEventListener("input",function(){ cedChecked=false; refreshLots(); });
   dateField($("fFiM"),"",true,true);
   function openPos(id){
-    editingId=id||null;
+    editingId=id||null; cedChecked=false;
     var p=id?positions.filter(function(x){return x.id===id;})[0]:null;
     $("posTitle").textContent=p?"Editar posición":"Nueva posición";
     $("fKind").value="acc"; $("fRatio").value=""; ratioTouched=false; $("fRatioHint").textContent=""; $("fPxCcy").value="ARS"; $("cedBox").hidden=true;
@@ -1533,6 +1533,7 @@
   $("btnAdd").addEventListener("click",function(){ openPos(null); });
   $("posCancel").addEventListener("click",function(){ dlgPos.close(); });
 
+  var cedChecked=false;
   $("formPos").addEventListener("submit",function(ev){
     ev.preventDefault();
     var ticker=$("fTicker").value.trim().toUpperCase();
@@ -1554,6 +1555,21 @@
     var origLots=lots, cedPes=$("fPxCcy").value==="ARS";
     if(ced) lots=cedConv(lots);
     var qty=0,cst=0; lots.forEach(function(l){ qty+=l.q; cst+=l.q*l.b; }); var buy=cst/qty;
+    if(ced && !cedChecked){
+      var chk=function(cp){
+        if(cp>0){
+          var k=buy/cp;
+          if(k>1.8||k<1/1.8){
+            var R0=pnum($("fRatio").value), Rs=snapRatio(R0*cp/buy);
+            if(!confirm("Con la relación 1:"+R0+", tu costo da US$ "+buy.toFixed(2)+" por acción, pero hoy "+ticker+" vale US$ "+cp.toFixed(2)+".\n\nEs probable que la relación esté mal (con ese precio sería cerca de 1:"+Rs+"). Revisala en tu broker.\n\n¿Guardar igual?")) return;
+          }
+        }
+        cedChecked=true; $("formPos").requestSubmit();
+      };
+      var cc=prices[ticker]; if(cc&&cc.price>0) chk(cc.price);
+      else fetchQuote(ticker).then(function(q){ chk(q.price); }).catch(function(){ chk(0); });
+      return;
+    }
     var keepLots=(lots.length>1||!!lots[0].d)?lots.map(function(l){return {q:l.q,b:l.b,d:l.d};}):[];
     if(source==="manual" && !(manual>0)){ alert("Cargá el precio actual manual."); return; }
     var data={
