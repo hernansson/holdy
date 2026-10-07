@@ -458,6 +458,7 @@
     <label id="fManualWrap" hidden>Precio actual (manual)
       <input id="fManual" type="text" inputmode="decimal" autocomplete="off" placeholder="225.00">
     </label>
+    <div id="fiWrap" style="display:grid;gap:12px">
     <label>Renta fija: rendimiento anual estimado % (solo bonos y ONs, opcional)
       <input id="fFiR" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej: 8,5">
     </label>
@@ -467,6 +468,7 @@
     <label id="fFiMWrap">Vencimiento (renta fija, opcional)
       <input id="fFiM" type="text">
     </label>
+    </div>
     <label>Nota (opcional)
       <input id="fNote" placeholder="Ej: comprada en el dip de marzo">
     </label>
@@ -1481,6 +1483,7 @@
     var c=isCed(); $("cedBox").hidden=!c;
     $("fTickHint").textContent=c?"Poné el ticker de la acción de EE.UU., no el del CEDEAR. Por ejemplo AAPL.":"Acciones de EE.UU. y ETFs europeos (VUAA, EQAC: bolsa de Londres, en USD). Otra bolsa: agregá el sufijo, por ejemplo VUAA.DE.";
     $("fTicker").placeholder=c?"AAPL, MELI, KO":"AAPL, VUAA, EQAC";
+    $("fiWrap").hidden=c;
     if(c) suggestRatio();
     drawSegs(); refreshLots();
   }
