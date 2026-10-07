@@ -711,7 +711,7 @@
     if(src==="manual" && !(mp>0)) src="auto";
     return { id:rid()+Math.random().toString(36).slice(2,4), broker:BROKERS.indexOf(p.broker)>=0?p.broker:"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
       ticker:t, qty:qty, buy:buy, lots:lots, sold:so, fi:fi, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
-      note:String(p.note||"").replace(/[\u0000-\u001f]/g," ").slice(0,200) };
+      note:String(p.note||"").replace(/[\u0000-\u001f]/g," ").slice(0,1200) };
   }
   function initProfiles(){
     var d=load(LS_PROF,null);
@@ -847,6 +847,15 @@
   // Factor = dólar CCL / dólar MEP (dolarapi.com).
   var LS_CED="cartera.ced.v1", cedInfo=load(LS_CED,null);
   var cedErr="";
+  // Datos originales del CEDEAR guardados en la nota: {ced:ratio|A/U|cant,precio,dolar,fecha;...}
+  var CED_MARK=/\s*\{ced:([^}]*)\}/;
+  function cedMeta(p){
+    var m=CED_MARK.exec((p&&p.note)||""); if(!m) return null;
+    var a=m[1].split("|"), R=+a[0]; if(!(R>0)||!a[2]) return null;
+    var lots=a[2].split(";").map(function(x){ var f=x.split(","); return {q:+f[0],b:+f[1],fx:+f[2]||"",d:f[3]||""}; }).filter(function(l){return l.q>0&&l.b>0;});
+    return lots.length?{r:R,pes:a[1]==="A",lots:lots}:null;
+  }
+  function plainNote(n){ return String(n||"").replace(CED_MARK,"").replace(/(^|\s·\s)CEDEAR 1:[\d.]+( \(convertido a la acción\))?/,"").trim(); }
   function isCedPos(p){ return !p.fi && /CEDEAR/i.test(p.note||""); }
   function cedF(p){ return (isCedPos(p)&&cedInfo&&cedInfo.f>0)?cedInfo.f:1; }
   function fetchCedFactor(){
@@ -1153,7 +1162,9 @@
       g.appendChild(tiles);
       var pg=el("div","pgrid");
       function pair(k,v,c,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
-      pair("Cantidad",qq(p.qty));
+      var cm_=cedMeta(p);
+      if(cm_) pair("CEDEARs",qq(cm_.lots.reduce(function(a,l){return a+l.q;},0)),"","1 acción = "+qq(cm_.r)+" CEDEARs · "+qq(p.qty)+" acciones");
+      else pair("Cantidad",qq(p.qty));
       var nL=p.lots&&p.lots.length>1?p.lots.length:0, dl_=(p.lots||[]).filter(function(l){return l.d;});
       if(nL){ var ds_=dl_.map(function(l){return l.d;}).sort(); pair("Compras",String(nL),"",ds_.length>1?ds_[0].split("-").reverse().join("/")+" a "+ds_[ds_.length-1].split("-").reverse().join("/"):""); }
       pair(nL?"Precio promedio de compra":"Precio de compra",mm(p.buy,p.ccy));
@@ -1206,7 +1217,7 @@
       if(isCedPos(p) && cedF(p)!==1) notes.push("Valor ajustado por la prima del CEDEAR (dólar CCL / MEP: "+(cedF(p)>=1?"+":"")+((cedF(p)-1)*100).toFixed(1).replace(".",",")+"%).");
       if(p.fi) notes.push("Se mide contra 1, lo que te devuelven al vencimiento, más los cupones.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
-      if(p.note) notes.push(p.note);
+      var pn_=String(p.note||"").replace(CED_MARK,""); if(pn_) notes.push(pn_);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
 
       if(p.parts){
@@ -1503,16 +1514,18 @@
     $("fCcy").value=p?p.ccy:"USD";
     $("fTicker").value=p?p.ticker:"";
     lotsBox.textContent="";
+    var cm=p?cedMeta(p):null;
     var ls=p?((p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}]):[{q:"",b:"",d:""}];
+    if(cm){ $("fKind").value="ced"; $("fRatio").value=cm.r; ratioTouched=true; $("fPxCcy").value=cm.pes?"ARS":"USD"; ls=cm.lots; }
     ls.forEach(function(l){ addLotRow(l); });
     refreshLots();
     $("fSource").value=p?(p.source||"auto"):"auto";
     $("fManual").value=(p&&p.manualPrice)?p.manualPrice:"";
-    $("fNote").value=p?(p.note||""):"";
+    $("fNote").value=p?(cm?plainNote(p.note):(p.note||"")):"";
     $("fFiR").value=(p&&p.fi)?p.fi.r:""; $("fFiC").value=(p&&p.fi&&p.fi.c)?p.fi.c:"";
     var fm_=(p&&p.fi&&p.fi.m)||""; $("fFiM").dataset.iso=fm_; $("fFiM").value=fromISO(fm_);
     syncSource(); syncBroker();
-    $("advBox").open=!!(p&&(p.source==="manual"||p.fi||p.note));
+    $("advBox").open=!!(p&&(p.source==="manual"||p.fi||$("fNote").value));
     dlgPos.showModal();
   }
   $("btnAdd").addEventListener("click",function(){ openPos(null); });
@@ -1536,6 +1549,7 @@
       if(!(lots[li].q>0)){ alert("La cantidad tiene que ser mayor a 0."); return; }
       if(!(lots[li].b>0)){ alert("El precio de compra tiene que ser mayor a 0."); return; }
     }
+    var origLots=lots, cedPes=$("fPxCcy").value==="ARS";
     if(ced) lots=cedConv(lots);
     var qty=0,cst=0; lots.forEach(function(l){ qty+=l.q; cst+=l.q*l.b; }); var buy=cst/qty;
     var keepLots=(lots.length>1||!!lots[0].d)?lots.map(function(l){return {q:l.q,b:l.b,d:l.d};}):[];
@@ -1544,7 +1558,7 @@
       broker:$("fBroker").value, ccy:$("fCcy").value, ticker:ticker, qty:qty, buy:buy, lots:keepLots,
       source:source, manualPrice:source==="manual"?manual:0, note:$("fNote").value.trim()
     };
-    if(ced){ data.ccy="USD"; var cn="CEDEAR 1:"+(+pnum($("fRatio").value).toFixed(4))+" (convertido a la acción)"; data.note=data.note?data.note+" · "+cn:cn; }
+    if(ced){ data.ccy="USD"; var rr=+pnum($("fRatio").value).toFixed(4), cn="CEDEAR 1:"+rr+" {ced:"+rr+"|"+(cedPes?"A":"U")+"|"+origLots.map(function(l){ return [l.q,l.b,cedPes?l.fx:0,l.d||""].join(","); }).join(";")+"}"; data.note=data.note?data.note+" · "+cn:cn; }
     var fiR=pnum($("fFiR").value), fiM=$("fFiM").dataset.iso||"";
     if(fiM==="?"){ alert("El vencimiento no es válido. Escribilo como dd/mm/aaaa."); return; }
     var fiC=pnum($("fFiC").value); var oldP=editingId?positions.filter(function(x){return x.id===editingId;})[0]:null; data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM,c:(isFinite(fiC)&&fiC>0&&fiC<100)?fiC:0}:null; if(data.fi&&oldP&&oldP.fi){ if(oldP.fi.cp) data.fi.cp=oldP.fi.cp; if(oldP.fi.n) data.fi.n=oldP.fi.n; }
