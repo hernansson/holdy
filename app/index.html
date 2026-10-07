@@ -233,6 +233,22 @@
     border-radius:10px; padding:10px; min-height:42px; width:100%;
   }
   .two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .fld{display:grid; gap:6px}
+  .fl{font-size:13px; color:var(--muted)}
+  .seg{display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:3px; background:var(--chip); padding:3px; border-radius:12px}
+  .seg button{min-height:38px; border:0; border-radius:9px; background:transparent; color:var(--muted); font-weight:500; box-shadow:none; padding:0 10px}
+  .seg button.on{background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.14)}
+  .seg.sm button{min-height:32px; font-size:13px}
+  .lhead{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:4px}
+  .lhead .seg{min-width:190px}
+  .eq{display:flex; align-items:center; gap:10px}
+  .eq input{width:92px; text-align:center}
+  .eq span{color:var(--text)}
+  .adv{border:1px solid var(--line); border-radius:12px; padding:0 12px}
+  .adv summary{cursor:pointer; padding:12px 0; font-weight:500; list-style:none}
+  .adv summary::-webkit-details-marker{display:none}
+  .adv summary span{color:var(--muted); font-weight:400; font-size:12px; margin-left:6px}
+  .advin{display:grid; gap:12px; padding-bottom:12px}
   .btns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
   .help{font-size:12px; color:var(--muted)}
   a{color:var(--brand)}
@@ -404,50 +420,35 @@
 <dialog id="dlgPos" class="sheet">
   <form method="dialog" id="formPos">
     <h3 id="posTitle">Nueva posición</h3>
-    <label>Tipo de activo
-      <select id="fKind">
-        <option value="acc">Acción o ETF</option>
-        <option value="ced">CEDEAR</option>
+    <label>Broker
+      <select id="fBroker">
+        <option value="IBKR">Interactive Brokers</option>
+        <option value="Balanz">Balanz</option>
+        <option value="IOL">Invertir Online</option>
+        <option value="Schwab">Charles Schwab</option>
       </select>
     </label>
-    <div class="two" id="brkCcy">
-      <label>Broker
-        <select id="fBroker">
-          <option value="IBKR">Interactive Brokers</option>
-          <option value="Balanz">Balanz</option>
-          <option value="IOL">Invertir Online</option>
-          <option value="Schwab">Charles Schwab</option>
-        </select>
-      </label>
-      <label id="fCcyWrap">Moneda
-        <select id="fCcy">
-          <option value="USD">USD</option>
-          <option value="ARS">ARS</option>
-        </select>
-      </label>
-    </div>
-    <div id="cedBox" style="display:grid;gap:10px" hidden>
-      <div class="two">
-        <label>Cada cuántos CEDEARs = 1 acción
-          <input id="fRatio" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej: 20">
-        </label>
-        <label>Precio del CEDEAR en
-          <select id="fPxCcy">
-            <option value="ARS">Pesos (ARS)</option>
-            <option value="USD">Dólares (MEP)</option>
-          </select>
-        </label>
-      </div>
-      <div class="help" id="fRatioHint"></div>
-      <div class="help">En el ticker poné el de la acción de EE.UU., por ejemplo AAPL. Lo guardamos convertido a la acción, así se actualiza con su precio.</div>
+    <div class="fld" id="kindWrap"><span class="fl">Qué compraste</span>
+      <div class="seg" id="segKind"></div>
+      <select id="fKind" hidden><option value="acc">Acción o ETF</option><option value="ced">CEDEAR</option></select>
     </div>
     <label>Ticker
       <input id="fTicker" autocapitalize="characters" autocomplete="off" placeholder="AAPL, VUAA, EQAC" required>
-      <span class="hint" style="font-size:12px;color:var(--muted);font-weight:400">Acciones de EE.UU. y ETFs europeos (VUAA, EQAC: bolsa de Londres, en USD). Otra bolsa: agregá el sufijo, por ejemplo VUAA.DE.</span>
+      <span class="hint" id="fTickHint" style="font-size:12px;color:var(--muted);font-weight:400">Acciones de EE.UU. y ETFs europeos (VUAA, EQAC: bolsa de Londres, en USD). Otra bolsa: agregá el sufijo, por ejemplo VUAA.DE.</span>
     </label>
+    <div class="fld" id="cedBox" hidden>
+      <span class="fl">Equivalencia del CEDEAR</span>
+      <div class="eq"><input id="fRatio" type="text" inputmode="decimal" autocomplete="off" placeholder="20" aria-label="CEDEARs por acción"><span>CEDEARs = 1 acción</span></div>
+      <div class="help" id="fRatioHint"></div>
+    </div>
+    <div class="lhead"><span class="fl" id="ccyLbl">Moneda</span><div class="seg sm" id="segCcy"></div></div>
+    <select id="fCcy" hidden><option value="USD">USD</option><option value="ARS">ARS</option></select>
+    <select id="fPxCcy" hidden><option value="ARS">Pesos (ARS)</option><option value="USD">Dólares (MEP)</option></select>
     <div id="lotsBox" style="display:grid;gap:10px"></div>
     <button type="button" id="lotAdd">+ Agregar otra compra</button>
     <div class="hint" id="lotSum" style="font-size:13px;color:var(--muted)" hidden></div>
+    <details class="adv" id="advBox"><summary>Más opciones <span>precio manual, renta fija, nota</span></summary>
+<div class="advin">
     <label>Fuente del precio actual
       <select id="fSource">
         <option value="auto">Automática (Finnhub, acciones de EE.UU.)</option>
@@ -469,6 +470,7 @@
     <label>Nota (opcional)
       <input id="fNote" placeholder="Ej: comprada en el dip de marzo">
     </label>
+</div></details>
     <div class="btns">
       <button type="button" id="posCancel">Cancelar</button>
       <button type="submit" class="primary" id="posSave">Guardar</button>
@@ -1433,7 +1435,7 @@
     sm.hidden=false; sm.textContent="Promedio: "+fmt(tc/tq,$("fCcy").value)+" por acción · Total: "+qq(tq)+" · Invertido: "+fmt(tc,$("fCcy").value);
   }
   $("lotAdd").addEventListener("click",function(){ if(lotsBox.children.length<30){ addLotRow({q:"",b:"",d:""}); refreshLots(); var l=lotsBox.lastChild.querySelector(".lq"); l.focus(); } });
-  $("fCcy").addEventListener("change",refreshLots);
+  $("fCcy").addEventListener("change",function(){ drawSegs(); refreshLots(); });
   function isCed(){ return $("fKind").value==="ced"; }
   // CEDEAR -> acción: cantidad/ratio, precio en USD de la acción = precio CEDEAR * ratio / dólar
   function cedConv(lots){
@@ -1453,19 +1455,44 @@
     refreshLots();
   }
   $("fTicker").addEventListener("input",suggestRatio); $("fRatio").addEventListener("input",function(){ ratioTouched=true; });
-  function syncKind(){
-    var c=isCed(); $("cedBox").hidden=!c; $("fCcyWrap").hidden=c; $("brkCcy").style.gridTemplateColumns=c?"1fr":"";
-    if(c){ $("fCcy").value="USD"; suggestRatio(); }
-    refreshLots();
+  // Selector segmentado que maneja un <select> oculto
+  function drawSeg(box,sel,labels){
+    box.textContent="";
+    [].slice.call(sel.options).forEach(function(o){
+      var b=el("button",sel.value===o.value?"on":"",labels&&labels[o.value]||o.textContent); b.type="button";
+      b.addEventListener("click",function(){ if(sel.value!==o.value){ sel.value=o.value; sel.dispatchEvent(new Event("change")); } });
+      box.appendChild(b);
+    });
   }
-  $("fKind").addEventListener("change",syncKind); $("fPxCcy").addEventListener("change",refreshLots); $("fRatio").addEventListener("input",refreshLots);
+  var AR_BROKERS=["Balanz","IOL"];
+  function drawSegs(){
+    var c=isCed(), ok=AR_BROKERS.indexOf($("fBroker").value)>=0;
+    drawSeg($("segKind"),$("fKind"),{acc:"Acción o ETF",ced:"CEDEAR"});
+    if(!ok){ var kb=$("segKind").lastChild; kb.disabled=true; kb.style.opacity=".4"; kb.title="Los CEDEARs se compran en brokers argentinos (Balanz, IOL)"; }
+    var sel=c?$("fPxCcy"):$("fCcy");
+    $("ccyLbl").textContent=c?"Precio del CEDEAR en":"Moneda";
+    drawSeg($("segCcy"),sel,c?{ARS:"Pesos",USD:"Dólares"}:{USD:"Dólares",ARS:"Pesos"});
+  }
+  function syncBroker(){
+    if(AR_BROKERS.indexOf($("fBroker").value)<0 && $("fKind").value==="ced") $("fKind").value="acc";
+    syncKind();
+  }
+  function syncKind(){
+    var c=isCed(); $("cedBox").hidden=!c;
+    $("fTickHint").textContent=c?"Poné el ticker de la acción de EE.UU., no el del CEDEAR. Por ejemplo AAPL.":"Acciones de EE.UU. y ETFs europeos (VUAA, EQAC: bolsa de Londres, en USD). Otra bolsa: agregá el sufijo, por ejemplo VUAA.DE.";
+    $("fTicker").placeholder=c?"AAPL, MELI, KO":"AAPL, VUAA, EQAC";
+    if(c) suggestRatio();
+    drawSegs(); refreshLots();
+  }
+  $("fBroker").addEventListener("change",syncBroker);
+  $("fKind").addEventListener("change",syncKind); $("fPxCcy").addEventListener("change",function(){ drawSegs(); refreshLots(); }); $("fRatio").addEventListener("input",refreshLots);
   dateField($("fFiM"),"",true,true);
   function openPos(id){
     editingId=id||null;
     var p=id?positions.filter(function(x){return x.id===id;})[0]:null;
     $("posTitle").textContent=p?"Editar posición":"Nueva posición";
-    $("fKind").value="acc"; $("fRatio").value=""; ratioTouched=false; $("fRatioHint").textContent=""; $("fPxCcy").value="ARS"; $("cedBox").hidden=true; $("fCcyWrap").hidden=false; $("brkCcy").style.gridTemplateColumns="";
-    $("fKind").parentNode.hidden=!!p;
+    $("fKind").value="acc"; $("fRatio").value=""; ratioTouched=false; $("fRatioHint").textContent=""; $("fPxCcy").value="ARS"; $("cedBox").hidden=true;
+    $("kindWrap").hidden=!!p;
     $("fBroker").value=p?p.broker:"IBKR";
     $("fCcy").value=p?p.ccy:"USD";
     $("fTicker").value=p?p.ticker:"";
@@ -1478,7 +1505,8 @@
     $("fNote").value=p?(p.note||""):"";
     $("fFiR").value=(p&&p.fi)?p.fi.r:""; $("fFiC").value=(p&&p.fi&&p.fi.c)?p.fi.c:"";
     var fm_=(p&&p.fi&&p.fi.m)||""; $("fFiM").dataset.iso=fm_; $("fFiM").value=fromISO(fm_);
-    syncSource();
+    syncSource(); syncBroker();
+    $("advBox").open=!!(p&&(p.source==="manual"||p.fi||p.note));
     dlgPos.showModal();
   }
   $("btnAdd").addEventListener("click",function(){ openPos(null); });
