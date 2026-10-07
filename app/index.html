@@ -143,6 +143,9 @@
   .row-actions{display:flex; gap:8px; margin-top:10px}
   .row-actions button{padding:6px 12px; min-height:34px; font-size:13px}
   dialog#dlgCal{width:min(380px,100%)}
+  @media (max-width:699px){ dialog#dlgCal{width:100%; max-width:none; margin:auto 0 0 0} }
+  html{touch-action:manipulation; -webkit-text-size-adjust:100%}
+  .datebtn{-webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent}
   .calhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
   .calhead button{min-height:40px;min-width:40px;padding:4px 10px;font-size:18px;border-radius:999px}
   .calhead .caltitle{flex:1;font-size:16px;font-weight:700;text-transform:capitalize;background:transparent;border:0}
@@ -1376,7 +1379,7 @@
   function dateField(inp,iso,clearable,future){
     inp.readOnly=true; inp.className+=" datebtn"; inp.placeholder="Elegir fecha"; inp.setAttribute("inputmode","none");
     inp.dataset.iso=iso||""; inp.value=fromISO(iso);
-    inp.addEventListener("click",function(){ openCal(inp.dataset.iso,function(v){ inp.dataset.iso=v; inp.value=fromISO(v); },clearable,future); });
+    inp.addEventListener("click",function(){ inp.blur(); openCal(inp.dataset.iso,function(v){ inp.dataset.iso=v; inp.value=fromISO(v); },clearable,future); });
   }
   // Fechas como texto dd/mm/aaaa (el selector nativo no abre en algunos celulares).
   function toISO(v){
@@ -1564,7 +1567,7 @@
 
   // ---------- Venta / eliminación ----------
   var dlgSell=$("dlgSell"), sellingId=null;
-  (function(){ var sd=$("sellDate"); sd.readOnly=true; sd.className+=" datebtn"; sd.setAttribute("inputmode","none"); sd.addEventListener("click",function(){ openCal(sd.dataset.iso,function(v){ if(v){ sd.dataset.iso=v; sd.value=fromISO(v); } },false); }); })();
+  (function(){ var sd=$("sellDate"); sd.readOnly=true; sd.className+=" datebtn"; sd.setAttribute("inputmode","none"); sd.addEventListener("click",function(){ sd.blur(); openCal(sd.dataset.iso,function(v){ if(v){ sd.dataset.iso=v; sd.value=fromISO(v); } },false); }); })();
   dlgSell.addEventListener("click",function(e){ if(e.target===dlgSell) dlgSell.close(); });
   function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
   function openSell(p){
