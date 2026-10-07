@@ -409,6 +409,7 @@
         <select id="fBroker">
           <option value="IBKR">Interactive Brokers</option>
           <option value="Balanz">Balanz</option>
+          <option value="IOL">Invertir Online</option>
         </select>
       </label>
       <label>Moneda
@@ -522,7 +523,7 @@
       <div class="help" id="peInfo"></div>
       <div class="pacts">
         <button type="button" id="peUse" class="primary">Usar este perfil</button>
-        <button type="button" id="peImport">Importar operaciones de IBKR o Balanz</button>
+        <button type="button" id="peImport">Importar operaciones de IBKR, Balanz o IOL</button>
         <button type="button" id="peShare">Compartir con un amigo</button>
         <button type="button" id="peDel" class="danger">Eliminar perfil</button>
       </div>
@@ -554,7 +555,7 @@
       </label>
       <div class="sec">
         <div class="sec-t">O armalo de otra forma</div>
-        <button type="button" id="pnImport">Importar desde IBKR o Balanz</button>
+        <button type="button" id="pnImport">Importar desde IBKR, Balanz o IOL</button>
         <button type="button" id="pfDemo">Crear con datos de ejemplo</button>
         <div class="help" id="pfDemoMsg" hidden></div>
       </div>
@@ -568,8 +569,8 @@
     </div>
 
     <div id="pvImp" style="display:grid;gap:12px" hidden>
-      <div class="help">IBKR: el CSV de un Flex Query con la sección Trades. Balanz: el Excel “Resultados por info completa”. Se cargan tus compras y ventas con sus fechas.</div>
-      <input type="file" id="ibFile" accept=".csv,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Archivo de IBKR o Balanz">
+      <div class="help">IBKR: el CSV de un Flex Query con la sección Trades. Balanz: el Excel “Resultados por info completa”. IOL: el Excel de “Operaciones finalizadas” (pedilo desde el inicio de tu cuenta; las cauciones se ignoran). Se cargan tus compras y ventas con sus fechas.</div>
+      <input type="file" id="ibFile" accept=".csv,.xlsx,.xls,.html,.htm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Archivo de IBKR, Balanz o IOL">
       <textarea id="ibText" rows="3" placeholder="…o pegá acá el contenido del CSV" aria-label="Contenido del CSV"></textarea>
       <button type="button" id="ibRead">Leer lo pegado</button>
       <div class="help" id="ibMsg" role="status" aria-live="polite" hidden></div>
@@ -641,6 +642,10 @@
   function safeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
   var LS_PROF="cartera.profiles.v2";
+  var BROKERS=["IBKR","Balanz","IOL"], BROKER_NAMES={IBKR:"Interactive Brokers",Balanz:"Balanz",IOL:"Invertir Online"};
+  function brokerName(b){ return BROKER_NAMES[b]||b; }
+  function bkCode(b){ var i=BROKERS.indexOf(b); return i<0?0:i; }
+  function bkFrom(c){ return BROKERS[c]||"IBKR"; }
   function rid(){ return "p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
   function cleanName(s){ return String(s==null?"":s).replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,40); }
   var ID_RE=/^[A-Za-z0-9_\-]{4,40}$/;
@@ -675,7 +680,7 @@
     var mp=+p.manualPrice; if(!isFinite(mp)||mp<0) mp=0;
     var src=p.source==="manual"?"manual":"auto";
     if(src==="manual" && !(mp>0)) src="auto";
-    return { id:rid()+Math.random().toString(36).slice(2,4), broker:p.broker==="Balanz"?"Balanz":"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
+    return { id:rid()+Math.random().toString(36).slice(2,4), broker:BROKERS.indexOf(p.broker)>=0?p.broker:"IBKR", ccy:p.ccy==="ARS"?"ARS":"USD",
       ticker:t, qty:qty, buy:buy, lots:lots, sold:so, fi:fi, source:src, manualPrice:src==="manual"?mp:0, manualTs:+p.manualTs||0,
       note:String(p.note||"").replace(/[\u0000-\u001f]/g," ").slice(0,200) };
   }
@@ -983,7 +988,7 @@
       function pair(k,v,cc){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(cc?" "+cc:""),v)); pg.appendChild(d); }
       pair("Cantidad",qq(c.qty)); pair("Resultado",mRs(gain,c.ccy),cls(gain));
       pair("Precio de compra",mm(c.buy,c.ccy)); pair("Precio de venta",mm(c.sold.p,c.ccy));
-      pair("Fecha de venta",c.sold.d.split("-").reverse().join("/")); pair("Broker",c.broker==="IBKR"?"Interactive Brokers":c.broker);
+      pair("Fecha de venta",c.sold.d.split("-").reverse().join("/")); pair("Broker",brokerName(c.broker));
       g.appendChild(pg); body.appendChild(g);
       if(!isRO()){
         var acts=el("div","row-actions"), bd=el("button","danger","Eliminar"); bd.type="button";
@@ -1101,7 +1106,7 @@
       pair(p.fi?"Valor de rescate":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
       pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
-      if(!p.parts) pair("Broker",p.broker==="IBKR"?"Interactive Brokers":p.broker);
+      if(!p.parts) pair("Broker",brokerName(p.broker));
       if(p.lots&&p.lots.length===1&&p.lots[0].d) pair("Fecha de compra",p.lots[0].d.split("-").reverse().join("/"));
       if(p.fi){
         var fs=el("div","dsec-t","Renta fija"); pg.appendChild(fs); fs.style.gridColumn="1/-1";
@@ -1923,8 +1928,8 @@
   function buildPayload(pr){
     if(!pr.shareKey){ pr.shareKey=rid()+Math.random().toString(36).slice(2,8); save(LS_PROF,profData); }
     return {v:2,i:pr.shareKey,n:pr.name,t:Date.now(),p:pr.positions.map(function(x){
-      return [x.broker==="Balanz"?1:0,x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,x.source==="manual"?1:0,x.manualPrice||0,x.note||""].concat(lotsT(x)); }),c:(pr.closed||[]).map(function(x){
-      return [x.broker==="Balanz"?1:0,x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,0,0,""].concat(lotsT(x)); })};
+      return [bkCode(x.broker),x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,x.source==="manual"?1:0,x.manualPrice||0,x.note||""].concat(lotsT(x)); }),c:(pr.closed||[]).map(function(x){
+      return [bkCode(x.broker),x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,0,0,""].concat(lotsT(x)); })};
   }
   // Devuelve {id,name,t,positions,dropped} o lanza error. Todo lo que viene del link se trata como no confiable.
   function parsePayload(o){
@@ -1935,14 +1940,14 @@
     var out=[];
     raw.forEach(function(r){
       if(!Array.isArray(r)){ dropped++; return; }
-      var c=cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:t,note:r[7],lots:r[8],fi:r[10]},true);
+      var c=cleanPos({broker:bkFrom(r[0]),ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:t,note:r[7],lots:r[8],fi:r[10]},true);
       if(c) out.push(c); else dropped++;
     });
     if(!out.length) throw new Error("vacío");
     var cls_=[];
     if(Array.isArray(o.c)) o.c.slice(0,300).forEach(function(r){
       if(!Array.isArray(r)) return;
-      var c=cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:"auto",lots:r[8],sold:r[9]},true);
+      var c=cleanPos({broker:bkFrom(r[0]),ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:"auto",lots:r[8],sold:r[9]},true);
       if(c&&c.sold) cls_.push(c);
     });
     return {id:id,name:cleanName(o.n)||"Perfil compartido",t:t,positions:out,closed:cls_,dropped:dropped};
@@ -2548,6 +2553,83 @@
       fixed:fixed,fixedClosed:Object.keys(fclosed).map(function(k){ return fclosed[k]; }),noHist:Object.keys(noHist),ok:ok};
   }
   // </balanz-core>
+  // <iol-core>
+  // Invertir Online: el "Excel" de Operaciones Finalizadas es en realidad una tabla HTML.
+  function iolDecode(x){ var t=document.createElement("textarea"); t.innerHTML=x; return t.value; }
+  function iolRows(text){
+    var rows=[];
+    String(text||"").replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi,function(_,r){
+      var c=[]; r.replace(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi,function(_2,x){ c.push(iolDecode(x.replace(/<[^>]+>/g,"")).replace(/\s+/g," ").trim()); return ""; });
+      if(c.length) rows.push(c); return "";
+    });
+    return rows;
+  }
+  function iolNum(s){ s=String(s==null?"":s).trim(); if(!s) return 0; var v=parseFloat(s.replace(/\./g,"").replace(",",".")); return isFinite(v)?v:0; }
+  function iolDate(s){ var m=/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(String(s||"").trim()); if(!m) return ""; var y=m[3].length===2?"20"+m[3]:m[3]; return y+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2); }
+  function iolParse(text){
+    var rows=iolRows(text), out={trades:[],skipped:{cauciones:0,fci:0,dividendos:0,otros:0,pendientes:0},dmin:"",dmax:""}, hi=-1, ix={};
+    for(var i=0;i<Math.min(rows.length,10);i++){
+      var nm=rows[i].map(function(x){ return x.toLowerCase(); });
+      if(nm.indexOf("tipo mov.")>=0 && nm.indexOf("nro. de boleto")>=0){ hi=i; nm.forEach(function(k,j){ ix[k]=j; }); break; }
+    }
+    if(hi<0){ out.error="formato"; return out; }
+    var cT=ix["tipo mov."], cB=ix["nro. de boleto"], cD=ix["concert."], cE=ix["est"], cQ=ix["cant. titulos"], cP=ix["precio"], cA=ix["tipo cuenta"];
+    if([cT,cB,cD,cQ,cP].some(function(v){ return v===undefined; })){ out.error="columnas"; return out; }
+    var by={}, order=[];
+    for(var r=hi+1;r<rows.length;r++){
+      var c=rows[r]; if(c.length<=cT) continue;
+      var tp=c[cT]||"";
+      if(!tp) continue;
+      if(/cauci/i.test(tp)){ out.skipped.cauciones++; continue; }
+      if(/FCI/i.test(tp)){ out.skipped.fci++; continue; }
+      if(/dividend/i.test(tp)){ out.skipped.dividendos++; continue; }
+      var m=/^(Compra|Venta)\((.+)\)$/i.exec(tp);
+      if(!m){ out.skipped.otros++; continue; }
+      if(cE!==undefined && c[cE] && !/terminad/i.test(c[cE])){ out.skipped.pendientes++; continue; }
+      var key=(c[cB]||"")+"|"+m[2];
+      if(!by[key]){ by[key]=[]; order.push(key); }
+      by[key].push({side:/^compra/i.test(m[1])?"b":"s",raw:m[2].trim().toUpperCase(),d:iolDate(c[cD]),q:iolNum(c[cQ]),p:iolNum(c[cP]),usd:cA!==undefined&&/d[oó]lar/i.test(c[cA]||"")});
+    }
+    order.forEach(function(k){
+      var g=by[k], u=g.filter(function(x){ return x.usd; })[0], t=u||g[0];
+      if(!t.d||!(t.q>0)||!(t.p>0)) return;
+      var tk=t.raw;
+      if(u) tk=tk.replace(/\.?D$/,"");
+      if(!/^[A-Z0-9.\-]{1,12}$/.test(tk)) return;
+      out.trades.push({d:t.d,s:t.side,tk:tk,raw:t.raw,q:t.q,p:t.p,usd:!!u});
+      if(!out.dmin||t.d<out.dmin) out.dmin=t.d; if(!out.dmax||t.d>out.dmax) out.dmax=t.d;
+    });
+    return out;
+  }
+  // Convierte los CEDEARs de IOL a acciones. En dólares (MEP) el precio es directo; en pesos se usa el cierre de la acción ese día.
+  function iolBuild(P,hist){
+    function closeOn(tk,iso){ var h=hist[tk]; if(!h||!h.pts||!h.pts.length) return null; var v=null; h.pts.forEach(function(r){ if(r[0]<=iso) v=r[1]; }); return v||h.pts[0][1]; }
+    var noHist={}, learned={}, doubt={}, nUsd=0, nArs=0;
+    P.trades.forEach(function(t){
+      t.c=closeOn(t.tk,t.d); if(!t.c){ noHist[t.tk]=1; return; }
+      if(t.usd){ var r=snapRatio(t.c/t.p); (learned[t.tk]||(learned[t.tk]=[])).push(r); if(Math.abs(t.c/t.p/r-1)>0.08) doubt[t.tk]=1; }
+    });
+    var ratio={};
+    Object.keys(learned).forEach(function(tk){ var a=learned[tk].slice().sort(function(x,y){return x-y;}); ratio[tk]=a[Math.floor(a.length/2)]; });
+    var fxPts=[];
+    P.trades.forEach(function(t){ if(t.c&&!t.usd&&ratio[t.tk]) fxPts.push({d:dayNum(t.d),fx:t.p*ratio[t.tk]/t.c}); });
+    function fxNear(d){ var b=null,bd=1e9; fxPts.forEach(function(x){ var dd=Math.abs(x.d-d); if(dd<bd){ bd=dd; b=x.fx; } }); return b; }
+    var list=[], unresolved={};
+    P.trades.forEach(function(t){
+      if(!t.c||noHist[t.tk]) return;
+      var r=ratio[t.tk];
+      if(!r){ var fx=fxNear(dayNum(t.d)); if(!fx){ unresolved[t.tk]=1; return; } r=snapRatio(t.c*fx/t.p); ratio[t.tk]=r; }
+      var price=t.usd?t.p*r:t.c;
+      if(t.usd) nUsd++; else nArs++;
+      list.push({sym:t.tk,d:t.d,s:t.s,q:t.q/r,p:price});
+    });
+    // Ventas sin compra previa en el archivo (se compró antes del período): se reportan por ticker.
+    var chk=list.slice().sort(function(a,b){ return a.d<b.d?-1:a.d>b.d?1:(a.s===b.s?0:(a.s==="b"?-1:1)); }), have={}, orphan={};
+    chk.forEach(function(t){ if(t.s==="b"){ have[t.sym]=(have[t.sym]||0)+t.q; return; } var h=have[t.sym]||0, take=Math.min(h,t.q); have[t.sym]=h-take; if(t.q-take>1e-9) orphan[t.sym]=(orphan[t.sym]||0)+(t.q-take); });
+    var B=ibkrBuild(list);
+    return {open:B.open,closed:B.closed,orphan:orphan,noHist:Object.keys(noHist),unresolved:Object.keys(unresolved),doubt:Object.keys(doubt),nUsd:nUsd,nArs:nArs,fills:list.length,dmin:P.dmin,dmax:P.dmax};
+  }
+  // </iol-core>
 
   var ibState=null;
   function ibMsg(t){ var m=$("ibMsg"); m.textContent=t||""; m.hidden=!t; }
@@ -2571,9 +2653,9 @@
     if(B.orphan) msg+=" "+B.orphan+" venta(s) no tienen compra previa en el archivo (quizás compraste antes del rango) y se ignoraron.";
     ibMsg(msg); ibShowAct();
   }
-  function ibFinish(pos,closed,extra){
+  function ibFinish(pos,closed,extra,broker){
     if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."+(extra||"")); return; }
-    ibState={pos:pos,closed:closed,broker:"Balanz"};
+    ibState={pos:pos,closed:closed,broker:broker||"Balanz"};
     var tks={}; pos.concat(closed).forEach(function(c){ tks[c.ticker]=1; });
     ibMsg("Armé "+pos.length+" posiciones abiertas y "+closed.length+" ventas de "+Object.keys(tks).length+" acciones."+(extra||"")); ibShowAct();
   }
@@ -2610,6 +2692,35 @@
       ibMsg(e&&e.message==="deflate"?"Este navegador no puede abrir el Excel. Probá con uno más nuevo.":"No pude leer el archivo. ¿Es el Excel de Balanz?");
     });
   }
+  function iolRead(text){
+    $("ibAct").hidden=true; ibState=null; ibMsg("Leyendo el archivo…");
+    var P=iolParse(text);
+    if(P.error){ ibMsg(P.error==="columnas"?"Al archivo le faltan columnas (Tipo Mov., Nro. de boleto, Concert., Cant. títulos y Precio).":"No reconozco este formato. Tiene que ser el Excel de “Operaciones finalizadas” de Invertir Online."); return; }
+    if(!P.trades.length){ ibMsg("No encontré compras ni ventas en ese archivo."+(P.skipped.cauciones?" (Las "+P.skipped.cauciones+" operaciones de caución se ignoran.)":"")); return; }
+    if(!navigator.onLine){ ibMsg("Necesito conexión para convertir los CEDEARs a acciones con el precio de cada fecha."); return; }
+    var tks={}, from="9999-99-99";
+    P.trades.forEach(function(x){ tks[x.tk]=1; if(x.d<from) from=x.d; });
+    var list=Object.keys(tks);
+    if(list.length>80){ ibMsg("Son demasiadas acciones distintas (máximo 80)."); return; }
+    ibMsg("Trayendo precios para convertir los CEDEARs…");
+    fetchHistory(list,from).then(function(j){
+      var B=iolBuild(P,j.data||{}), pos=[], closed=[], note="Importado de IOL (CEDEAR convertido a la acción)";
+      B.open.forEach(function(x){ var c=cleanPos({broker:"IOL",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:note},false); if(c) pos.push(c); });
+      B.closed.forEach(function(x){ var c=cleanPos({broker:"IOL",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:note},false); if(c&&c.sold) closed.push(c); });
+      var extra="", sk=P.skipped;
+      function fd(s){ return s.split("-").reverse().join("/"); }
+      extra+=" Período del archivo: "+fd(B.dmin)+" al "+fd(B.dmax)+".";
+      var ig=[]; if(sk.cauciones) ig.push(sk.cauciones+" movimientos de cauciones"); if(sk.fci) ig.push(sk.fci+" de fondos (FCI)"); if(sk.dividendos) ig.push(sk.dividendos+" pagos de dividendos"); if(sk.otros) ig.push(sk.otros+" de otro tipo");
+      if(ig.length) extra+=" Ignoré "+ig.join(", ")+".";
+      if(B.nArs) extra+=" "+B.nArs+" operación(es) en pesos: el costo en dólares se estimó con el cierre de la acción ese día.";
+      var ok=Object.keys(B.orphan);
+      if(ok.length) extra+=" ⚠ Ventas sin compra en el archivo (compraste antes del período): "+ok.map(function(k){ return k+" ("+(Math.round(B.orphan[k]*100)/100)+")"; }).join(", ")+". No se cargaron: pedí el Excel desde el inicio de tu cuenta.";
+      if(B.noHist.length) extra+=" Sin precio histórico: "+B.noHist.join(", ")+".";
+      if(B.unresolved.length) extra+=" No pude deducir la relación del CEDEAR de: "+B.unresolved.join(", ")+".";
+      if(B.doubt.length) extra+=" Revisá la relación CEDEAR/acción de: "+B.doubt.join(", ")+".";
+      ibFinish(pos,closed,extra,"IOL");
+    }).catch(function(e){ try{ console.error("holdy-iol",e); }catch(x){} ibMsg("No pude traer los precios para convertir los CEDEARs. Probá de nuevo en un rato."); });
+  }
   $("ibFile").addEventListener("change",function(){
     var f=this.files&&this.files[0]; if(!f) return;
     if(f.size>5*1024*1024){ ibMsg("El archivo es demasiado grande."); return; }
@@ -2617,10 +2728,10 @@
     if(/\.xlsx$/i.test(f.name)){
       rd.onload=function(){ balanzRead(rd.result); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsArrayBuffer(f);
     } else {
-      rd.onload=function(){ ibRead(String(rd.result||"")); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
+      rd.onload=function(){ var tx=String(rd.result||""); if(/Tipo Mov\./i.test(tx)) iolRead(tx); else if(/^\s*(<|\xd0\xcf)/.test(tx)||/\.xls$/i.test(f.name)){ ibMsg("No reconozco este archivo. Para IOL tiene que ser el Excel de “Operaciones finalizadas” tal como lo descargás."); } else ibRead(tx); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
     }
   });
-  $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } ibRead(t); });
+  $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } if(/Tipo Mov\./i.test(t)) iolRead(t); else ibRead(t); });
   function isImp(x,br){ return x.broker===br && /^Importado de /.test(x.note||""); }
   function ibKeys(pos,closed){
     var m={}, n=0;
@@ -2640,7 +2751,7 @@
   function ibReset(){ ibState=null; $("ibAct").hidden=true; $("ibText").value=""; $("ibFile").value=""; ibMsg(""); }
   function ibShowAct(){
     var nw=ibTargetId==="new", n=$("ibNote");
-    $("ibName").hidden=!nw; $("ibName").value=ibState.broker==="Balanz"?"Balanz":"IBKR";
+    $("ibName").hidden=!nw; $("ibName").value=ibState.broker==="Balanz"?"Balanz":(ibState.broker==="IOL"?"IOL":"IBKR");
     if(nw){ n.hidden=true; }
     else {
       var pr=profData.profiles.filter(function(x){return x.id===ibTargetId;})[0];
@@ -2702,10 +2813,10 @@
   if(!auth || !/^[a-f0-9]{64}$/.test(String(auth.session||""))) auth=null;
   var cloudBusy=false, cloudTimer=null, cloudStatus="", cloudQuiet=false;
   function isDisposable(pr){ return !pr.readOnly && !pr.sync && !(pr.positions&&pr.positions.length) && pr.name==="Mis acciones"; }
-  function posTuple(p){ return [p.broker==="Balanz"?1:0,p.ccy==="ARS"?1:0,p.ticker,p.qty,p.buy,p.source==="manual"?1:0,p.manualPrice||0,p.manualTs||0,p.note||""].concat(lotsT(p)); }
+  function posTuple(p){ return [bkCode(p.broker),p.ccy==="ARS"?1:0,p.ticker,p.qty,p.buy,p.source==="manual"?1:0,p.manualPrice||0,p.manualTs||0,p.note||""].concat(lotsT(p)); }
   function posFromTuple(r){
     if(!Array.isArray(r)) return null;
-    return cleanPos({broker:r[0]===1?"Balanz":"IBKR",ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:r[7],note:r[8],lots:r[9],sold:r[10],fi:r[11]},false);
+    return cleanPos({broker:bkFrom(r[0]),ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:r[5]===1?"manual":"auto",manualPrice:r[6],manualTs:r[7],note:r[8],lots:r[9],sold:r[10],fi:r[11]},false);
   }
   function serProfile(pr){
     var o={id:pr.id,name:pr.name,mod:pr.mod||0,readOnly:!!pr.readOnly,p:pr.syncCode?[]:pr.positions.map(posTuple)};
