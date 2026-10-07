@@ -1468,7 +1468,7 @@
     var h=$("fRatioHint"); if(!isCed()){ return; }
     var t=$("fTicker").value.trim().toUpperCase(), r=CED_SUG[t];
     if(r){ if(!ratioTouched||!$("fRatio").value){ $("fRatio").value=r; ratioTouched=false; } h.textContent="Para "+t+" el listado de octubre 2026 indica "+r+" CEDEARs por acción. Confirmalo en tu broker."; }
-    else h.textContent=t?"No tengo la relación de "+t+": buscala en la ficha del CEDEAR de tu broker.":"";
+    else { if(!ratioTouched) $("fRatio").value=""; h.textContent=t?"No tengo la relación de "+t+": buscala en la ficha del CEDEAR de tu broker.":""; }
     refreshLots();
   }
   $("fTicker").addEventListener("input",suggestRatio); $("fRatio").addEventListener("input",function(){ ratioTouched=true; });
