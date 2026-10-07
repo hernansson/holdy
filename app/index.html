@@ -438,7 +438,8 @@
           </select>
         </label>
       </div>
-      <div class="help">La relación figura en la ficha del CEDEAR en tu broker (AAPL = 20, MSFT = 30). En el ticker poné el de la acción de EE.UU., por ejemplo AAPL. Lo guardamos convertido a la acción, así se actualiza con su precio.</div>
+      <div class="help" id="fRatioHint"></div>
+      <div class="help">En el ticker poné el de la acción de EE.UU., por ejemplo AAPL. Lo guardamos convertido a la acción, así se actualiza con su precio.</div>
     </div>
     <label>Ticker
       <input id="fTicker" autocapitalize="characters" autocomplete="off" placeholder="AAPL, VUAA, EQAC" required>
@@ -1409,9 +1410,20 @@
     for(var i=0;i<lots.length;i++){ var l=lots[i]; if(!(l.q>0&&l.b>0)||(pes&&!(l.fx>0))) continue; out.push({q:l.q/R,b:(pes?l.b/l.fx:l.b)*R,d:l.d}); }
     return out;
   }
+  // Relaciones CEDEAR/acción más comunes (sugeridas; pueden cambiar con splits, por eso se pueden editar)
+  var CED_SUG={AAPL:20,MSFT:30,GOOGL:58,AMZN:144,META:24,NVDA:24,TSLA:15,MELI:120,KO:5,DIS:4,MA:33,MCD:24,WMT:6,DE:40,GE:30,AZN:3,JPM:5,V:18,PEP:3,XOM:5,AMD:10};
+  var ratioTouched=false;
+  function suggestRatio(){
+    var h=$("fRatioHint"); if(!isCed()){ return; }
+    var t=$("fTicker").value.trim().toUpperCase(), r=CED_SUG[t];
+    if(r){ if(!ratioTouched||!$("fRatio").value){ $("fRatio").value=r; ratioTouched=false; } h.textContent="Para "+t+" suele ser "+r+" CEDEARs por acción. Confirmalo en tu broker, puede haber cambiado."; }
+    else h.textContent=t?"No tengo la relación de "+t+": buscala en la ficha del CEDEAR de tu broker.":"";
+    refreshLots();
+  }
+  $("fTicker").addEventListener("input",suggestRatio); $("fRatio").addEventListener("input",function(){ ratioTouched=true; });
   function syncKind(){
     var c=isCed(); $("cedBox").hidden=!c; $("fCcyWrap").hidden=c; $("brkCcy").style.gridTemplateColumns=c?"1fr":"";
-    if(c) $("fCcy").value="USD";
+    if(c){ $("fCcy").value="USD"; suggestRatio(); }
     refreshLots();
   }
   $("fKind").addEventListener("change",syncKind); $("fPxCcy").addEventListener("change",refreshLots); $("fRatio").addEventListener("input",refreshLots);
@@ -1420,7 +1432,7 @@
     editingId=id||null;
     var p=id?positions.filter(function(x){return x.id===id;})[0]:null;
     $("posTitle").textContent=p?"Editar posición":"Nueva posición";
-    $("fKind").value="acc"; $("fRatio").value=""; $("fPxCcy").value="ARS"; $("cedBox").hidden=true; $("fCcyWrap").hidden=false; $("brkCcy").style.gridTemplateColumns="";
+    $("fKind").value="acc"; $("fRatio").value=""; ratioTouched=false; $("fRatioHint").textContent=""; $("fPxCcy").value="ARS"; $("cedBox").hidden=true; $("fCcyWrap").hidden=false; $("brkCcy").style.gridTemplateColumns="";
     $("fKind").parentNode.hidden=!!p;
     $("fBroker").value=p?p.broker:"IBKR";
     $("fCcy").value=p?p.ccy:"USD";
