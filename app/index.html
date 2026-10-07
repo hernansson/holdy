@@ -410,6 +410,7 @@
           <option value="IBKR">Interactive Brokers</option>
           <option value="Balanz">Balanz</option>
           <option value="IOL">Invertir Online</option>
+          <option value="Schwab">Charles Schwab</option>
         </select>
       </label>
       <label>Moneda
@@ -642,7 +643,7 @@
   function safeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
   var LS_PROF="cartera.profiles.v2";
-  var BROKERS=["IBKR","Balanz","IOL"], BROKER_NAMES={IBKR:"Interactive Brokers",Balanz:"Balanz",IOL:"Invertir Online"};
+  var BROKERS=["IBKR","Balanz","IOL","Schwab"], BROKER_NAMES={IBKR:"Interactive Brokers",Balanz:"Balanz",IOL:"Invertir Online"};
   function brokerName(b){ return BROKER_NAMES[b]||b; }
   function bkCode(b){ var i=BROKERS.indexOf(b); return i<0?0:i; }
   function bkFrom(c){ return BROKERS[c]||"IBKR"; }
