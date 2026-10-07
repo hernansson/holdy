@@ -2210,7 +2210,8 @@
     if(!pr.shareKey){ pr.shareKey=rid()+Math.random().toString(36).slice(2,8); save(LS_PROF,profData); }
     return {v:2,i:pr.shareKey,n:pr.name,t:Date.now(),p:pr.positions.map(function(x){
       return [bkCode(x.broker),x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,x.source==="manual"?1:0,x.manualPrice||0,x.note||""].concat(lotsT(x)); }),c:(pr.closed||[]).map(function(x){
-      return [bkCode(x.broker),x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,0,0,""].concat(lotsT(x)); })};
+      return [bkCode(x.broker),x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,0,0,""].concat(lotsT(x)); })
+      ,sb:(pr.bal||[]).map(function(c){return [bkCode(c.b),c.a];}),m:(pr.cash||[]).map(function(c){return [c.d,c.a];})};
   }
   // Devuelve {id,name,t,positions,dropped} o lanza error. Todo lo que viene del link se trata como no confiable.
   function parsePayload(o){
@@ -2231,7 +2232,8 @@
       var c=cleanPos({broker:bkFrom(r[0]),ccy:r[1]===1?"ARS":"USD",ticker:r[2],qty:r[3],buy:r[4],source:"auto",lots:r[8],sold:r[9]},true);
       if(c&&c.sold) cls_.push(c);
     });
-    return {id:id,name:cleanName(o.n)||"Perfil compartido",t:t,positions:out,closed:cls_,dropped:dropped};
+    var bal_=cleanBal((Array.isArray(o.sb)?o.sb:[]).map(function(r){return {b:bkFrom(r[0]),a:r[1]};})), cash_=cleanCash(o.m);
+    return {id:id,name:cleanName(o.n)||"Perfil compartido",t:t,positions:out,closed:cls_,bal:bal_,cash:cash_,dropped:dropped};
   }
 
   // ---------- Sincronización por código (requiere KV en el Worker) ----------
@@ -2286,7 +2288,7 @@
           pr.syncGone=false;
           if(!j || !(j.updated>(pr.syncUpdated||0))) return;
           var d=parsePayload(j.data);
-          pr.positions=d.positions; pr.closed=d.closed||[]; pr.sharedAt=d.t; pr.syncUpdated=j.updated;
+          pr.positions=d.positions; pr.closed=d.closed||[]; pr.bal=d.bal||[]; pr.cash=d.cash||[]; pr.sharedAt=d.t; pr.syncUpdated=j.updated;
           if(pr.id===profData.active) positions=pr.positions;
           save(LS_PROF,profData);
         });
@@ -2333,10 +2335,10 @@
     var d=pendingShare.d, ex=pendingShare.exist, name=cleanName($("shName").value)||d.name;
     pendingShare=null;
     cur().positions=positions;
-    if(ex){ ex.positions=d.positions; ex.closed=d.closed||[]; ex.name=name; ex.sharedAt=d.t; ex.mod=Date.now(); if(d.syncCode){ ex.syncCode=d.syncCode; ex.syncUpdated=d.syncUpdated; ex.syncGone=false; } profData.active=ex.id; }
+    if(ex){ ex.positions=d.positions; ex.closed=d.closed||[]; ex.bal=d.bal||[]; ex.cash=d.cash||[]; ex.name=name; ex.sharedAt=d.t; ex.mod=Date.now(); if(d.syncCode){ ex.syncCode=d.syncCode; ex.syncUpdated=d.syncUpdated; ex.syncGone=false; } profData.active=ex.id; }
     else {
       if(profData.profiles.length>=20){ alert("Llegaste al máximo de 20 perfiles."); return; }
-      var np={id:rid(),name:name,positions:d.positions,closed:d.closed||[],readOnly:true,shareId:d.id,sharedAt:d.t,mod:Date.now()};
+      var np={id:rid(),name:name,positions:d.positions,closed:d.closed||[],bal:d.bal||[],cash:d.cash||[],readOnly:true,shareId:d.id,sharedAt:d.t,mod:Date.now()};
       if(d.syncCode){ np.syncCode=d.syncCode; np.syncUpdated=d.syncUpdated; }
       profData.profiles.push(np); profData.active=np.id;
     }
