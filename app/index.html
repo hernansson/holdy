@@ -1694,14 +1694,16 @@
     $("sellTitle").textContent="Eliminar "+p.ticker;
     $("sellDate").dataset.iso=todayStr(); $("sellDate").value=fromISO(todayStr());
     $("sellCash").value="keep";
-    var cm=isCedPos(p)?cedMeta(p):null; sellCed=cm; sellPos=p;
+    var cm=isCedPos(p)?cedMeta(p):null;
+    if(!cm&&isCedPos(p)&&CED_SUG[p.ticker]){ cm={r:CED_SUG[p.ticker],pes:false,est:true}; }
+    sellCed=cm; sellPos=p;
     var cp=currentPrice(p);
     $("sellFx").value=""; $("sellFxWrap").hidden=!(cm&&cm.pes);
     if(cm){
       var nC=Math.round(p.qty*cm.r*10000)/10000;
       $("sellPxLbl").textContent="Precio de venta de 1 CEDEAR ("+(cm.pes?"en pesos":"en US$")+")";
       $("sellPrice").value=(cp!==null&&!cm.pes)?(Math.round(cp/cm.r*10000)/10000):"";
-      sellInfo="Tenés "+nC+" CEDEAR"+(nC===1?"":"s")+". Poné el precio de uno solo, no el total.";
+      sellInfo="Tenés "+nC+" CEDEAR"+(nC===1?"":"s")+(cm.est?" (1 acción = "+cm.r+" CEDEARs, según el listado; confirmalo en tu broker)":"")+". Poné el precio de uno solo, no el total.";
     } else {
       $("sellPxLbl").textContent="Precio de venta por acción";
       $("sellPrice").value=cp!==null?(Math.round(cp*10000)/10000):"";
