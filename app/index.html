@@ -525,10 +525,14 @@
       <label>Fecha de venta
         <input id="sellDate" type="text">
       </label>
-      <label>Precio de venta
+      <label><span id="sellPxLbl">Precio de venta</span>
         <input id="sellPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
       </label>
     </div>
+    <label id="sellFxWrap" hidden>Dólar MEP del día de la venta
+      <input id="sellFx" type="text" inputmode="decimal" autocomplete="off" placeholder="1450">
+    </label>
+    <div class="help" id="sellTot"></div>
     <label>¿Qué hacés con esa plata?
       <select id="sellCash">
         <option value="keep">La reinvierto o queda en mi broker</option>
@@ -1690,9 +1694,33 @@
     $("sellTitle").textContent="Eliminar "+p.ticker;
     $("sellDate").dataset.iso=todayStr(); $("sellDate").value=fromISO(todayStr());
     $("sellCash").value="keep";
-    var cp=currentPrice(p); $("sellPrice").value=cp!==null?(Math.round(cp*10000)/10000):"";
+    var cm=isCedPos(p)?cedMeta(p):null; sellCed=cm; sellPos=p;
+    var cp=currentPrice(p);
+    $("sellFx").value=""; $("sellFxWrap").hidden=!(cm&&cm.pes);
+    if(cm){
+      var nC=Math.round(p.qty*cm.r*10000)/10000;
+      $("sellPxLbl").textContent="Precio de venta de 1 CEDEAR ("+(cm.pes?"en pesos":"en US$")+")";
+      $("sellPrice").value=(cp!==null&&!cm.pes)?(Math.round(cp/cm.r*10000)/10000):"";
+      sellInfo="Tenés "+nC+" CEDEAR"+(nC===1?"":"s")+". Poné el precio de uno solo, no el total.";
+    } else {
+      $("sellPxLbl").textContent="Precio de venta por acción";
+      $("sellPrice").value=cp!==null?(Math.round(cp*10000)/10000):"";
+      sellInfo="Tenés "+(Math.round(p.qty*10000)/10000)+". Poné el precio de una sola, no el total.";
+    }
+    sellTotal();
     dlgSell.showModal();
   }
+  var sellCed=null, sellPos=null, sellInfo="";
+  function sellTotal(){
+    var pr_=pnum($("sellPrice").value), t=sellInfo;
+    if(sellPos&&pr_>0){
+      var n=sellCed?sellPos.qty*sellCed.r:sellPos.qty, tot=n*pr_, fx=pnum($("sellFx").value);
+      if(sellCed&&sellCed.pes) t+=fx>0?" Total: ≈ US$ "+(tot/fx).toLocaleString("es-AR",{maximumFractionDigits:2})+" ($ "+tot.toLocaleString("es-AR",{maximumFractionDigits:0})+").":" Total: $ "+tot.toLocaleString("es-AR",{maximumFractionDigits:0})+".";
+      else t+=" Total que cobrás: US$ "+tot.toLocaleString("es-AR",{maximumFractionDigits:2})+".";
+    }
+    $("sellTot").textContent=t;
+  }
+  $("sellPrice").addEventListener("input",sellTotal); $("sellFx").addEventListener("input",sellTotal);
   $("sellCancel").addEventListener("click",function(){ dlgSell.close(); });
   $("sellJustDelete").addEventListener("click",function(){
     var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p) return;
@@ -1705,6 +1733,10 @@
     var d=$("sellDate").dataset.iso||"", sp=pnum($("sellPrice").value);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Elegí la fecha de venta."); return; }
     if(!(sp>0)){ alert("Poné el precio de venta."); return; }
+    if(sellCed){
+      if(sellCed.pes){ var sfx=pnum($("sellFx").value); if(!(sfx>0)){ alert("Poné el dólar MEP del día de la venta para pasar el precio a dólares."); return; } sp=sp/sfx; }
+      sp=Math.round(sp*sellCed.r*1e6)/1e6;
+    }
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
     pr.closed.push(Object.assign({},p,{sold:{d:d,p:sp}}));
     if($("sellCash").value==="out" && p.ccy==="USD"){ pr.cash=pr.cash||[]; pr.cash.push({d:d,a:-Math.round(p.qty*sp*100)/100}); }
