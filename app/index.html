@@ -1124,28 +1124,22 @@
           var r=el("div","rrow"+(strong?" strong":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
           r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
         }
-        rrow("Capital invertido",mR(costPriced,ccy),"",false,"lo que pusiste de tu bolsillo");
-        rrow("Valor actual de las inversiones",mR(g.value,ccy),"",false,"lo que valen hoy ("+mRs(diff,ccy)+" vs. el capital)");
         var realized=0, nCl=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=(c.sold.p-c.buy)*c.qty; nCl++; } });
+        rrow("Invertido",mR(costPriced,ccy),"",false,"lo que costó lo que tenés");
+        rrow("Vale hoy",mR(g.value,ccy));
+        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos");
         if(nCl){
-          rrow("Resultado de lo que tenés hoy",mRs(tot,ccy),cls(tot),false,"solo posiciones abiertas");
-          rrow("Ganancia de lo que vendiste",mRs(realized,ccy),cls(realized),false,nCl+(nCl===1?" posición vendida":" posiciones vendidas")+" (pestaña Vendidas)");
-          rrow("Resultado total con ventas",mRs(tot+realized,ccy),cls(tot+realized),true);
+          rrow("Ganancia por ventas",mRs(realized,ccy),cls(realized),false,nCl+(nCl===1?" posición vendida":" posiciones vendidas"));
+          rrow("Ganancia total",mRs(tot+realized,ccy),cls(tot+realized),true,"la de arriba más las ventas");
         }
-        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"plata cobrada, sin invertir");
-        if(cashT>0) rrow("Efectivo disponible",mR(cashT,ccy),"",false,"plata parada en tus brokers (la cargaste vos)");
+        if(cashT>0) rrow("Plata sin invertir",mR(cashT,ccy),"",false,"ya está sumada arriba");
         card.appendChild(rc);
         var kp=el("div","kpis");
         function kpi(lbl,val,c,sub){ var k=el("div","kpi"); k.appendChild(el("span","kl",lbl)); k.appendChild(el("span","kv"+(c?" "+c:""),val)); if(sub) k.appendChild(el("span","ks "+(c||""),sub)); kp.appendChild(k); }
-        kpi(nCl?"Resultado abierto":"Resultado total",mRs(tot,ccy),cls(tot),fmtPct(tot/costPriced)+(nCl?" · lo que tenés hoy":""));
-        if(nCl){
-          kpi("Ganancia de ventas",mRs(realized,ccy),cls(realized),nCl+(nCl===1?" venta":" ventas"));
-          kpi("Resultado total",mRs(tot+realized,ccy),cls(tot+realized),"con lo que vendiste");
-        }
+        kpi(nCl?"Ganancia total":"Resultado",mRs(tot+realized,ccy),cls(tot+realized),nCl?"tenés "+mRs(tot,ccy)+" · vendido "+mRs(realized,ccy):fmtPct(tot/costPriced));
         kpi("Hoy",g.dayN?mRs(g.day,ccy):"—",g.dayN?cls(g.day):"",(g.dayN&&g.dayBase>0)?fmtPct(g.day/g.dayBase):"");
-        kpi("Capital invertido",mR(costPriced,ccy),"","lo que pusiste");
+        kpi("Capital invertido",mR(costPriced,ccy),"",nCl?"lo que costó lo que tenés":"lo que pusiste");
         kpi(cashT>0?"Efectivo y cupones":"Cupones cobrados",mR(cashT+inc,ccy),"",cashT>0?"parado en tus brokers":"cobrados, sin invertir");
-        if(kp.children.length>4) kp.classList.add("k6");
         card.appendChild(kp);
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       }
