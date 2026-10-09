@@ -920,10 +920,36 @@
     return "hace "+Math.round(h/24)+" días";
   }
 
-  // Renta fija: valor estimado = lo invertido creciendo a la tasa anual (hasta el vencimiento).
+  // Renta fija: precio de mercado diario (data912.com, en dólares MEP, cotiza cada 100 nominales). Sin precio: a la par (1).
+  var LS_FI="cartera.fiq.v1", fiQ=load(LS_FI,{}), fiErr="";
+  function fiQuote(p){
+    if(!p||!p.fi) return null;
+    var t=String(p.ticker||"").toUpperCase(), base=t.replace(/[DCO]$/,""), c=[t,base+"D",t+"D",base+"C",t+"C",base+"O"];
+    for(var i=0;i<c.length;i++){ var q=fiQ.q&&fiQ.q[c[i]]; if(q&&q.p>0) return q; }
+    return null;
+  }
   function fiPrice(p){
-    // Renta fija: se mide siempre contra 1, que es lo que te devuelven al vencimiento.
-    return p.fi?1:null;
+    if(!p.fi) return null;
+    var q=fiQuote(p); return q?q.p/100:1;
+  }
+  function fiIsPar(p){ return !!p.fi && !fiQuote(p); }
+  function fetchFiPrices(){
+    fiErr="";
+    var eps=["arg_bonds","arg_corp","arg_notes"];
+    return Promise.all(eps.map(function(e){
+      return fetch("https://data912.com/live/"+e,{cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error(String(r.status)); return r.json(); }).catch(function(){ return null; });
+    })).then(function(rs){
+      var q={}, ok=0;
+      rs.forEach(function(a){ if(!Array.isArray(a)) return; ok++;
+        a.forEach(function(x){
+          if(!x||!x.symbol) return;
+          var px=+x.c; if(!(px>0)){ var b=+x.px_bid, k=+x.px_ask; px=(b>0&&k>0)?(b+k)/2:(b>0?b:(k>0?k:0)); }
+          if(px>0) q[String(x.symbol).toUpperCase()]={p:px,d:(typeof x.pct_change==="number"&&isFinite(x.pct_change))?x.pct_change:null};
+        });
+      });
+      if(!ok) throw new Error("no respondió");
+      fiQ={q:q,t:Date.now()}; save(LS_FI,{q:fiQ.q,t:fiQ.t});
+    }).catch(function(){ fiErr="No se pudo traer el precio de la renta fija; se usa el último guardado o la par."; });
   }
   // Cupones ya cobrados (reales del Excel; si no hay, estimados): se suman a la ganancia, aparte del precio.
   function fiIncome(p){
@@ -994,7 +1020,12 @@
   function ccyMismatch(p){ var c=prices[p.ticker]; return (p.source!=="manual" && !p.fi && c && c.cur && c.cur!==p.ccy) ? c.cur : null; }
   // Variación del día de una posición con precio automático (Finnhub: d = cambio por acción vs. cierre previo).
   function dayInfo(p){
-    if(p.source==="manual"||p.fi) return null;
+    if(p.fi){
+      var fq=fiQuote(p); if(!fq||fq.d===null) return null;
+      var v=p.qty*fq.p/100, base=v/(1+fq.d/100);
+      return {amt:v-base, base:base};
+    }
+    if(p.source==="manual") return null;
     var c=prices[p.ticker];
     if(c && c.cur && c.cur!==p.ccy) return null;
     if(!c || !(c.price>0) || typeof c.d!=="number" || !isFinite(c.d)) return null;
@@ -1356,7 +1387,7 @@
       var nL=p.lots&&p.lots.length>1?p.lots.length:0, dl_=(p.lots||[]).filter(function(l){return l.d;});
       if(nL){ var ds_=dl_.map(function(l){return l.d;}).sort(); pair("Compras",String(nL),"",ds_.length>1?ds_[0].split("-").reverse().join("/")+" a "+ds_[ds_.length-1].split("-").reverse().join("/"):""); }
       pair(nL?"Precio promedio de compra":"Precio de compra",mm(p.buy,p.ccy));
-      pair(p.fi?"Valor de rescate":"Precio actual",cp===null?"—":fmt(cp,p.ccy));
+      pair(p.fi?(fiIsPar(p)?"Valor a la par (sin precio de mercado)":"Precio de mercado"):"Precio actual",cp===null?"—":fmt(cp,p.ccy));
       pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
       if(!p.parts) pair("Broker",brokerName(p.broker));
@@ -1403,7 +1434,7 @@
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
       if(isCedPos(p) && cedF(p)===1) notes.push("CEDEAR sin ajuste de prima: "+(cedErr?cedErr+".":(cedInfo?"el factor CCL/MEP dio 1,000 (MEP "+cedInfo.d+" y CCL "+cedInfo.c+").":"todavía no se calculó; actualizá los precios."))+" Se muestra el valor de la acción.");
       if(isCedPos(p) && cedF(p)!==1) notes.push("Valor ajustado por la prima del CEDEAR (dólar CCL / MEP: "+(cedF(p)>=1?"+":"")+((cedF(p)-1)*100).toFixed(1).replace(".",",")+"%).");
-      if(p.fi) notes.push("Se mide contra 1, lo que te devuelven al vencimiento, más los cupones.");
+      if(p.fi) notes.push(fiIsPar(p)?"No encontré precio de mercado para este bono: se valúa a la par (1), más los cupones.":"Precio de mercado en dólares MEP (data912.com, no es en tiempo real), más los cupones.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       var pn_=String(p.note||"").replace(CED_MARK,""); if(pn_) notes.push(pn_);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
@@ -1476,7 +1507,12 @@
   function refresh(manual){
     if(refreshing) return Promise.resolve();
     var tickers=[]; positions.forEach(function(p){ if(p.source!=="manual" && !p.fi && tickers.indexOf(p.ticker)<0) tickers.push(p.ticker); });
-    if(!tickers.length){ render(); return Promise.resolve(); }
+    var needFi=positions.some(function(p){return p.fi;});
+    if(!tickers.length){
+      if(!needFi||!navigator.onLine){ render(); return Promise.resolve(); }
+      refreshing=true; $("btnRefresh").disabled=true; renderStatus();
+      return fetchFiPrices().then(function(){ lastRefresh=Date.now(); }).then(function(){ refreshing=false; $("btnRefresh").disabled=false; render(); });
+    }
     if(!apiKey && !PROXY_URL){ showBanner("Para traer precios automáticos pegá tu API key de Finnhub en Ajustes. Mientras tanto podés cargar precios manuales.",false); render(); return Promise.resolve(); }
     if(!navigator.onLine){ showBanner("Sin conexión: se muestran los últimos precios guardados.",false); render(); return Promise.resolve(); }
     refreshing=true; $("btnRefresh").disabled=true; renderStatus();
@@ -1491,7 +1527,7 @@
         }).then(worker);
     }
     var needF=positions.some(function(p){ return p.source!=="manual" && isCedPos(p); });
-    return Promise.all([worker(),worker(),worker(),needF?fetchCedFactor():null]).then(function(){
+    return Promise.all([worker(),worker(),worker(),needF?fetchCedFactor():null,needFi?fetchFiPrices():null]).then(function(){
       lastRefresh=Date.now(); save(LS_PRICES,prices);
       if(fatal) showBanner(fatal,true); else { clearBanner(); var bad=Object.keys(errors).filter(function(k){return tickers.indexOf(k)>=0;}); if(bad.length) showBanner("No se pudo obtener precio de: "+bad.join(", ")+". Si no se encuentran, probá con el sufijo de la bolsa (VUAA.DE) o usá precio manual.",false); }
     }).catch(function(){ showBanner("No se pudo consultar el servicio de precios. Revisá tu conexión.",true); })
