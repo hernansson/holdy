@@ -3519,14 +3519,21 @@
     var hadCtl=!!navigator.serviceWorker.controller, swReg=null;
     window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").then(function(r){ swReg=r; }).catch(function(){}); });
     document.addEventListener("visibilitychange",function(){ if(!document.hidden && swReg){ try{ swReg.update(); }catch(e){} } });
+    // Versión de la app al abrirla (se lee de sw.js). El aviso solo sale si después cambia de verdad.
+    var loadVer=null;
+    function swVer(){ return fetch("sw.js",{cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){ var m=/CACHE\s*=\s*"([^"]+)"/.exec(t); return m?m[1]:null; }).catch(function(){ return null; }); }
+    swVer().then(function(v){ loadVer=v; });
     navigator.serviceWorker.addEventListener("controllerchange",function(){
       if(!hadCtl){ hadCtl=true; return; }
+      swVer().then(function(v){ if(!loadVer||!v||v===loadVer) return; showUpd(); });
+    });
+    function showUpd(){
       if($("updBar")) return;
       var bar=el("div","updbar"); bar.id="updBar";
       bar.appendChild(el("span",null,"Hay una versión nueva de Holdy"));
       var b=el("button",null,"Actualizar"); b.type="button"; b.addEventListener("click",function(){ location.reload(); });
       bar.appendChild(b); document.body.appendChild(bar);
-    });
+    }
   }
 })();
 </script>
