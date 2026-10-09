@@ -1106,7 +1106,7 @@
       } else {
       var mainRow=el("div","sum-main"); card.appendChild(mainRow);
       var cashT=ccy==="USD"?balTotal():0;
-      mainRow.appendChild(el("div","big",mR(g.value+inc+cashT,ccy)));
+      mainRow.appendChild(el("div","big",mR(g.value+cashT,ccy)));
       if(costPriced>0){
         var diff=g.value-costPriced, tot=g.value+inc-costPriced;
         var gl=el("div","gain-line "+cls(tot)); gl.appendChild(el("span",null,arrow(tot)+mRs(tot,ccy)));
@@ -1127,7 +1127,7 @@
         var realized=0, nCl=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=(c.sold.p-c.buy)*c.qty; nCl++; } });
         rrow("Invertido",mR(costPriced,ccy),"",false,"lo que costó lo que tenés");
         rrow("Vale hoy",mR(g.value,ccy));
-        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos");
+        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"suman a la ganancia, no al total de arriba");
         if(nCl){
           rrow("Ganancia por ventas",mRs(realized,ccy),cls(realized),false,nCl+(nCl===1?" posición vendida":" posiciones vendidas"));
           rrow("Ganancia total",mRs(tot+realized,ccy),cls(tot+realized),true,"la de arriba más las ventas");
@@ -1139,7 +1139,9 @@
         kpi(nCl?"Ganancia total":"Resultado",mRs(tot+realized,ccy),cls(tot+realized),nCl?"tenés "+mRs(tot,ccy)+" · vendido "+mRs(realized,ccy):fmtPct(tot/costPriced));
         kpi("Hoy",g.dayN?mRs(g.day,ccy):"—",g.dayN?cls(g.day):"",(g.dayN&&g.dayBase>0)?fmtPct(g.day/g.dayBase):"");
         kpi("Capital invertido",mR(costPriced,ccy),"",nCl?"lo que costó lo que tenés":"lo que pusiste");
-        kpi(cashT>0?"Efectivo y cupones":"Cupones cobrados",mR(cashT+inc,ccy),"",cashT>0?"parado en tus brokers":"cobrados, sin invertir");
+        if(cashT>0) kpi("Plata sin invertir",mR(cashT,ccy),"","la cargaste vos, ya está sumada");
+        else if(inc>0) kpi("Cupones cobrados","+"+mR(inc,ccy),"pos","suman a la ganancia");
+        else kpi("Plata sin invertir",mR(0,ccy),"","cargala en el menú");
         card.appendChild(kp);
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       }
