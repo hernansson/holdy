@@ -924,8 +924,13 @@
   var LS_FI="cartera.fiq.v1", fiQ=load(LS_FI,{}), fiErr="";
   function fiQuote(p){
     if(!p||!p.fi) return null;
-    var t=String(p.ticker||"").toUpperCase(), base=t.replace(/[DCO]$/,""), c=[t,base+"D",t+"D",base+"C",t+"C",base+"O"];
-    for(var i=0;i<c.length;i++){ var q=fiQ.q&&fiQ.q[c[i]]; if(q&&q.p>0) return q; }
+    // Solo cotizaciones en dólares (D = MEP, C = CCL). Las de pesos (O o sin letra) nunca se usan.
+    var t=String(p.ticker||"").toUpperCase(), base=t.replace(/[DCO]$/,""), c=[base+"D",base+"C"];
+    if(/[DC]$/.test(t)) c.unshift(t);
+    for(var i=0;i<c.length;i++){
+      var q=fiQ.q&&fiQ.q[c[i]];
+      if(q&&q.p>0){ var v=q.p/100, ref=(p.buy>0?p.buy:1); if(v>ref*2.5||v<ref/4||v>3) continue; return q; }
+    }
     return null;
   }
   function fiPrice(p){
