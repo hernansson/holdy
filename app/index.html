@@ -615,8 +615,8 @@
     <div class="help" id="sellTot"></div>
     <label>¿Qué hacés con esa plata?
       <select id="sellCash">
-        <option value="keep">La reinvierto o queda en mi broker</option>
-        <option value="out">La retiro de mi broker</option>
+        <option value="keep">Queda en mi broker: sumarla a mi plata sin invertir</option>
+        <option value="out">La retiro de mi broker (no la sumo)</option>
       </select>
     </label>
     <div class="btns">
@@ -1229,6 +1229,12 @@
       pair("Cantidad",qq(c.qty)); pair("Resultado",mRs(gain,c.ccy),cls(gain));
       pair("Precio de compra",mm(c.buy,c.ccy)); pair("Precio de venta",mm(c.sold.p,c.ccy));
       pair("Fecha de venta",c.sold.d.split("-").reverse().join("/")); pair("Broker",brokerName(c.broker));
+      var hl=(c.lots&&c.lots.length?c.lots:[{q:c.qty,b:c.buy,d:""}]).filter(function(l){return l.d&&l.q>0&&l.b>0;}), sdn=dayNum(c.sold.d);
+      if(hl.length){
+        var wc=0, wd=0; hl.forEach(function(l){ var w=l.q*l.b; wc+=w; wd+=w*Math.max(0,sdn-dayNum(l.d)); });
+        var days=wd/wc; pair(hl.length>1?"Tiempo invertido promedio":"Tiempo invertido",spanStr(days));
+        if(days>=30&&pct!==null&&pct>-1){ var an=Math.pow(1+pct,365/days)-1; pair("Rentabilidad anual est.",fmtPct(an),cls(an)); }
+      }
       g.appendChild(pg); body.appendChild(g);
       if(!isRO()){
         var acts=el("div","row-actions"), bd=el("button","danger","Eliminar"); bd.type="button";
@@ -1948,6 +1954,10 @@
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
     pr.closed.push(Object.assign({},p,{sold:{d:d,p:sp}}));
     if($("sellCash").value==="out" && p.ccy==="USD"){ pr.cash=pr.cash||[]; pr.cash.push({d:d,a:-Math.round(p.qty*sp*100)/100}); }
+    else if($("sellCash").value==="keep" && p.ccy==="USD" && BROKERS.indexOf(p.broker)>=0){
+      var got=Math.round(p.qty*sp*100)/100, b0=brokerCash(p.broker), nb=Math.round((b0+got)*100)/100;
+      pr.bal=(pr.bal||[]).filter(function(x){return x.b!==p.broker;}); pr.bal.push({b:p.broker,a:nb,d:d});
+    }
     positions=positions.filter(function(x){return x.id!==sellingId;});
     saveProfiles(); dlgSell.close(); render();
   });
