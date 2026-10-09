@@ -929,7 +929,7 @@
     if(/[DC]$/.test(t)) c.unshift(t);
     for(var i=0;i<c.length;i++){
       var q=fiQ.q&&fiQ.q[c[i]];
-      if(q&&q.p>0){ var v=q.p/100, ref=(p.buy>0?p.buy:1); if(v>ref*2.5||v<ref/4||v>3) continue; return q; }
+      if(q&&q.p>0){ var v=q.p/100, ref=(p.buy>0?p.buy:1); if(v>ref*2.5||v<ref/4||v>3) continue; return {p:q.p,d:q.d,s:c[i]}; }
     }
     return null;
   }
@@ -1392,7 +1392,7 @@
       var nL=p.lots&&p.lots.length>1?p.lots.length:0, dl_=(p.lots||[]).filter(function(l){return l.d;});
       if(nL){ var ds_=dl_.map(function(l){return l.d;}).sort(); pair("Compras",String(nL),"",ds_.length>1?ds_[0].split("-").reverse().join("/")+" a "+ds_[ds_.length-1].split("-").reverse().join("/"):""); }
       pair(nL?"Precio promedio de compra":"Precio de compra",mm(p.buy,p.ccy));
-      pair(p.fi?(fiIsPar(p)?"Valor a la par (sin precio de mercado)":"Precio de mercado"):"Precio actual",cp===null?"—":fmt(cp,p.ccy));
+      pair(p.fi?(fiIsPar(p)?"Valor a la par (sin precio de mercado)":"Precio de mercado"):"Precio actual",cp===null?"—":fmt(cp,p.ccy),"",(p.fi&&fiQuote(p))?"cotización "+fiQuote(p).s+(/C$/.test(fiQuote(p).s)?" (dólar CCL)":" (dólar MEP)"):"");
       pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
       if(!p.parts) pair("Broker",brokerName(p.broker));
