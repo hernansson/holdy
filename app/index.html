@@ -361,6 +361,20 @@
   #profList{display:grid}
   #formProf{gap:14px}
   @media (min-width:700px){ .summary{grid-template-columns:1fr 1fr} .row-grid{grid-template-columns:repeat(7,1fr)} }
+  /* Escritorio: panel de resumen fijo a la izquierda, posiciones a la derecha */
+  @media (min-width:1000px){
+    main{max-width:1180px; padding:24px 28px 90px; display:grid; grid-template-columns:minmax(330px,390px) minmax(0,1fr); column-gap:28px; align-items:start;
+      grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum tabs" "sum tb" "sum list" "sum sold"; grid-template-rows:repeat(6,auto) auto auto 1fr}
+    main>#banners{grid-area:ban} main>#notice{grid-area:no1} main>#notice2{grid-area:no2}
+    main>#profbar{grid-area:pb} main>#status{grid-area:st}
+    main>#summary{grid-area:sum; grid-template-columns:1fr; position:sticky; top:16px; align-self:start; margin-bottom:0}
+    main>#tabs{grid-area:tabs} main>#toolbar{grid-area:tb} main>#list{grid-area:list} main>#soldBox{grid-area:sold}
+    .scr,#cmpView{max-width:1180px}
+    .fab{right:max(28px,calc((100vw - 1180px)/2 + 28px)); bottom:28px}
+    details.acc>summary{padding-top:16px; padding-bottom:16px}
+    .row-grid{grid-template-columns:repeat(4,1fr)}
+  }
+  @media (min-width:1000px){ .list{gap:10px} }
 </style>
 </head>
 <body>
