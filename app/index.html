@@ -1138,14 +1138,10 @@
           rrow("Total",mR(g.value+cashT,ccy),"",true);
         }
         rhead("Cómo se calcula la ganancia");
-        rrow("Invertido (lo que costó)",mR(costPriced,ccy),"",false,"",true);
-        rrow("Vale hoy",mR(g.value,ccy),"",false,"",true);
+        rrow("Variación de lo que tenés",mRs(diff,ccy),cls(diff),false,"vale hoy "+mR(g.value,ccy)+" − invertido "+mR(costPriced,ccy),true);
         if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"",true);
-        rrow("Ganancia de lo que tenés",mRs(tot,ccy),cls(tot),true);
-        if(nCl){
-          rrow("Ganancia por ventas ("+nCl+")",mRs(realized,ccy),cls(realized),false,"",true);
-          rrow("Ganancia total",mRs(tot+realized,ccy),cls(tot+realized),true);
-        }
+        if(nCl) rrow("Ganancia por ventas ("+nCl+")",mRs(realized,ccy),cls(realized),false,"",true);
+        rrow("Ganancia total",mRs(tot+realized,ccy),cls(tot+realized),true,nCl?"el número verde de arriba no incluye las ventas":"");
         card.appendChild(rc);
         var kp=el("div","kpis");
         function kpi(lbl,val,c,sub){ var k=el("div","kpi"); k.appendChild(el("span","kl",lbl)); k.appendChild(el("span","kv"+(c?" "+c:""),val)); if(sub) k.appendChild(el("span","ks "+(c||""),sub)); kp.appendChild(k); }
