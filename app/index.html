@@ -104,6 +104,11 @@
   .rrow .rl small{font-size:11.5px; color:var(--muted); font-weight:400; margin-top:1px}
   .rrow .rv{font-size:15px; font-weight:700; white-space:nowrap; text-align:right}
   .rnote{margin-top:8px; line-height:1.4}
+  .rhd{font-size:13px; font-weight:700; padding:14px 0 2px; border-bottom:1px solid var(--line)}
+  .rrow.mut{padding:7px 0; border-bottom:0}
+  .rrow.mut .rl{font-size:14px; color:var(--muted)} .rrow.mut .rv{font-size:14px; font-weight:500; color:var(--muted)}
+  .rrow.mut .rv.pos{color:var(--pos)} .rrow.mut .rv.neg{color:var(--neg)}
+  .rrow.strong{border-top:1px solid var(--line); border-bottom:0; margin-top:2px}
   .rrow.strong{padding-top:12px}
   .rrow.strong .rl{font-weight:700; font-size:15.5px}
   .rrow.strong .rv{font-size:18px}
@@ -1120,19 +1125,27 @@
           if(op){ rc.hidden=false; slide(rc,true); } else slide(rc,false,function(){ rc.hidden=true; });
         });
         hd.appendChild(tg);
-        function rrow(lbl,val,c,strong,sub){
-          var r=el("div","rrow"+(strong?" strong":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
+        function rhead(t){ rc.appendChild(el("div","rhd",t)); }
+        function rrow(lbl,val,c,strong,sub,mut){
+          var r=el("div","rrow"+(strong?" strong":"")+(mut?" mut":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
           r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
         }
         var realized=0, nCl=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=(c.sold.p-c.buy)*c.qty; nCl++; } });
-        rrow("Invertido",mR(costPriced,ccy),"",false,"lo que costó lo que tenés");
-        rrow("Vale hoy",mR(g.value,ccy));
-        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"suman a la ganancia, no al total de arriba");
-        if(nCl){
-          rrow("Ganancia por ventas",mRs(realized,ccy),cls(realized),false,nCl+(nCl===1?" posición vendida":" posiciones vendidas"));
-          rrow("Ganancia total",mRs(tot+realized,ccy),cls(tot+realized),true,"la de arriba más las ventas");
+        if(cashT>0){
+          rhead("Qué suma el número de arriba");
+          rrow("Lo que tenés invertido",mR(g.value,ccy),"",false,"",true);
+          rrow("Plata sin invertir",mR(cashT,ccy),"",false,"",true);
+          rrow("Total",mR(g.value+cashT,ccy),"",true);
         }
-        if(cashT>0) rrow("Plata sin invertir",mR(cashT,ccy),"",false,"ya está sumada arriba");
+        rhead("Cómo se calcula la ganancia");
+        rrow("Invertido (lo que costó)",mR(costPriced,ccy),"",false,"",true);
+        rrow("Vale hoy",mR(g.value,ccy),"",false,"",true);
+        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"",true);
+        rrow("Ganancia de lo que tenés",mRs(tot,ccy),cls(tot),true);
+        if(nCl){
+          rrow("Ganancia por ventas ("+nCl+")",mRs(realized,ccy),cls(realized),false,"",true);
+          rrow("Ganancia total",mRs(tot+realized,ccy),cls(tot+realized),true);
+        }
         card.appendChild(rc);
         var kp=el("div","kpis");
         function kpi(lbl,val,c,sub){ var k=el("div","kpi"); k.appendChild(el("span","kl",lbl)); k.appendChild(el("span","kv"+(c?" "+c:""),val)); if(sub) k.appendChild(el("span","ks "+(c||""),sub)); kp.appendChild(k); }
