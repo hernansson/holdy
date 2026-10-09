@@ -362,6 +362,9 @@
   #formProf{gap:14px}
   @media (min-width:700px){ .summary{grid-template-columns:1fr 1fr} .row-grid{grid-template-columns:repeat(7,1fr)} }
 
+  .usecash{display:flex!important; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:12px; background:var(--chip); font-size:14px; line-height:1.35; cursor:pointer}
+  .usecash[hidden]{display:none!important}
+  .usecash input{width:20px; height:20px; margin:1px 0 0; flex:0 0 auto; accent-color:var(--brand)}
   /* ---- Escritorio: tablero ---- */
   .acc-x,.thead,#dist,.kpis{display:none}
   @media (min-width:1100px){
@@ -522,6 +525,7 @@
     <div id="lotsBox" style="display:grid;gap:10px"></div>
     <button type="button" id="lotAdd">+ Agregar otra compra</button>
     <div class="hint" id="lotSum" style="font-size:13px;color:var(--muted)" hidden></div>
+    <label class="usecash" id="useCashWrap" hidden><input type="checkbox" id="fUseCash" checked><span id="useCashTxt"></span></label>
     <details class="adv" id="advBox"><summary>Más opciones <span>precio manual, renta fija, nota</span></summary>
 <div class="advin">
     <label>Fuente del precio actual
@@ -1598,7 +1602,23 @@
       return {q:pnum(r.querySelector(".lq").value), b:pnum(r.querySelector(".lb").value), fx:pnum(r.querySelector(".lfx").value), d:r.querySelector(".ld").dataset.iso||""};
     });
   }
+  // Opción de descontar la compra de la plata sin invertir del broker (solo posiciones nuevas, en dólares).
+  function useCashCost(){
+    var ced=isCed(), ls;
+    if(ced){ ls=cedConv(readLots()); if(!ls) return 0; } else ls=readLots();
+    var c=0; (ls||[]).forEach(function(l){ if(l.q>0&&l.b>0) c+=l.q*l.b; }); return c;
+  }
+  function brokerCash(b){ var r=0; (cur().bal||[]).forEach(function(x){ if(x.b===b) r=x.a; }); return r; }
+  function syncUseCash(){
+    var w=$("useCashWrap"), b=$("fBroker").value, bal=brokerCash(b), usd=isCed()||$("fCcy").value==="USD";
+    var show=!editingId && !isRO() && usd && bal>0;
+    w.hidden=!show; if(!show) return;
+    var cost=useCashCost(), t="Descontar de mi plata sin invertir en "+brokerName(b)+" (tenés "+fmt(bal,"USD")+")";
+    if(cost>0) t+=cost>bal?" · te queda en 0":" · te quedan "+fmt(bal-cost,"USD");
+    $("useCashTxt").textContent=t;
+  }
   function refreshLots(){
+    syncUseCash();
     var rows=[].slice.call(lotsBox.querySelectorAll(".lotrow"));
     var ced=isCed(), pes=ced&&$("fPxCcy").value==="ARS";
     rows.forEach(function(r,i){ r.querySelector(".lotn").textContent=rows.length>1?"Compra "+(i+1):"Compra"; r.querySelector(".lothead button").hidden=rows.length<2;
@@ -1669,6 +1689,7 @@
     drawSegs(); refreshLots();
   }
   $("fBroker").addEventListener("change",syncBroker);
+  $("fBroker").addEventListener("change",syncUseCash);
   $("fKind").addEventListener("change",syncKind); $("fPxCcy").addEventListener("change",function(){ drawSegs(); refreshLots(); }); $("fRatio").addEventListener("input",function(){ cedChecked=false; refreshLots(); });
   dateField($("fFiM"),"",true,true);
   function openPos(id){
@@ -1691,7 +1712,8 @@
     $("fNote").value=p?(cm?plainNote(p.note):(p.note||"")):"";
     $("fFiR").value=(p&&p.fi)?p.fi.r:""; $("fFiC").value=(p&&p.fi&&p.fi.c)?p.fi.c:"";
     var fm_=(p&&p.fi&&p.fi.m)||""; $("fFiM").dataset.iso=fm_; $("fFiM").value=fromISO(fm_);
-    syncSource(); syncBroker();
+    $("fUseCash").checked=true;
+    syncSource(); syncBroker(); syncUseCash();
     $("advBox").open=!!(p&&(p.source==="manual"||p.fi||$("fNote").value));
     dlgPos.showModal();
     try{ if(document.activeElement&&document.activeElement!==document.body) document.activeElement.blur(); }catch(e){}
@@ -1799,6 +1821,10 @@
       data.id="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
       data.manualTs=source==="manual"?Date.now():0;
       positions.push(data);
+    }
+    if(!editingId && !$("useCashWrap").hidden && $("fUseCash").checked && data.ccy==="USD"){
+      var prc=cur(), bal0=brokerCash(data.broker), ded=Math.min(bal0,cst);
+      if(ded>0){ var left=Math.round((bal0-ded)*100)/100; prc.bal=(prc.bal||[]).filter(function(x){return x.b!==data.broker;}); if(left>0) prc.bal.push({b:data.broker,a:left}); }
     }
     saveProfiles();
     dlgPos.close(); render();
