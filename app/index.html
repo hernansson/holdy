@@ -6,6 +6,9 @@
 // Sin sesión no hay pantalla de ingreso en la app: se vuelve a la página de inicio, que es donde se entra.
 (function(){ try{ var x=JSON.parse(localStorage.getItem("cartera.auth.v1")||"null"); if(!x||!/^[a-f0-9]{64}$/.test(String(x.session||""))){ document.documentElement.style.visibility="hidden"; location.replace("../"); setTimeout(function(){ document.documentElement.style.visibility=""; },3000); } }catch(e){ document.documentElement.style.visibility="hidden"; location.replace("../"); } })();
 </script>
+<script>
+(function(){ try{ if(localStorage.getItem("cartera.style.v1")==="n"){ var h=document.documentElement; h.setAttribute("data-ui","n"); var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); } }catch(e){} })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Holdy</title>
 <meta name="theme-color" content="#0f766e">
@@ -65,6 +68,37 @@
   button.primary{background:var(--brand); color:var(--brand-ink); border-color:var(--brand); font-weight:600}
   button.danger{color:var(--neg)}
   button:disabled{opacity:.55; cursor:default}
+  /* ---- Estilo "Nuevo" (opcional, Ajustes → Apariencia) ---- */
+  html[data-ui="n"]{
+    --bg:#f6f7f9; --card:#ffffff; --text:#0f1419; --muted:#66707d; --line:#e5e8ec;
+    --brand:#0e9f6e; --brand-ink:#ffffff; --pos:#0b8a5e; --neg:#d92d3a; --chip:#edf0f3; --shadow:none;
+  }
+  @media (prefers-color-scheme: dark){
+    html[data-ui="n"]{ --bg:#0b0e11; --card:#14181d; --text:#f2f4f7; --muted:#8a94a3; --line:#1e242b; --brand:#2edc8f; --brand-ink:#06210f; --pos:#2edc8f; --neg:#ff5c6c; --chip:#1b2129; }
+  }
+  html[data-ui="n"] body{font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-variant-numeric:tabular-nums}
+  html[data-ui="n"] header{background:var(--bg); color:var(--text)}
+  html[data-ui="n"] header h1{font-size:21px; font-weight:800; letter-spacing:-.02em}
+  html[data-ui="n"] header button{border-color:var(--line); background:var(--card)}
+  html[data-ui="n"] header .burger{border:0; background:transparent}
+  html[data-ui="n"] header #profSel{background:var(--card); color:var(--text); border:1px solid var(--line); box-shadow:none}
+  html[data-ui="n"] header #profSel .pav{color:var(--brand-ink)} html[data-ui="n"] header #profSel svg{color:var(--muted)}
+  html[data-ui="n"] .sum-card{border-radius:18px}
+  html[data-ui="n"] .big,html[data-ui="n"] .sum-main .big{font-size:44px; font-weight:800; letter-spacing:-.035em}
+  html[data-ui="n"] .sum-card h2{font-size:13px; letter-spacing:0; text-transform:none; font-weight:500}
+  html[data-ui="n"] .tabs{background:transparent; gap:8px; padding:0; margin:20px 0 12px}
+  html[data-ui="n"] .tabs button{background:var(--chip); border-radius:999px; min-height:38px; color:var(--muted)}
+  html[data-ui="n"] .tabs button.on{background:var(--brand); color:var(--brand-ink); box-shadow:none}
+  html[data-ui="n"] details.acc{background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0; box-shadow:none}
+  html[data-ui="n"] details.acc[open]{background:color-mix(in srgb,var(--chip) 55%,transparent); border-radius:14px; border-bottom-color:transparent}
+  html[data-ui="n"] details.acc>summary{min-height:62px!important}
+  html[data-ui="n"] .acc-l .tick{font-size:16.5px; font-weight:700}
+  html[data-ui="n"] .dist-b{border-radius:18px; border-color:transparent}
+  html[data-ui="n"] .fab{box-shadow:0 8px 24px color-mix(in srgb,var(--brand) 35%,transparent)}
+  @media (max-width:1099px){
+    html[data-ui="n"] .sum-card{background:transparent; border-color:transparent; padding:6px 2px 4px}
+    html[data-ui="n"] .list{gap:0}
+  }
   /* Pull to refresh */
   @media (pointer:coarse){ #btnRefresh{display:none} html,body{overscroll-behavior-y:contain} }
   #ptr{position:fixed; left:50%; top:0; width:38px; height:38px; margin-left:-19px; border-radius:50%; background:var(--card); color:var(--brand); box-shadow:0 2px 10px rgba(0,0,0,.22); display:flex; align-items:center; justify-content:center; z-index:60; transform:translateY(-60px); opacity:0; pointer-events:none}
@@ -768,6 +802,14 @@
         <button type="button" id="acctSync">Sincronizar ahora</button>
       </div>
       <div class="help" id="acctMsg" role="status" aria-live="polite" hidden></div>
+    </div>
+    <div class="sec" id="uiSec">
+      <div class="sec-t">Apariencia</div>
+      <div class="btns split">
+        <button type="button" id="uiClassic">Clásico</button>
+        <button type="button" id="uiNew">Nuevo</button>
+      </div>
+      <div class="help">"Nuevo" es un estilo más limpio, con el número total más grande. Podés volver a "Clásico" cuando quieras.</div>
     </div>
     <div class="sec" id="backupSec">
       <div class="sec-t">Copia de seguridad</div>
@@ -2361,6 +2403,17 @@
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
   // ---------- Ajustes ----------
+  // Estilo visual: "c" clásico (por defecto) o "n" nuevo.
+  function applyUi(v){
+    try{ localStorage.setItem("cartera.style.v1",v); }catch(e){}
+    var h=document.documentElement; if(v==="n") h.setAttribute("data-ui","n"); else h.removeAttribute("data-ui");
+    if(v==="n" && !document.querySelector('link[href*="Plus+Jakarta"]')){ var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); }
+    var m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content",v==="n"?(matchMedia("(prefers-color-scheme:dark)").matches?"#0b0e11":"#f6f7f9"):"#0f766e");
+    syncUi();
+  }
+  function syncUi(){ var n=document.documentElement.getAttribute("data-ui")==="n"; $("uiNew").classList.toggle("primary",n); $("uiClassic").classList.toggle("primary",!n); $("uiNew").setAttribute("aria-pressed",String(n)); $("uiClassic").setAttribute("aria-pressed",String(!n)); }
+  $("uiNew").addEventListener("click",function(){ applyUi("n"); }); $("uiClassic").addEventListener("click",function(){ applyUi("c"); });
+  syncUi();
   function openSettings(){ renderAccount(); mountGoogleButton(); dlgSet.showModal(); }
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
   $("sClose").addEventListener("click",function(){ dlgSet.close(); });
