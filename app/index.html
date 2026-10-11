@@ -99,6 +99,22 @@
     html[data-ui="n"] .sum-card{background:transparent; border-color:transparent; padding:6px 2px 4px}
     html[data-ui="n"] .list{gap:0}
   }
+  /* Evolución de la cartera (solo estilo Nuevo) */
+  .evo{display:none}
+  html[data-ui="n"] .evo{display:block; margin:6px 0 4px; grid-column:1/-1}
+  html[data-ui="n"] .summary>.sum-card{grid-column:1/-1}
+  .evo-hd{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px}
+  .evo-t{font-size:13px; font-weight:600; color:var(--muted)}
+  .evo-r{display:flex; gap:2px}
+  .evo-r button{border:0; background:transparent; min-height:30px; padding:0 10px; border-radius:999px; font-size:12.5px; font-weight:600; color:var(--muted); box-shadow:none}
+  .evo-r button.on{background:var(--chip); color:var(--text)}
+  .evo-c{position:relative; color:var(--brand); touch-action:pan-y; cursor:crosshair}
+  .evo-c svg{display:block; width:100%; height:150px; overflow:visible}
+  .evo-tip{position:absolute; top:-2px; left:0; font-size:12px; font-weight:600; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:3px 8px; white-space:nowrap; pointer-events:none; color:var(--text); display:none; font-variant-numeric:tabular-nums}
+  .evo-n{font-size:11.5px; color:var(--muted); margin-top:6px; display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+  .evo-n i{display:inline-block; width:14px; height:0; border-top:2px solid var(--brand); vertical-align:middle; margin-right:5px}
+  .evo-n i.d{border-top:2px dashed var(--muted)}
+  .evo-sk{height:150px; border-radius:12px}
   /* Pull to refresh */
   @media (pointer:coarse){ #btnRefresh{display:none} html,body{overscroll-behavior-y:contain} }
   #ptr{position:fixed; left:50%; top:0; width:38px; height:38px; margin-left:-19px; border-radius:50%; background:var(--card); color:var(--brand); box-shadow:0 2px 10px rgba(0,0,0,.22); display:flex; align-items:center; justify-content:center; z-index:60; transform:translateY(-60px); opacity:0; pointer-events:none}
@@ -1185,6 +1201,110 @@
   }
   function closeDet(d){ var b=d.querySelector(".acc-body"); if(!b||d._cl){ d.open=false; return; } d._cl=1; slide(b,false,function(){ d.open=false; d._cl=0; }); }
   var sumOpen={};
+
+  // ---------- Evolución de la cartera ----------
+  function newUi(){ return document.documentElement.getAttribute("data-ui")==="n"; }
+  var LS_EVO="cartera.evo.v1", LS_EVOR="cartera.evoR.v1", evoCache=load(LS_EVO,{}), evoRange=load(LS_EVOR,"3M"), evoBusy="", evoErr="", evoLive=null;
+  var EVO_TTL=6*3600*1000;
+  function hashStr(t){ var h=5381; for(var i=0;i<t.length;i++) h=((h<<5)+h+t.charCodeAt(i))|0; return String(h>>>0); }
+  function evoInfo(){
+    var pr=cur(), e=cmpEvents(pr), ev=e.ev.filter(function(x){return x.t!=="c";});
+    return {pr:pr,e:e,ev:ev,key:pr.id+":"+hashStr(ev.map(function(x){return [x.d,x.tk,x.q,x.p,x.t].join(",");}).join("|"))};
+  }
+  function evoBuild(info){
+    var ev=info.ev; if(!ev.length) return Promise.resolve(null);
+    var from="9999-99-99", tks={}, fis=info.e.fis;
+    ev.forEach(function(x){ if(x.d<from) from=x.d; if(x.tk.indexOf("FI:")!==0) tks[x.tk]=1; });
+    var list=Object.keys(tks);
+    return (list.length?fetchHistory(list,from):Promise.resolve({data:{}})).then(function(j){
+      var hist={}, tnn=dayNum(todayStr());
+      Object.keys(j.data||{}).forEach(function(tk){ var h=j.data[tk]; if(h&&h.currency==="USD"&&Array.isArray(h.pts)&&h.pts.length>1) hist[tk]=h; });
+      Object.keys(fis).forEach(function(k){
+        var d0=Infinity; ev.forEach(function(x){ if(x.tk===k){ var n=dayNum(x.d); if(n<d0) d0=n; } }); if(!isFinite(d0)) return;
+        var f=fis[k], cap=f.m?dayNum(f.m):1e9, pts=[];
+        for(var dd=d0; dd<=tnn; dd++) pts.push([dayStr(dd),Math.round(100*Math.pow(1+f.r/100,(Math.min(dd,cap)-d0)/365)*1e6)/1e6]);
+        if(pts.length>1) hist[k]={currency:"USD",pts:pts};
+      });
+      var use=ev.filter(function(x){ return hist[x.tk]; }); if(!use.length) return null;
+      var skippedTk={}; ev.forEach(function(x){ if(!hist[x.tk]) skippedTk[x.tk.replace(/^FI:([^:]+).*/,"$1")]=1; });
+      var start=Infinity; use.forEach(function(x){ var n=dayNum(x.d); if(n<start) start=n; });
+      var byDay={}; use.forEach(function(x){ var n=dayNum(x.d); (byDay[n]||(byDay[n]=[])).push(x); });
+      var px={}, ptr={}, last={}; Object.keys(hist).forEach(function(tk){ px[tk]=hist[tk].pts.map(function(r){return [dayNum(r[0]),r[1]];}); ptr[tk]=0; });
+      function adv(tk,d){ var a=px[tk]; if(!a) return; while(ptr[tk]<a.length&&a[ptr[tk]][0]<=d){ last[tk]=a[ptr[tk]][1]; ptr[tk]++; } }
+      var un={}, cost={}, out=[];
+      for(var d=start; d<=tnn; d++){
+        (byDay[d]||[]).slice().sort(function(a,b){ return a.t===b.t?0:(a.t==="s"?-1:1); }).forEach(function(x){
+          adv(x.tk,d); var fi=x.tk.indexOf("FI:")===0, u0=un[x.tk]||0, c0=cost[x.tk]||0;
+          if(x.t==="b"){ un[x.tk]=u0+(fi&&last[x.tk]>0?x.q*x.p/last[x.tk]:x.q); cost[x.tk]=c0+x.q*x.p; }
+          else { var fr=u0>0?Math.min(1,(fi&&last[x.tk]>0?x.q*x.p/last[x.tk]:x.q)/u0):1; un[x.tk]=u0*(1-fr); cost[x.tk]=c0*(1-fr); }
+        });
+        var v=0, c=0;
+        Object.keys(un).forEach(function(tk){ if(un[tk]<1e-9) return; adv(tk,d); if(last[tk]>0) v+=un[tk]*last[tk]; c+=cost[tk]; });
+        out.push([d,Math.round(v*100)/100,Math.round(c*100)/100]);
+      }
+      return {pts:out,skipped:Object.keys(skippedTk).length};
+    });
+  }
+  function evoEnsure(){
+    var box=$("evo"); if(!box||!newUi()) return;
+    var info; try{ info=evoInfo(); }catch(e){ return; }
+    var c=evoCache[info.key];
+    if(!info.ev.length){ evoDraw(); return; }
+    if(c&&Date.now()-c.t<EVO_TTL){ evoDraw(); return; }
+    if(evoBusy===info.key||!navigator.onLine){ evoDraw(); return; }
+    evoBusy=info.key; evoErr=""; evoDraw();
+    evoBuild(info).then(function(r){
+      if(r){ var o={}; o[info.key]={t:Date.now(),pts:r.pts,skipped:r.skipped}; evoCache=o; save(LS_EVO,evoCache); }
+      else evoErr="No hay precios históricos suficientes para el gráfico.";
+    }).catch(function(e){ try{ console.error("holdy-evo",e); }catch(x){} evoErr="No se pudo traer el historial para el gráfico."; }).then(function(){ evoBusy=""; evoDraw(); });
+  }
+  function evoDraw(){
+    var box=$("evo"); if(!box) return; box.textContent="";
+    var info; try{ info=evoInfo(); }catch(e){ return; }
+    var c=evoCache[info.key];
+    var hd=el("div","evo-hd"); hd.appendChild(el("div","evo-t","Evolución"));
+    var rg=el("div","evo-r"); [["1M",30],["3M",90],["1A",365],["Todo",0]].forEach(function(o){
+      var b=el("button",evoRange===o[0]?"on":"",o[0]); b.type="button";
+      b.addEventListener("click",function(){ evoRange=o[0]; save(LS_EVOR,evoRange); evoDraw(); }); rg.appendChild(b); });
+    hd.appendChild(rg); box.appendChild(hd);
+    if(!c||!c.pts||c.pts.length<2){
+      if(evoBusy) box.appendChild(el("div","evo-sk skel","."));
+      else box.appendChild(el("div","evo-n",evoErr||(info.ev.length?(navigator.onLine?"Armando el gráfico…":"Sin conexión: el gráfico necesita precios históricos."):"Cargá posiciones con fecha de compra para ver la evolución.")));
+      return;
+    }
+    var days={"1M":30,"3M":90,"1A":365,"Todo":0}[evoRange], tn=dayNum(todayStr());
+    var pts=c.pts.filter(function(p){ return !days||p[0]>=tn-days; }); if(pts.length<2) pts=c.pts.slice(-2);
+    pts=pts.map(function(p){return p.slice();});
+    if(evoLive>0 && pts[pts.length-1][0]===tn && Math.abs(evoLive/pts[pts.length-1][1]-1)<0.05) pts[pts.length-1][1]=evoLive;
+    var W=340,H=150,pad=8, min=Infinity,max=-Infinity;
+    pts.forEach(function(p){ min=Math.min(min,p[1],p[2]); max=Math.max(max,p[1],p[2]); });
+    if(max-min<1e-6){ max=min+1; } var span=max-min; min-=span*.08; max+=span*.08;
+    var x0=pts[0][0], x1=pts[pts.length-1][0], dx=Math.max(1,x1-x0);
+    function X(d){ return (d-x0)/dx*W; } function Y(v){ return pad+(1-(v-min)/(max-min))*(H-2*pad); }
+    var line="", cl="", lastX=0;
+    pts.forEach(function(p,i){ var x=X(p[0]); line+=(i?"L":"M")+x.toFixed(1)+" "+Y(p[1]).toFixed(1); cl+=(i?"L":"M")+x.toFixed(1)+" "+Y(p[2]).toFixed(1); lastX=x; });
+    var area=line+"L"+lastX.toFixed(1)+" "+H+"L0 "+H+"Z";
+    var ns="http://www.w3.org/2000/svg", wrap=el("div","evo-c");
+    var svg=document.createElementNS(ns,"svg"); svg.setAttribute("viewBox","0 0 "+W+" "+H); svg.setAttribute("preserveAspectRatio","none"); svg.setAttribute("role","img"); svg.setAttribute("aria-label","Evolución del valor de tus inversiones");
+    svg.innerHTML='<defs><linearGradient id="evoG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".25"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>'+
+      '<path d="'+area+'" fill="url(#evoG)"/><path d="'+cl+'" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" opacity=".8"/>'+
+      '<path d="'+line+'" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'+
+      '<line id="evoL" x1="0" x2="0" y1="0" y2="'+H+'" stroke="var(--muted)" stroke-width="1" vector-effect="non-scaling-stroke" style="display:none"/>';
+    wrap.appendChild(svg); var tip=el("div","evo-tip"); wrap.appendChild(tip); box.appendChild(wrap);
+    function scrub(ev_){
+      var r=svg.getBoundingClientRect(), f=Math.max(0,Math.min(1,(ev_.clientX-r.left)/r.width)), d=x0+f*dx, bi=0, bd=1e9;
+      pts.forEach(function(p,i){ var q=Math.abs(p[0]-d); if(q<bd){ bd=q; bi=i; } });
+      var p=pts[bi], L=svg.querySelector("#evoL"); L.setAttribute("x1",X(p[0])); L.setAttribute("x2",X(p[0])); L.style.display="";
+      tip.style.display="block"; tip.textContent=dayStr(p[0]).split("-").reverse().join("/")+" · "+(ui.hide?MASK:"US$ "+Math.round(p[1]).toLocaleString("es-AR"))+" · invertido "+(ui.hide?MASK:Math.round(p[2]).toLocaleString("es-AR"));
+      var tw=tip.offsetWidth; tip.style.left=Math.max(0,Math.min(r.width-tw,f*r.width-tw/2))+"px";
+    }
+    function hideTip(){ tip.style.display="none"; svg.querySelector("#evoL").style.display="none"; }
+    svg.addEventListener("pointermove",scrub); svg.addEventListener("pointerdown",scrub); svg.addEventListener("pointerleave",hideTip); svg.addEventListener("pointercancel",hideTip);
+    var n=el("div","evo-n"); var a=el("span"); a.appendChild(el("i")); a.appendChild(document.createTextNode("Valor")); var b=el("span"); b.appendChild(el("i","d")); b.appendChild(document.createTextNode("Invertido")); n.appendChild(a); n.appendChild(b);
+    if(c.skipped) n.appendChild(el("span",null,c.skipped+" sin historial, no entra"));
+    var sk=info.e.skipped; if(sk) n.appendChild(el("span",null,sk+" sin fecha de compra o en pesos, no entra"));
+    box.appendChild(n);
+  }
   function renderSummary(){
     var box=$("summary"); box.textContent="";
     if(!positions.length) return;
@@ -1261,7 +1381,9 @@
       }
       if(g.missing){ card.appendChild(el("div","note",g.missing+" posición(es) sin precio actual: no entran en la ganancia.")); }
       box.appendChild(card);
+      if(ccy==="USD"){ evoLive=g.value; }
     });
+    if(newUi()&&byCcy.USD){ var ev_=el("div","evo"); ev_.id="evo"; box.appendChild(ev_); evoEnsure(); }
   }
 
   function renderTabs(){
@@ -2409,7 +2531,7 @@
     var h=document.documentElement; if(v==="n") h.setAttribute("data-ui","n"); else h.removeAttribute("data-ui");
     if(v==="n" && !document.querySelector('link[href*="Plus+Jakarta"]')){ var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); }
     var m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content",v==="n"?(matchMedia("(prefers-color-scheme:dark)").matches?"#0b0e11":"#f6f7f9"):"#0f766e");
-    syncUi();
+    syncUi(); try{ render(); }catch(e){}
   }
   function syncUi(){ var n=document.documentElement.getAttribute("data-ui")==="n"; $("uiNew").classList.toggle("primary",n); $("uiClassic").classList.toggle("primary",!n); $("uiNew").setAttribute("aria-pressed",String(n)); $("uiClassic").setAttribute("aria-pressed",String(!n)); }
   $("uiNew").addEventListener("click",function(){ applyUi("n"); }); $("uiClassic").addEventListener("click",function(){ applyUi("c"); });
