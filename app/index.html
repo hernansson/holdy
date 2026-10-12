@@ -46,6 +46,7 @@
   }
   header h1{font-size:18px; margin:0; flex:1; min-width:0}
   header button{background:transparent; color:inherit; border:1px solid currentColor; opacity:.95}
+  header .eye svg{width:20px; height:20px} header .eye{color:var(--muted)} header .eye[aria-pressed="true"]{color:var(--brand)}
   header .burger{border:0; padding:6px 8px; min-height:40px; border-radius:10px; display:grid; place-items:center}
   dialog.drawer{margin:0 0 0 auto; width:min(300px,86vw); height:100%; max-height:100%; border:0; border-radius:0; padding:0; box-shadow:-10px 0 40px rgba(0,0,0,.25)}
   dialog.drawer[open]{animation:drawer-in .24s cubic-bezier(.2,.8,.2,1)}
@@ -581,6 +582,7 @@
 <header>
   <h1>Holdy</h1>
   <button type="button" id="profSel" aria-haspopup="dialog" aria-label="Cambiar de perfil"></button>
+  <button type="button" id="btnHide" class="burger eye" aria-pressed="false"></button>
   <button id="btnMenu" class="burger" aria-label="Menú" aria-haspopup="dialog"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </header>
 
@@ -623,7 +625,6 @@
   <div class="toolbar" id="toolbar" hidden>
     <button type="button" id="btnSort" class="tbtn" aria-haspopup="dialog"></button>
     <span class="spacer"></span>
-    <button type="button" id="btnHide" class="tbtn" aria-pressed="false"></button>
   </div></div>
   <section class="list" id="list" aria-label="Posiciones"></section>
   <aside id="dist" aria-label="Distribución"></aside>
@@ -1187,7 +1188,7 @@
     ui.filter="all";
     $("btnHide").setAttribute("aria-pressed",String(ui.hide));
     var eye='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ui.hide?'<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4 9.5 6a14 14 0 0 1-2.6 3.4M6.5 7.6A14 14 0 0 0 2.5 12c1 2 4.5 6 9.5 6 1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>':'<path d="M2.5 12c1-2 4.5-6 9.5-6s8.5 4 9.5 6c-1 2-4.5 6-9.5 6s-8.5-4-9.5-6z"/><circle cx="12" cy="12" r="3"/>')+'</svg>';
-    $("btnHide").innerHTML=eye+"<span>"+(ui.hide?"Mostrar":"Ocultar")+"</span>";
+    $("btnHide").innerHTML=eye;
     $("btnSort").innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg><span></span>';
     $("btnSort").lastChild.textContent=SORTS[ui.sort]||"Mayor valor"; var sl="Ordenar: "+(SORTS[ui.sort]||"Mayor valor"), hl=ui.hide?"Mostrar montos":"Ocultar montos"; $("btnSort").title=sl; $("btnSort").setAttribute("aria-label",sl); $("btnHide").title=hl; $("btnHide").setAttribute("aria-label",hl);
   }
