@@ -7,7 +7,7 @@
 (function(){ try{ var x=JSON.parse(localStorage.getItem("cartera.auth.v1")||"null"); if(!x||!/^[a-f0-9]{64}$/.test(String(x.session||""))){ document.documentElement.style.visibility="hidden"; location.replace("../"); setTimeout(function(){ document.documentElement.style.visibility=""; },3000); } }catch(e){ document.documentElement.style.visibility="hidden"; location.replace("../"); } })();
 </script>
 <script>
-(function(){ try{ var _u=localStorage.getItem("cartera.style.v1"); if(_u===null) _u="m"; if(_u==="n"||_u==="m"){ var h=document.documentElement; h.setAttribute("data-ui",_u); var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); } }catch(e){} })();
+(function(){ try{ document.documentElement.setAttribute("data-ui","m"); var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); }catch(e){} })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Holdy</title>
@@ -875,15 +875,6 @@
         <button type="button" id="acctSync">Sincronizar ahora</button>
       </div>
       <div class="help" id="acctMsg" role="status" aria-live="polite" hidden></div>
-    </div>
-    <div class="sec" id="uiSec">
-      <div class="sec-t">Apariencia</div>
-      <div class="btns split">
-        <button type="button" id="uiClassic">Clásico</button>
-        <button type="button" id="uiNew">Nuevo</button>
-      </div>
-      <div class="btns"><button type="button" id="uiMin" class="wide">Compacto (todo en el menor espacio)</button></div>
-      <div class="help">"Nuevo" es un estilo más limpio, con el número total más grande. Podés volver a "Clásico" cuando quieras.</div>
     </div>
     <div class="sec" id="backupSec">
       <div class="sec-t">Copia de seguridad</div>
@@ -2603,17 +2594,6 @@
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
   // ---------- Ajustes ----------
-  // Estilo visual: "c" clásico (por defecto) o "n" nuevo.
-  function applyUi(v){
-    try{ localStorage.setItem("cartera.style.v1",v); }catch(e){}
-    var h=document.documentElement; if(v==="n"||v==="m") h.setAttribute("data-ui",v); else h.removeAttribute("data-ui");
-    if((v==="n"||v==="m") && !document.querySelector('link[href*="Plus+Jakarta"]')){ var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); }
-    var m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content",(v==="n"||v==="m")?(matchMedia("(prefers-color-scheme:dark)").matches?"#0b0e11":"#f6f7f9"):"#0f766e");
-    syncUi(); try{ render(); }catch(e){}
-  }
-  function syncUi(){ var u=document.documentElement.getAttribute("data-ui")||"c"; [["uiClassic","c"],["uiNew","n"],["uiMin","m"]].forEach(function(x){ $(x[0]).classList.toggle("primary",u===x[1]); $(x[0]).setAttribute("aria-pressed",String(u===x[1])); }); }
-  $("uiNew").addEventListener("click",function(){ applyUi("n"); }); $("uiClassic").addEventListener("click",function(){ applyUi("c"); }); $("uiMin").addEventListener("click",function(){ applyUi("m"); });
-  syncUi();
   function openSettings(){ renderAccount(); mountGoogleButton(); dlgSet.showModal(); }
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
   $("sClose").addEventListener("click",function(){ dlgSet.close(); });
