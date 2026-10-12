@@ -121,6 +121,25 @@
   html[data-ui="m"] .acc-gn{font-size:12.5px}
   html[data-ui="m"] .acc-val{font-size:14px; font-weight:600; min-width:84px; text-align:right}
   html[data-ui="m"] details.acc[open]{border-radius:10px}
+  /* Compacto en celular: el detalle de cada posición como lista simple */
+  @media (max-width:699px){
+    html[data-ui="m"] .acc-body{padding:2px 6px 8px; border-top:0}
+    html[data-ui="m"] .dwrap{gap:0; padding-top:0}
+    html[data-ui="m"] .dtiles{display:block}
+    html[data-ui="m"] .dtile{background:transparent; border-radius:0; padding:6px 0; flex-direction:row; justify-content:space-between; align-items:baseline; border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+    html[data-ui="m"] .dtile .k,html[data-ui="m"] .pair .k{font-size:13px; color:var(--muted); font-weight:500}
+    html[data-ui="m"] .dtile .v{font-size:13.5px; font-weight:700}
+    html[data-ui="m"] .pgrid{display:block}
+    html[data-ui="m"] .pair{flex-direction:row; justify-content:space-between; align-items:baseline; gap:12px; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+    html[data-ui="m"] .pair .v{font-size:13.5px; font-weight:600; text-align:right}
+    html[data-ui="m"] .pair small{display:block; text-align:right; font-size:11px}
+    html[data-ui="m"] .pgrid .dsec-t{padding:12px 0 2px; border-top:0; font-size:11px; margin:0}
+    html[data-ui="m"] .lotlist{margin-top:6px; padding-top:4px}
+    html[data-ui="m"] .lotline{font-size:12.5px}
+    html[data-ui="m"] .acc-body .help,html[data-ui="m"] .acc-body .note,html[data-ui="m"] .acc-body .dnote{font-size:11.5px; margin-top:6px}
+    html[data-ui="m"] .row-actions{margin-top:8px; gap:6px}
+    html[data-ui="m"] .row-actions button{min-height:30px; padding:0 12px; font-size:12.5px; background:transparent}
+  }
   /* Evolución de la cartera (solo estilo Nuevo) */
   .evo{display:none}
   html[data-ui="n"] .evo{display:block; margin:6px 0 4px; grid-column:1/-1}
