@@ -83,7 +83,7 @@
   html[data-ui="m"] header .burger{border:0; background:transparent}
   html[data-ui="m"] header #profSel{background:var(--card); color:var(--text); border:1px solid var(--line); box-shadow:none}
   html[data-ui="m"] header #profSel .pav{color:var(--brand-ink)}
-  html[data-ui="m"] .tabs{background:transparent; gap:8px; padding:0; margin:20px 0 12px}
+  html[data-ui="m"] .tabs{background:transparent; gap:8px; padding:0; margin:0}
   html[data-ui="m"] .tabs button{background:var(--chip); border-radius:999px; min-height:38px; color:var(--muted)}
   html[data-ui="m"] .tabs button.on{background:var(--brand); color:var(--brand-ink); box-shadow:none}
   html[data-ui="m"] details.acc{background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0; box-shadow:none}
@@ -107,9 +107,9 @@
     html[data-ui="m"] .big,html[data-ui="m"] .sum-main .big{font-size:30px; font-weight:800; letter-spacing:-.03em}
     html[data-ui="m"] .gain-line{margin-top:6px; font-size:14px}
     html[data-ui="m"] .summary{margin-bottom:16px}
-    html[data-ui="m"] .tabs{margin:18px 0 10px; gap:6px}
+    html[data-ui="m"] .tbar{margin:18px 0 10px} html[data-ui="m"] .tabs{margin:0; gap:6px}
     html[data-ui="m"] .tabs button{min-height:30px; font-size:13px}
-    html[data-ui="m"] .toolbar{margin:0 0 10px}
+    html[data-ui="m"] .toolbar{margin:0; gap:6px}
     html[data-ui="m"] .toolbar button{min-height:30px; padding:0 10px; font-size:12.5px}
     html[data-ui="m"] details.acc>summary{min-height:38px!important; padding:3px 4px!important; gap:4px!important}
     html[data-ui="m"] .acc-l .tick{font-size:15px; font-weight:700}
@@ -361,6 +361,9 @@
   .btns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
   .help{font-size:12px; color:var(--muted)}
   a{color:var(--brand)}
+  .tbar{display:flex; align-items:center; gap:10px; margin:18px 0 12px}
+  .tbar .tabs{flex:1; margin:0; min-width:0}
+  .tbar .toolbar{margin:0}
   .toolbar{display:flex; gap:8px; align-items:center; margin:2px 0 14px}
   .tbtn{display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 13px; border-radius:999px; font-size:13px; font-weight:500; background:var(--card); border:1px solid var(--line); color:var(--text); box-shadow:none}
   .tbtn svg{flex:0 0 auto; color:var(--muted)}
@@ -369,7 +372,8 @@
   .chips{display:flex; gap:6px}
   .toolbar .sortlbl{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted)}
   .toolbar select{width:auto; min-height:36px; padding:6px 10px}
-  .toolbar .spacer{flex:1}
+  .toolbar .spacer{display:none}
+  @media (max-width:1099px){ .tbtn{width:38px; min-height:38px; padding:0; justify-content:center; font-size:0; gap:0} .tbtn span{display:none} html[data-ui="m"] .toolbar button{width:34px; min-height:34px; padding:0} html[data-ui="m"] .tabs button{min-height:34px} }
   .sub{font-size:13px; margin-top:2px}
   .mig-block{margin-top:10px; padding-top:8px; border-top:1px solid var(--line)}
   .progress{height:8px; border-radius:999px; background:var(--chip); overflow:hidden; margin-top:6px}
@@ -475,12 +479,12 @@
   @media (min-width:1100px){
     body{background:var(--bg)}
     main{max-width:1380px; padding:28px 36px 100px; display:grid; grid-template-columns:minmax(0,1fr); align-items:start;
-      grid-template-areas:"ban" "no1" "no2" "pb" "st" "sum" "tabs" "tb" "list" "sold" "dist"}
+      grid-template-areas:"ban" "no1" "no2" "pb" "st" "sum" "tabs" "list" "sold" "dist"}
     main>#banners{grid-area:ban} main>#notice{grid-area:no1} main>#notice2{grid-area:no2}
     main>#profbar{grid-area:pb} main>#status{grid-area:st}
     main>#summary{grid-area:sum; margin-bottom:8px}
-    main>#tabs{grid-area:tabs; margin:14px 0 12px; max-width:420px}
-    main>#toolbar{grid-area:tb; margin-bottom:10px} main>#list{grid-area:list; padding-bottom:0} main>#soldBox{grid-area:sold}
+    main>#tbar{grid-area:tabs; margin:14px 0 12px} #tbar .tabs{flex:0 1 420px} #tbar .toolbar{margin-left:auto}
+    main>#list{grid-area:list; padding-bottom:0} main>#soldBox{grid-area:sold}
     main>#dist{grid-area:dist; display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:18px}
     .scr,#cmpView{max-width:1380px}
     .fab{right:36px; bottom:32px}
@@ -548,11 +552,11 @@
   /* ---- Tablet / Fold abierto (700–1099px): dos columnas ---- */
   @media (min-width:700px) and (max-width:1099px){
     main{max-width:1060px; padding:20px 20px 100px; display:grid; grid-template-columns:minmax(300px,360px) minmax(0,1fr); column-gap:20px; align-items:start;
-      grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum tabs" "sum tb" "sum list" "dist list" "dist sold"; grid-template-rows:repeat(8,auto) 1fr auto}
+      grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum tabs" "sum list" "dist list" "dist sold"; grid-template-rows:repeat(7,auto) 1fr auto}
     main>#banners{grid-area:ban} main>#notice{grid-area:no1} main>#notice2{grid-area:no2}
     main>#profbar{grid-area:pb} main>#status{grid-area:st}
     main>#summary{grid-area:sum; margin:0 0 14px}
-    main>#tabs{grid-area:tabs; margin:0 0 12px} main>#toolbar{grid-area:tb; margin-bottom:10px}
+    main>#tbar{grid-area:tabs; margin:0 0 12px}
     main>#list{grid-area:list} main>#soldBox{grid-area:sold}
     main>#dist{grid-area:dist; display:grid; grid-template-columns:1fr; gap:14px; align-self:start}
     .summary{grid-template-columns:1fr}
@@ -615,12 +619,12 @@
   </div>
   <div class="status" id="status" role="status" aria-live="polite">Sin actualizar todavía.</div>
   <section class="summary" id="summary" aria-label="Resumen"></section>
-  <div class="tabs" id="tabs" role="tablist" hidden></div>
+  <div class="tbar" id="tbar"><div class="tabs" id="tabs" role="tablist" hidden></div>
   <div class="toolbar" id="toolbar" hidden>
     <button type="button" id="btnSort" class="tbtn" aria-haspopup="dialog"></button>
     <span class="spacer"></span>
     <button type="button" id="btnHide" class="tbtn" aria-pressed="false"></button>
-  </div>
+  </div></div>
   <section class="list" id="list" aria-label="Posiciones"></section>
   <aside id="dist" aria-label="Distribución"></aside>
   <div id="soldBox"></div>
@@ -1185,7 +1189,7 @@
     var eye='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ui.hide?'<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4 9.5 6a14 14 0 0 1-2.6 3.4M6.5 7.6A14 14 0 0 0 2.5 12c1 2 4.5 6 9.5 6 1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>':'<path d="M2.5 12c1-2 4.5-6 9.5-6s8.5 4 9.5 6c-1 2-4.5 6-9.5 6s-8.5-4-9.5-6z"/><circle cx="12" cy="12" r="3"/>')+'</svg>';
     $("btnHide").innerHTML=eye+"<span>"+(ui.hide?"Mostrar":"Ocultar")+"</span>";
     $("btnSort").innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg><span></span>';
-    $("btnSort").lastChild.textContent=SORTS[ui.sort]||"Mayor valor";
+    $("btnSort").lastChild.textContent=SORTS[ui.sort]||"Mayor valor"; var sl="Ordenar: "+(SORTS[ui.sort]||"Mayor valor"), hl=ui.hide?"Mostrar montos":"Ocultar montos"; $("btnSort").title=sl; $("btnSort").setAttribute("aria-label",sl); $("btnHide").title=hl; $("btnHide").setAttribute("aria-label",hl);
   }
 
   function renderProfile(){
