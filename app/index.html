@@ -134,9 +134,14 @@
     html[data-ui="m"] .dtile{background:transparent; border-radius:0; padding:0; gap:1px}
     html[data-ui="m"] .dtile .k,html[data-ui="m"] .pair .k{font-size:11.5px; color:var(--muted); font-weight:500}
     html[data-ui="m"] .dtile .v{font-size:19px; font-weight:800; letter-spacing:-.01em}
-    html[data-ui="m"] .pgrid{grid-template-columns:1fr 1fr; gap:12px 12px}
+    html[data-ui="m"] .pgrid{grid-template-columns:1fr 1fr; gap:12px 12px; padding-top:0}
     html[data-ui="m"] .pair .v{font-size:14.5px; font-weight:600}
     html[data-ui="m"] .pair small{font-size:11px}
+    html[data-ui="m"] .pair[data-k="Peso en la cartera"]{display:none}
+    html[data-ui="m"] .pair[data-k^="Precio de compra"],html[data-ui="m"] .pair[data-k^="Precio promedio"]{order:-2}
+    html[data-ui="m"] .pair[data-k="Precio actual"],html[data-ui="m"] .pair[data-k^="Precio de mercado"],html[data-ui="m"] .pair[data-k^="Valor a la par"]{order:-1}
+    html[data-ui="m"] .pair[data-k^="Precio"],html[data-ui="m"] .pair[data-k^="Valor a la par"]{padding-bottom:12px; border-bottom:1px solid var(--line)}
+    html[data-ui="m"] .pair[data-k^="Precio"] .v,html[data-ui="m"] .pair[data-k^="Valor a la par"] .v{font-size:17px; font-weight:700}
     html[data-ui="m"] .pgrid .dsec-t{grid-column:1/-1; font-size:11px; padding-top:10px; margin-top:2px}
     html[data-ui="m"] .lotlist{margin-top:10px}
     html[data-ui="m"] .row-actions{margin-top:12px; gap:8px}
@@ -1631,7 +1636,7 @@
       tile("Valor actual",value===null?"—":mR(value,p.ccy));
       g.appendChild(tiles);
       var pg=el("div","pgrid");
-      function pair(k,v,c,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
+      function pair(k,v,c,sub){ var d=el("div","pair"); d.setAttribute("data-k",k); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
       var cm_=cedMeta(p);
       if(cm_) pair("CEDEARs",qq(cm_.lots.reduce(function(a,l){return a+l.q;},0)),"","1 acción = "+qq(cm_.r)+" CEDEARs · "+qq(p.qty)+" acciones");
       else pair("Cantidad",qq(p.qty));
