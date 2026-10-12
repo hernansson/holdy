@@ -119,24 +119,24 @@
   }
   /* Detalle de cada posición: tipografía chica, recuadros y grilla de columnas (todos los anchos) */
   @media all{
-    html[data-ui="m"] .acc-body{padding:0 4px 8px; border-top:0}
-    html[data-ui="m"] .dwrap{gap:10px; padding-top:2px}
-    html[data-ui="m"] .dtiles{grid-template-columns:1fr 1fr; gap:8px}
-    html[data-ui="m"] .dtile{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:7px 11px; gap:0}
-    html[data-ui="m"] .dtile .k,html[data-ui="m"] .pair .k{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600}
-    html[data-ui="m"] .dtile .v{font-size:16px; font-weight:700; letter-spacing:-.01em}
-    html[data-ui="m"] .pgrid{grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 8px; padding:0 2px}
-    html[data-ui="m"] .pair{gap:1px}
-    html[data-ui="m"] .pair .v{font-size:13px; font-weight:600}
-    html[data-ui="m"] .pair small{font-size:10px; line-height:1.25}
+    html[data-ui="m"] .acc-body{padding:2px 6px 14px; border-top:0}
+    html[data-ui="m"] .dwrap{gap:18px; padding-top:6px}
+    html[data-ui="m"] .dtiles{grid-template-columns:1fr 1fr; gap:10px}
+    html[data-ui="m"] .dtile{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; gap:4px}
+    html[data-ui="m"] .dtile .k,html[data-ui="m"] .pair .k{font-size:12px; letter-spacing:0; text-transform:none; color:var(--muted); font-weight:500}
+    html[data-ui="m"] .dtile .v{font-size:18px; font-weight:700; letter-spacing:-.01em}
+    html[data-ui="m"] .pgrid{grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 16px; padding:0 4px}
+    html[data-ui="m"] .pair{gap:3px}
+    html[data-ui="m"] .pair .v{font-size:15px; font-weight:600}
+    html[data-ui="m"] .pair small{font-size:11.5px; line-height:1.3}
     html[data-ui="m"] .pair[data-k="Peso en la cartera"]{display:none}
     html[data-ui="m"] .pair[data-k^="Precio de compra"],html[data-ui="m"] .pair[data-k^="Precio promedio"]{order:-3}
     html[data-ui="m"] .pair[data-k="Precio actual"],html[data-ui="m"] .pair[data-k^="Precio de mercado"],html[data-ui="m"] .pair[data-k^="Valor a la par"]{order:-2}
     html[data-ui="m"] .pair[data-k="Cantidad"],html[data-ui="m"] .pair[data-k="CEDEARs"]{order:-1}
-    html[data-ui="m"] .pgrid .dsec-t{grid-column:1/-1; font-size:10px; padding-top:8px; margin-top:0; border-top:1px solid var(--line)}
-    html[data-ui="m"] .lotlist{margin-top:6px}
-    html[data-ui="m"] .row-actions{margin-top:8px; gap:8px}
-    html[data-ui="m"] .row-actions button{min-height:28px; padding:0 12px; font-size:12px; background:transparent}
+    html[data-ui="m"] .pgrid .dsec-t{grid-column:1/-1; font-size:11.5px; padding-top:16px; margin-top:2px; border-top:1px solid var(--line)}
+    html[data-ui="m"] .lotlist{margin-top:10px}
+    html[data-ui="m"] .row-actions{margin-top:16px; gap:10px}
+    html[data-ui="m"] .row-actions button{min-height:36px; padding:0 16px; font-size:13px; background:transparent}
   }
   @media (max-width:699px){
     /* Gráfico de evolución, versión compacta */
@@ -526,10 +526,10 @@
     .dtiles{grid-template-columns:1fr}
     .pgrid{grid-template-columns:repeat(4,minmax(0,1fr))}
     /* detalle en desktop: recuadros al lado y sin repetir lo que ya está en la fila */
-    html[data-ui="m"] .acc-body{padding:2px 20px 14px}
-    html[data-ui="m"] .dwrap{grid-template-columns:auto 1fr; gap:28px; align-items:start; padding-top:8px}
+    html[data-ui="m"] .acc-body{padding:6px 20px 20px}
+    html[data-ui="m"] .dwrap{grid-template-columns:auto 1fr; gap:32px; align-items:start; padding-top:10px}
     html[data-ui="m"] .dtiles{grid-template-columns:repeat(2,minmax(170px,1fr)); gap:10px}
-    html[data-ui="m"] .pgrid{grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px 24px}
+    html[data-ui="m"] .pgrid{grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px 28px}
     html[data-ui="m"] .pair[data-k="Cantidad"],html[data-ui="m"] .pair[data-k="Broker"],html[data-ui="m"] .pair[data-k="Precio actual"],html[data-ui="m"] .pair[data-k^="Precio de compra"],html[data-ui="m"] .pair[data-k^="Precio promedio"],html[data-ui="m"] .pair[data-k^="Precio de mercado"]{display:none}
     /* distribución */
     .dist-b{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:18px 20px 20px; display:grid; gap:12px}
