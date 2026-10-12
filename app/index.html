@@ -1116,12 +1116,12 @@
     var nn=p.fi.n||2, step=12/nn, ds=[], k=0, d, first=Infinity; ls.forEach(function(l){ var n=dayNum(l.d); if(n<first) first=n; });
     while((d=fiMonthsBack(p.fi.m,k*step))>first){ ds.push(d); k++; }
     ds.sort(function(a,b){return a-b;});
-    var total=0, next=null, paid=0;
+    var total=0, next=null, paid=0, list=[];
     ds.forEach(function(dd){
       var q=0; ls.forEach(function(l){ if(dayNum(l.d)<dd) q+=l.q; });
-      if(dd<=tn){ total+=q*p.fi.c/(100*nn); paid++; } else if(next===null) next=dd;
+      if(dd<=tn){ total+=q*p.fi.c/(100*nn); paid++; list.push([dayStr(dd),q*p.fi.c/(100*nn)]); } else if(next===null) next=dd;
     });
-    return {total:total,paid:paid,next:next,per:ls.reduce(function(a,l){return a+l.q;},0)*p.fi.c/(100*nn)};
+    return {total:total,paid:paid,list:list,next:next,per:ls.reduce(function(a,l){return a+l.q;},0)*p.fi.c/(100*nn)};
   }
   function currentPrice(p){
     if(p.fi) return fiPrice(p);
@@ -2247,7 +2247,8 @@
       if(p.fi){
         var fr=p.fi.r;
         key="FI:"+p.ticker+":"+fr+":"+(fr===p.fi.r?(p.fi.m||""):"");
-        fis[key]={r:fr,m:fr===p.fi.r?(p.fi.m||""):""};
+        var qn=ls.reduce(function(a,l){return a+l.q;},0)||1, cl=p.fi.cp||((typeof fiCoupons==="function"&&fiCoupons(p))||{}).list||[], pn=(typeof currentPrice==="function")?currentPrice(p):null;
+        fis[key]={r:fr,m:fr===p.fi.r?(p.fi.m||""):"",pn:(pn>0?pn:null),cps:cl.map(function(x){ return [x[0],x[1]/qn]; })};
       }
       ls.forEach(function(l){ ev.push({d:l.d,tk:key,q:l.q,p:l.b,t:"b"}); });
       if(closed) ev.push({d:p.sold.d,tk:key,q:p.qty,p:p.sold.p,t:"s"});
@@ -2395,13 +2396,20 @@
         if(my!==cmpRun) return;
         var hist={}, missing=[];
         Object.keys(j.data||{}).forEach(function(tk){ var h=j.data[tk]; if(h&&h.currency==="USD"&&Array.isArray(h.pts)&&h.pts.length>1) hist[tk]=h; else if(tk!=="SPY") missing.push(tk); });
-        // Renta fija: curva sintética que crece a su rendimiento anual (con cupones incluidos), hasta el vencimiento.
+        // Renta fija: el precio va de lo que pagaste al de hoy y cada cupón suma en la fecha en que se cobra.
         var tnn=dayNum(todayStr());
         Object.keys(fiMap).forEach(function(k){
           var d0=Infinity; ents.forEach(function(x){ if(!x.spy) x.e.ev.forEach(function(e){ if(e.tk===k){ var n=dayNum(e.d); if(n<d0) d0=n; } }); });
           if(!isFinite(d0)) return;
-          var f=fiMap[k], cap=f.m?dayNum(f.m):1e9, pts=[];
-          for(var dd=d0; dd<=tnn; dd++){ var v=Math.round(100*Math.pow(1+f.r/100,(Math.min(dd,cap)-d0)/365)*1e6)/1e6; pts.push([dayStr(dd),v,v]); }
+          var f=fiMap[k], pts=[], b0=null;
+          ents.forEach(function(x){ if(!x.spy) x.e.ev.forEach(function(e){ if(e.tk===k && dayNum(e.d)===d0 && b0===null) b0=e.p; }); });
+          var pn=f.pn>0?f.pn:b0, span=Math.max(1,tnn-d0), cps=(f.cps||[]).map(function(c){ return [dayNum(c[0]),c[1]]; }), ci=0, cum=0;
+          cps.sort(function(a,b){ return a[0]-b[0]; });
+          // Precio: de lo que pagaste al valor de hoy. Cupones: suman en la fecha en que se cobran.
+          for(var dd=d0; dd<=tnn; dd++){
+            while(ci<cps.length && cps[ci][0]<=dd){ if(cps[ci][0]>=d0) cum+=cps[ci][1]; ci++; }
+            var v=Math.round((b0+(pn-b0)*(dd-d0)/span+cum)*1e6)/1e6; pts.push([dayStr(dd),v,v]);
+          }
           if(pts.length>1) hist[k]={currency:"USD",pts:pts};
         });
         buildCompare(ents,hist,missing);
@@ -2425,7 +2433,7 @@
     var real=ents.filter(function(x){return !x.spy;});
     var hasFi=real.some(function(x){ return Object.keys(x.e.fis).length>0; });
     var TR=Object.keys(hist).some(function(tk){ return tk.indexOf("FI:")!==0 && hist[tk].pts[0].length>2; });
-    st.textContent="Rendimiento ponderado por tiempo"+(TR?", con dividendos reinvertidos":"")+": no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"")+(hasFi?" La renta fija entra con su rendimiento estimado.":"");
+    st.textContent="Rendimiento ponderado por tiempo"+(TR?", con dividendos reinvertidos":"")+": no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"")+(hasFi?" En la renta fija el precio va de lo que pagaste al de hoy (no tengo el historial) y cada cupón suma el día que se cobra.":"");
     var hasCash=real.some(function(x){ return x.e.ev.some(function(e){ return e.t==="s"||e.t==="c"; }); });
     if(hasCash){
       var cc=el("div","cmpchips"); cc.id="cmpCashChips"; body.appendChild(cc);
