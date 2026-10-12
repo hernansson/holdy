@@ -7,7 +7,7 @@
 (function(){ try{ var x=JSON.parse(localStorage.getItem("cartera.auth.v1")||"null"); if(!x||!/^[a-f0-9]{64}$/.test(String(x.session||""))){ document.documentElement.style.visibility="hidden"; location.replace("../"); setTimeout(function(){ document.documentElement.style.visibility=""; },3000); } }catch(e){ document.documentElement.style.visibility="hidden"; location.replace("../"); } })();
 </script>
 <script>
-(function(){ try{ var _u=localStorage.getItem("cartera.style.v1"); if(_u==="n"||_u==="m"){ var h=document.documentElement; h.setAttribute("data-ui",_u); var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); } }catch(e){} })();
+(function(){ try{ var _u=localStorage.getItem("cartera.style.v1"); if(_u===null) _u="m"; if(_u==="n"||_u==="m"){ var h=document.documentElement; h.setAttribute("data-ui",_u); var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); } }catch(e){} })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Holdy</title>
@@ -100,56 +100,65 @@
     html:is([data-ui="n"],[data-ui="m"]) .list{gap:0}
   }
   /* ---- Estilo "Compacto": todo en el menor espacio ---- */
-  html[data-ui="m"] .evo{display:none!important}
-  html[data-ui="m"] header{padding-top:calc(6px + env(safe-area-inset-top)); padding-bottom:6px}
-  html[data-ui="m"] header h1{font-size:17px}
-  html[data-ui="m"] main{padding:14px 14px}
-  html[data-ui="m"] .status{display:none}
-  html[data-ui="m"] .sum-card h2{display:none}
-  html[data-ui="m"] .sum-card{position:relative}
-  html[data-ui="m"] .sum-hd{position:absolute; top:6px; right:2px; margin:0}
-  html[data-ui="m"] .sum-main{margin-top:8px}
-  html[data-ui="m"] .big,html[data-ui="m"] .sum-main .big{font-size:30px; font-weight:800; letter-spacing:-.03em}
-  html[data-ui="m"] .gain-line{margin-top:6px; font-size:14px}
-  html[data-ui="m"] .summary{margin-bottom:16px}
-  html[data-ui="m"] .tabs{margin:18px 0 10px; gap:6px}
-  html[data-ui="m"] .tabs button{min-height:30px; font-size:13px}
-  html[data-ui="m"] .toolbar{margin:0 0 10px}
-  html[data-ui="m"] .toolbar button{min-height:30px; padding:0 10px; font-size:12.5px}
-  html[data-ui="m"] details.acc>summary{min-height:38px!important; padding:3px 4px!important; gap:4px!important}
-  html[data-ui="m"] .acc-l .tick{font-size:15px; font-weight:700}
-  html[data-ui="m"] .acc-gn{font-size:12.5px}
-  html[data-ui="m"] .acc-val{font-size:14px; font-weight:600; min-width:84px; text-align:right}
-  html[data-ui="m"] details.acc[open]{border-radius:10px}
-  .dmin{display:none}
-  .dmin .dm1{font-size:15px; font-weight:700}
-  .dmin .dm2{font-size:13.5px; margin-top:4px}
-  .dmin .dm3{font-size:12px; color:var(--muted); margin-top:4px; line-height:1.4}
-  /* Compacto en celular: detalle de cada posición, como el original pero más ordenado */
+  @media (max-width:699px){
+    html[data-ui="m"] header{padding-top:calc(6px + env(safe-area-inset-top)); padding-bottom:6px}
+    html[data-ui="m"] header h1{font-size:17px}
+    html[data-ui="m"] main{padding:14px 14px}
+    html[data-ui="m"] .status{display:none}
+    html[data-ui="m"] .sum-card h2{display:none}
+    html[data-ui="m"] .sum-card{position:relative}
+    html[data-ui="m"] .sum-hd{position:absolute; top:6px; right:2px; margin:0}
+    html[data-ui="m"] .sum-main{margin-top:8px}
+    html[data-ui="m"] .big,html[data-ui="m"] .sum-main .big{font-size:30px; font-weight:800; letter-spacing:-.03em}
+    html[data-ui="m"] .gain-line{margin-top:6px; font-size:14px}
+    html[data-ui="m"] .summary{margin-bottom:16px}
+    html[data-ui="m"] .tabs{margin:18px 0 10px; gap:6px}
+    html[data-ui="m"] .tabs button{min-height:30px; font-size:13px}
+    html[data-ui="m"] .toolbar{margin:0 0 10px}
+    html[data-ui="m"] .toolbar button{min-height:30px; padding:0 10px; font-size:12.5px}
+    html[data-ui="m"] details.acc>summary{min-height:38px!important; padding:3px 4px!important; gap:4px!important}
+    html[data-ui="m"] .acc-l .tick{font-size:15px; font-weight:700}
+    html[data-ui="m"] .acc-gn{font-size:12.5px}
+    html[data-ui="m"] .acc-val{font-size:14px; font-weight:600; min-width:84px; text-align:right}
+    html[data-ui="m"] details.acc[open]{border-radius:10px}
+    .dmin{display:none}
+    .dmin .dm1{font-size:15px; font-weight:700}
+    .dmin .dm2{font-size:13.5px; margin-top:4px}
+    .dmin .dm3{font-size:12px; color:var(--muted); margin-top:4px; line-height:1.4}
+  }
+  /* Compacto en celular: detalle de cada posición, chico y ordenado */
   @media (max-width:699px){
     html[data-ui="m"] .dmin{display:none!important}
-    html[data-ui="m"] .acc-body{padding:2px 6px 10px; border-top:0}
-    html[data-ui="m"] .dwrap{gap:16px; padding-top:8px}
-    html[data-ui="m"] .dtiles{grid-template-columns:1fr 1fr; gap:10px}
-    html[data-ui="m"] .dtile{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; gap:3px}
-    html[data-ui="m"] .dtile .k,html[data-ui="m"] .pair .k{font-size:11.5px; color:var(--muted); font-weight:500}
-    html[data-ui="m"] .dtile .v{font-size:20px; font-weight:800; letter-spacing:-.015em}
-    html[data-ui="m"] .pgrid{grid-template-columns:1fr 1fr; gap:12px 12px; padding-top:0}
-    html[data-ui="m"] .pair .v{font-size:14.5px; font-weight:600}
-    html[data-ui="m"] .pair small{font-size:11px}
+    html[data-ui="m"] .acc-body{padding:0 4px 8px; border-top:0}
+    html[data-ui="m"] .dwrap{gap:10px; padding-top:4px}
+    html[data-ui="m"] .dtiles{grid-template-columns:1fr 1fr; gap:8px}
+    html[data-ui="m"] .dtile{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 12px; gap:1px}
+    html[data-ui="m"] .dtile .k,html[data-ui="m"] .pair .k{font-size:11px; color:var(--muted); font-weight:500}
+    html[data-ui="m"] .dtile .v{font-size:17px; font-weight:800; letter-spacing:-.01em}
+    html[data-ui="m"] .pgrid{grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px 8px; padding-top:0}
+    html[data-ui="m"] .pair{grid-column:span 2; gap:0}
+    html[data-ui="m"] .pair .v{font-size:13.5px; font-weight:600}
+    html[data-ui="m"] .pair small{font-size:10.5px}
     html[data-ui="m"] .pair[data-k="Peso en la cartera"]{display:none}
+    html[data-ui="m"] .pair[data-k^="Precio"],html[data-ui="m"] .pair[data-k^="Valor a la par"],html[data-ui="m"] .pair[data-k="Vencimiento"],html[data-ui="m"] .pair[data-k^="Rendimiento"],html[data-ui="m"] .pair[data-k^="Cupones"],html[data-ui="m"] .pair[data-k^="Próximo"]{grid-column:span 3}
     html[data-ui="m"] .pair[data-k^="Precio de compra"],html[data-ui="m"] .pair[data-k^="Precio promedio"]{order:-2}
     html[data-ui="m"] .pair[data-k="Precio actual"],html[data-ui="m"] .pair[data-k^="Precio de mercado"],html[data-ui="m"] .pair[data-k^="Valor a la par"]{order:-1}
-    html[data-ui="m"] .pair[data-k^="Precio"],html[data-ui="m"] .pair[data-k^="Valor a la par"]{padding-bottom:12px; border-bottom:1px solid var(--line)}
-    html[data-ui="m"] .pair[data-k^="Precio"] .v,html[data-ui="m"] .pair[data-k^="Valor a la par"] .v{font-size:17px; font-weight:700}
-    html[data-ui="m"] .pgrid .dsec-t{grid-column:1/-1; font-size:11px; padding-top:10px; margin-top:2px}
-    html[data-ui="m"] .lotlist{margin-top:10px}
-    html[data-ui="m"] .row-actions{margin-top:12px; gap:8px}
-    html[data-ui="m"] .row-actions button{min-height:32px; padding:0 14px; font-size:13px; background:transparent}
+    html[data-ui="m"] .pair[data-k^="Precio"],html[data-ui="m"] .pair[data-k^="Valor a la par"]{padding-bottom:8px; border-bottom:1px solid var(--line)}
+    html[data-ui="m"] .pair[data-k^="Precio"] .v,html[data-ui="m"] .pair[data-k^="Valor a la par"] .v{font-size:15px; font-weight:700}
+    html[data-ui="m"] .pgrid .dsec-t{grid-column:1/-1; font-size:10.5px; padding-top:6px; margin-top:0}
+    html[data-ui="m"] .lotlist{margin-top:6px}
+    html[data-ui="m"] .row-actions{margin-top:8px; gap:8px}
+    html[data-ui="m"] .row-actions button{min-height:30px; padding:0 12px; font-size:12.5px; background:transparent}
+    /* Gráfico de evolución, versión compacta */
+    html[data-ui="m"] .evo{margin:0 0 6px}
+    html[data-ui="m"] .evo-c svg{height:96px}
+    html[data-ui="m"] .evo-hd{margin-bottom:2px}
+    html[data-ui="m"] .evo-n{margin-top:2px}
   }
+  @media (min-width:700px){ html[data-ui="m"] .evo{display:block; margin:6px 0 4px; grid-column:1/-1} html[data-ui="m"] .summary>.sum-card{grid-column:1/-1} }
   /* Evolución de la cartera (solo estilo Nuevo) */
   .evo{display:none}
-  html[data-ui="n"] .evo{display:block; margin:6px 0 4px; grid-column:1/-1}
+  html:is([data-ui="n"],[data-ui="m"]) .evo{display:block; margin:6px 0 4px; grid-column:1/-1}
   html[data-ui="n"] .summary>.sum-card{grid-column:1/-1}
   .evo-hd{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px}
   .evo-t{font-size:13px; font-weight:600; color:var(--muted)}
@@ -1252,7 +1261,7 @@
   var sumOpen={};
 
   // ---------- Evolución de la cartera ----------
-  function newUi(){ return document.documentElement.getAttribute("data-ui")==="n"; }
+  function newUi(){ var u=document.documentElement.getAttribute("data-ui"); return u==="n"||u==="m"; }
   var LS_EVO="cartera.evo.v1", LS_EVOR="cartera.evoR.v1", evoCache=load(LS_EVO,{}), evoRange=load(LS_EVOR,"3M"), evoBusy="", evoErr="", evoLive=null;
   var EVO_TTL=6*3600*1000;
   function hashStr(t){ var h=5381; for(var i=0;i<t.length;i++) h=((h<<5)+h+t.charCodeAt(i))|0; return String(h>>>0); }
