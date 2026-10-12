@@ -117,8 +117,8 @@
     html[data-ui="m"] .acc-val{font-size:14px; font-weight:600; min-width:84px; text-align:right}
     html[data-ui="m"] details.acc[open]{border-radius:10px}
   }
-  /* Compacto en celular: detalle de cada posición, tipografía chica y tres columnas */
-  @media (max-width:699px){
+  /* Detalle de cada posición: tipografía chica, recuadros y grilla de columnas (todos los anchos) */
+  @media all{
     html[data-ui="m"] .acc-body{padding:0 4px 8px; border-top:0}
     html[data-ui="m"] .dwrap{gap:10px; padding-top:2px}
     html[data-ui="m"] .dtiles{grid-template-columns:1fr 1fr; gap:8px}
@@ -137,6 +137,8 @@
     html[data-ui="m"] .lotlist{margin-top:6px}
     html[data-ui="m"] .row-actions{margin-top:8px; gap:8px}
     html[data-ui="m"] .row-actions button{min-height:28px; padding:0 12px; font-size:12px; background:transparent}
+  }
+  @media (max-width:699px){
     /* Gráfico de evolución, versión compacta */
     html[data-ui="m"] .evo{margin:0 0 6px}
     html[data-ui="m"] .evo-c svg{height:96px}
@@ -523,6 +525,12 @@
     .dwrap{grid-template-columns:minmax(260px,340px) 1fr; align-items:start; gap:28px}
     .dtiles{grid-template-columns:1fr}
     .pgrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+    /* detalle en desktop: recuadros al lado y sin repetir lo que ya está en la fila */
+    html[data-ui="m"] .acc-body{padding:2px 20px 14px}
+    html[data-ui="m"] .dwrap{grid-template-columns:auto 1fr; gap:28px; align-items:start; padding-top:8px}
+    html[data-ui="m"] .dtiles{grid-template-columns:repeat(2,minmax(170px,1fr)); gap:10px}
+    html[data-ui="m"] .pgrid{grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px 24px}
+    html[data-ui="m"] .pair[data-k="Cantidad"],html[data-ui="m"] .pair[data-k="Broker"],html[data-ui="m"] .pair[data-k="Precio actual"],html[data-ui="m"] .pair[data-k^="Precio de compra"],html[data-ui="m"] .pair[data-k^="Precio promedio"],html[data-ui="m"] .pair[data-k^="Precio de mercado"]{display:none}
     /* distribución */
     .dist-b{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:18px 20px 20px; display:grid; gap:12px}
     .dist-b h3{margin:0 0 2px; font-size:14px; font-weight:700}
