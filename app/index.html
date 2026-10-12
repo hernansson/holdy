@@ -121,9 +121,15 @@
   html[data-ui="m"] .acc-gn{font-size:12.5px}
   html[data-ui="m"] .acc-val{font-size:14px; font-weight:600; min-width:84px; text-align:right}
   html[data-ui="m"] details.acc[open]{border-radius:10px}
-  /* Compacto en celular: el detalle de cada posición como lista simple */
+  .dmin{display:none}
+  .dmin .dm1{font-size:15px; font-weight:700}
+  .dmin .dm2{font-size:13.5px; margin-top:4px}
+  .dmin .dm3{font-size:12px; color:var(--muted); margin-top:4px; line-height:1.4}
+  /* Compacto en celular: el detalle de cada posición como resumen de 3 líneas */
   @media (max-width:699px){
-    html[data-ui="m"] .acc-body{padding:2px 6px 8px; border-top:0}
+    html[data-ui="m"] .dwrap{display:none}
+    html[data-ui="m"] .acc-body{padding:4px 4px 10px 12px; margin-left:4px; border-left:2px solid var(--brand)}
+    html[data-ui="m"] .dmin{display:block}
     html[data-ui="m"] .dwrap{gap:0; padding-top:0}
     html[data-ui="m"] .dtiles{display:block}
     html[data-ui="m"] .dtile{background:transparent; border-radius:0; padding:6px 0; flex-direction:row; justify-content:space-between; align-items:baseline; border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
@@ -1662,6 +1668,21 @@
           } else pair("Cupones","Importá el Excel de Balanz o cargá cupón y vencimiento en Editar");
         }
       }
+      // Resumen mínimo (solo estilo Compacto en celular): 3 líneas en vez de la lista completa.
+      (function(){
+        var dm=el("div","dmin"), qn=p.lots&&p.lots.length>1?p.lots.reduce(function(a,l){return a+l.q;},0):p.qty;
+        function f2(v){ return fmt(v,p.ccy); }
+        dm.appendChild(el("div","dm1",qq(p.qty)+" × "+f2(p.buy)+" → "+(cp===null?"—":f2(cp))));
+        dm.appendChild(el("div","dm2","Invertido "+mR(cost,p.ccy)+" · Vale "+(value===null?"—":mR(value,p.ccy))));
+        var bits=[]; if(!p.parts) bits.push(brokerName(p.broker));
+        var dls=(p.lots||[]).filter(function(l){return l.d;}).map(function(l){return l.d;}).sort();
+        if(dls.length) bits.push("desde "+dls[0].split("-").reverse().join("/")+" · "+spanStr((Date.now()-new Date(dls[0]+"T12:00:00").getTime())/864e5));
+        if(weight!==null) bits.push((weight*100).toFixed(1).replace(".",",")+"% de la cartera");
+        if(p.fi){ if(p.fi.m) bits.push("vence "+p.fi.m.split("-").reverse().join("/")); bits.push("≈"+p.fi.r.toFixed(1).replace(".",",")+"% anual"); var inc_=fiIncome(p); if(inc_>0) bits.push("cupones "+mR(inc_,p.ccy)); }
+        if(dpct!==null) bits.push("hoy "+fmtPct(dpct));
+        dm.appendChild(el("div","dm3",bits.join(" · ")));
+        body.appendChild(dm);
+      })();
       g.appendChild(pg);
       body.appendChild(g);
       if(p.lots && p.lots.length>1){
