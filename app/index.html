@@ -362,6 +362,11 @@
   .btns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
   .help{font-size:12px; color:var(--muted)}
   a{color:var(--brand)}
+  .fp-list{display:grid; gap:10px; max-height:52vh; overflow:auto; padding:2px; margin:0 -2px; outline:0; align-content:start}
+  .fp-it{border:1px solid var(--line); border-radius:12px; padding:12px; display:grid; gap:8px; background:var(--card)}
+  .fp-h{display:flex; justify-content:space-between; gap:10px; align-items:baseline}
+  .fp-h b{font-size:15px} .fp-h span{font-size:12.5px; color:var(--muted); text-align:right}
+  .fp-it label{font-size:12.5px}
   .tbar{display:flex; align-items:center; gap:10px; margin:18px 0 12px}
   .tbar .tabs{flex:1; margin:0; min-width:0}
   .tbar .toolbar{margin:0}
@@ -729,6 +734,18 @@
 
 <!-- comparación: pantalla propia (ver #cmpView más abajo) -->
 
+<dialog id="dlgFiPay" class="sheet">
+  <form method="dialog" id="formFiPay">
+    <h3>Pagos de renta fija</h3>
+    <div class="help" style="font-size:14px;color:var(--muted)">Pasó la fecha de estos pagos. Elegí qué hacemos con cada uno: lo que no resuelvas ahora te lo vuelvo a preguntar mañana.</div>
+    <div id="fpList" class="fp-list"></div>
+    <div class="btns">
+      <button type="button" id="fpLater">Más tarde</button>
+      <button type="submit" class="primary">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgSell" class="sheet">
   <form method="dialog" id="formSell">
     <h3 id="sellTitle">Eliminar posición</h3>
@@ -957,9 +974,10 @@
     if(!isFinite(qty)||!isFinite(buy)||!(qty>0)||!(buy>0)) return null;
     var fi=null;
     if(p.fi){ var fr=+(p.fi.r!==undefined?p.fi.r:p.fi[0]), fm=String((p.fi.m!==undefined?p.fi.m:p.fi[1])||"");
-      var fc=+(p.fi.c!==undefined?p.fi.c:p.fi[2]), fcp=(p.fi.cp!==undefined?p.fi.cp:p.fi[3]), fn=+(p.fi.n!==undefined?p.fi.n:p.fi[4]);
+      var fc=+(p.fi.c!==undefined?p.fi.c:p.fi[2]), fcp=(p.fi.cp!==undefined?p.fi.cp:p.fi[3]), fn=+(p.fi.n!==undefined?p.fi.n:p.fi[4]), fpd=(p.fi.pd!==undefined?p.fi.pd:p.fi[5]);
       if(isFinite(fr)&&fr>-20&&fr<200){ fi={r:fr,m:/^\d{4}-\d{2}-\d{2}$/.test(fm)?fm:"",c:(isFinite(fc)&&fc>0&&fc<100)?fc:0};
         if([1,2,4,12].indexOf(fn)>=0) fi.n=fn;
+        if(Array.isArray(fpd)){ var pdl=fpd.map(String).filter(function(x){ return x==="M"||/^\d{4}-\d{2}-\d{2}$/.test(x); }).slice(-200); if(pdl.length) fi.pd=pdl; }
         if(Array.isArray(fcp)) fi.cp=fcp.map(function(x){ return [String(x[0]||""),+x[1]]; }).filter(function(x){ return /^\d{4}-\d{2}-\d{2}$/.test(x[0])&&isFinite(x[1])&&x[1]>0; }); } }
     var mp=+p.manualPrice; if(!isFinite(mp)||mp<0) mp=0;
     var src=p.source==="manual"?"manual":"auto";
@@ -2206,6 +2224,85 @@
     positions=positions.filter(function(x){return x.id!==sellingId;});
     saveProfiles(); dlgSell.close(); render();
   });
+
+  // ---------- Pagos de renta fija: una vez por día, después de la fecha de cobro, pregunta qué hacer ----------
+  var dlgFp=$("dlgFiPay"), LS_FIASK="cartera.fiask.v1", fpItems=[];
+  function fiPending(){
+    var out=[]; if(isRO()) return out;
+    var tn=dayNum(todayStr());
+    positions.forEach(function(p){
+      if(!p.fi) return;
+      var pd=p.fi.pd||[], cu=fiCoupons(p), lastCp=p.fi.cp&&p.fi.cp.length?p.fi.cp.map(function(x){return x[0];}).sort().pop():"";
+      ((cu&&cu.list)||[]).forEach(function(c){
+        var n=dayNum(c[0]);
+        if(n>tn||n<tn-60||pd.indexOf(c[0])>=0||(lastCp&&c[0]<=lastCp)) return;
+        out.push({k:"c",p:p,d:c[0],a:Math.round(c[1]*100)/100});
+      });
+      if(p.fi.m&&dayNum(p.fi.m)<=tn&&pd.indexOf("M")<0) out.push({k:"m",p:p,d:p.fi.m,a:Math.round(p.qty*100)/100});
+    });
+    out.sort(function(a,b){ return a.d<b.d?-1:(a.d>b.d?1:(a.k==="c"?-1:1)); });
+    return out;
+  }
+  function fpCanAdd(p){ return p.ccy==="USD" && BROKERS.indexOf(p.broker)>=0; }
+  function fpAddCash(pr,broker,amt){
+    var old=(pr.bal||[]).filter(function(x){return x.b===broker;})[0], nb=Math.round((brokerCash(broker)+amt)*100)/100, o={b:broker,a:nb};
+    if(old&&old.d) o.d=old.d;
+    pr.bal=(pr.bal||[]).filter(function(x){return x.b!==broker;}); pr.bal.push(o);
+  }
+  function openFp(items){
+    fpItems=items; var box=$("fpList"); box.textContent="";
+    items.forEach(function(it,i){
+      var p=it.p, card=el("div","fp-it"), h=el("div","fp-h");
+      h.appendChild(el("b",null,p.ticker));
+      h.appendChild(el("span",null,(it.k==="c"?"Cupón del ":"Venció el ")+it.d.split("-").reverse().join("/")+" · "+p.broker));
+      card.appendChild(h);
+      var canAdd=fpCanAdd(p), opts;
+      if(it.k==="c"){
+        var lb=el("label",null,"Monto cobrado"), inp=el("input"); inp.type="text"; inp.setAttribute("inputmode","decimal"); inp.autocomplete="off"; inp.id="fpA"+i; inp.value=it.a.toFixed(2).replace(".",","); lb.appendChild(inp); card.appendChild(lb);
+        opts=(canAdd?[["add","Sumarlo a mi plata sin invertir"]]:[]).concat([["skip",canAdd?"Ya lo tengo en mi saldo, no sumar":"Marcar como visto"],["later","Decidir más tarde"]]);
+      } else {
+        card.appendChild(el("div","help","El bono llegó a su vencimiento. Capital a la par: "+mm(it.a,p.ccy)+"."));
+        opts=(canAdd?[["closeAdd","Cerrarlo y sumar el capital a mi plata sin invertir"]]:[]).concat([["closeOnly","Cerrarlo sin sumar la plata"],["later","Decidir más tarde"]]);
+      }
+      var lb2=el("label",null,"¿Qué hacemos?"), sel=el("select"); sel.id="fpS"+i;
+      opts.forEach(function(o){ var op=el("option",null,o[1]); op.value=o[0]; sel.appendChild(op); });
+      if(it.k==="m") sel.value="later";
+      lb2.appendChild(sel); card.appendChild(lb2); box.appendChild(card);
+    });
+    try{ dlgFp.showModal(); }catch(e){}
+  }
+  function checkFiPay(){
+    if(GOOGLE_CLIENT_ID&&!auth) return;
+    if(cmpOpen||document.querySelector("dialog[open]")||document.hidden) return;
+    if(load(LS_FIASK,"")===todayStr()) return;
+    var items=fiPending(); if(!items.length) return;
+    save(LS_FIASK,todayStr()); openFp(items);
+  }
+  dlgFp.addEventListener("click",function(e){ if(e.target===dlgFp) dlgFp.close(); });
+  $("fpLater").addEventListener("click",function(){ dlgFp.close(); });
+  $("formFiPay").addEventListener("submit",function(ev){
+    ev.preventDefault(); if(isRO()) return;
+    var acts=fpItems.map(function(it,i){ var v=$("fpS"+i).value, a=it.k==="c"?pnum($("fpA"+i).value):it.a; return {it:it,v:v,a:a}; });
+    for(var j=0;j<acts.length;j++){ var x=acts[j]; if(x.it.k==="c"&&x.v!=="later"&&!(x.a>0)){ alert("Poné el monto del cupón de "+x.it.p.ticker+"."); return; } }
+    var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
+    acts.forEach(function(x){
+      if(x.v==="later") return;
+      var p=x.it.p, fi=p.fi;
+      if(x.it.k==="c"){
+        if(x.v==="add") fpAddCash(pr,p.broker,Math.round(x.a*100)/100);
+        fi.pd=(fi.pd||[]).concat(x.it.d);
+        if(fi.cp){ fi.cp.push([x.it.d,Math.round(x.a*100)/100]); fi.cp.sort(function(a,b){ return a[0]<b[0]?-1:1; }); }
+      } else {
+        if(x.v==="closeAdd") fpAddCash(pr,p.broker,Math.round(p.qty*100)/100);
+        pr.closed.push(Object.assign({},p,{sold:{d:x.it.d,p:1}}));
+        positions=positions.filter(function(q){ return q!==p; });
+      }
+    });
+    saveProfiles(); dlgFp.close(); render();
+  });
+  setTimeout(checkFiPay,3500);
+  document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="visible") setTimeout(checkFiPay,1500); });
+
   function renderSold(){
     var box=$("soldBox"); box.textContent="";
     var cl=cur().closed||[]; if(!cl.length) return;
@@ -2718,7 +2815,7 @@
   }
   function lotsT(p){
     var L=(p.lots&&p.lots.length)?p.lots.map(function(l){return [l.q,l.b,l.d||""];}):0, S=p.sold?[p.sold.d,p.sold.p]:0;
-    var F=p.fi?[p.fi.r,p.fi.m||"",p.fi.c||0].concat((p.fi.cp||p.fi.n)?[p.fi.cp||0,p.fi.n||0]:[]):0;
+    var F=p.fi?[p.fi.r,p.fi.m||"",p.fi.c||0].concat((p.fi.cp||p.fi.n||p.fi.pd)?[p.fi.cp||0,p.fi.n||0]:[]).concat(p.fi.pd?[p.fi.pd]:[]):0;
     return F?[L,S,F]:(S?[L,S]:(L?[L]:[]));
   }
   function buildPayload(pr){
