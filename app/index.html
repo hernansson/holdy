@@ -362,8 +362,13 @@
   .btns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
   .help{font-size:12px; color:var(--muted)}
   a{color:var(--brand)}
-  .fp-list{display:grid; gap:10px; max-height:52vh; overflow:auto; padding:2px; margin:0 -2px; outline:0; align-content:start}
-  .fp-it{border:1px solid var(--line); border-radius:12px; padding:12px; display:grid; gap:8px; background:var(--card)}
+  .fp-list{display:grid; gap:10px; max-height:46vh; overflow:auto; padding:2px; margin:0 -2px; outline:0; align-content:start; overscroll-behavior:contain;
+    background:linear-gradient(var(--card) 30%,transparent),linear-gradient(transparent,var(--card) 70%) 0 100%,radial-gradient(farthest-side at 50% 0,rgba(0,0,0,.22),transparent),radial-gradient(farthest-side at 50% 100%,rgba(0,0,0,.22),transparent) 0 100%;
+    background-repeat:no-repeat; background-size:100% 36px,100% 36px,100% 12px,100% 12px; background-attachment:local,local,scroll,scroll}
+  .fp-row{display:grid; grid-template-columns:104px 1fr; gap:8px}
+  .fp-row label{display:grid; gap:3px; margin:0}
+  .fp-it input,.fp-it select{min-height:38px; font-size:14px}
+  .fp-it{border:1px solid var(--line); border-radius:12px; padding:10px 12px; display:grid; gap:6px; background:var(--card)}
   .fp-h{display:flex; justify-content:space-between; gap:10px; align-items:baseline}
   .fp-h b{font-size:15px} .fp-h span{font-size:12.5px; color:var(--muted); text-align:right}
   .fp-it label{font-size:12.5px}
@@ -736,8 +741,8 @@
 
 <dialog id="dlgFiPay" class="sheet">
   <form method="dialog" id="formFiPay">
-    <h3>Pagos de renta fija</h3>
-    <div class="help" style="font-size:14px;color:var(--muted)">Pasó la fecha de estos pagos. Elegí qué hacemos con cada uno: lo que no resuelvas ahora te lo vuelvo a preguntar mañana.</div>
+    <h3 id="fpTitle">Pagos de renta fija</h3>
+    <div class="help" style="font-size:14px;color:var(--muted)">Pasó la fecha de estos pagos. “Sumar a mi saldo” los agrega a tu plata sin invertir. Lo que dejes en “Decidir después” te lo vuelvo a preguntar mañana.</div>
     <div id="fpList" class="fp-list"></div>
     <div class="btns">
       <button type="button" id="fpLater">Más tarde</button>
@@ -2250,26 +2255,28 @@
     pr.bal=(pr.bal||[]).filter(function(x){return x.b!==broker;}); pr.bal.push(o);
   }
   function openFp(items){
-    fpItems=items; var box=$("fpList"); box.textContent="";
+    fpItems=items; var box=$("fpList"); box.textContent=""; $("fpTitle").textContent="Pagos de renta fija ("+items.length+")";
     items.forEach(function(it,i){
       var p=it.p, card=el("div","fp-it"), h=el("div","fp-h");
       h.appendChild(el("b",null,p.ticker));
       h.appendChild(el("span",null,(it.k==="c"?"Cupón del ":"Venció el ")+it.d.split("-").reverse().join("/")+" · "+p.broker));
       card.appendChild(h);
-      var canAdd=fpCanAdd(p), opts;
+      var canAdd=fpCanAdd(p), opts, row=el("div","fp-row"), inp=null;
       if(it.k==="c"){
-        var lb=el("label",null,"Monto cobrado"), inp=el("input"); inp.type="text"; inp.setAttribute("inputmode","decimal"); inp.autocomplete="off"; inp.id="fpA"+i; inp.value=it.a.toFixed(2).replace(".",","); lb.appendChild(inp); card.appendChild(lb);
-        opts=(canAdd?[["add","Sumarlo a mi plata sin invertir"]]:[]).concat([["skip",canAdd?"Ya lo tengo en mi saldo, no sumar":"Marcar como visto"],["later","Decidir más tarde"]]);
+        var lb=el("label",null,"Monto"); inp=el("input"); inp.type="text"; inp.setAttribute("inputmode","decimal"); inp.autocomplete="off"; inp.id="fpA"+i; inp.value=it.a.toFixed(2).replace(".",","); lb.appendChild(inp); row.appendChild(lb);
+        opts=(canAdd?[["add","Sumar a mi saldo"]]:[]).concat([["skip",canAdd?"Ya lo tengo, no sumar":"Marcar como visto"],["later","Decidir después"]]);
       } else {
-        card.appendChild(el("div","help","El bono llegó a su vencimiento. Capital a la par: "+mm(it.a,p.ccy)+"."));
-        opts=(canAdd?[["closeAdd","Cerrarlo y sumar el capital a mi plata sin invertir"]]:[]).concat([["closeOnly","Cerrarlo sin sumar la plata"],["later","Decidir más tarde"]]);
+        card.appendChild(el("div","help","Llegó a su vencimiento. Capital a la par: "+mm(it.a,p.ccy)+"."));
+        row.style.gridTemplateColumns="1fr";
+        opts=(canAdd?[["closeAdd","Cerrarlo y sumar el capital a mi saldo"]]:[]).concat([["closeOnly","Cerrarlo sin sumar la plata"],["later","Decidir después"]]);
       }
       var lb2=el("label",null,"¿Qué hacemos?"), sel=el("select"); sel.id="fpS"+i;
       opts.forEach(function(o){ var op=el("option",null,o[1]); op.value=o[0]; sel.appendChild(op); });
       if(it.k==="m") sel.value="later";
-      lb2.appendChild(sel); card.appendChild(lb2); box.appendChild(card);
+      lb2.appendChild(sel); row.appendChild(lb2); card.appendChild(row); box.appendChild(card);
     });
     try{ dlgFp.showModal(); }catch(e){}
+    try{ if(document.activeElement&&document.activeElement.blur) document.activeElement.blur(); }catch(e){}
   }
   function checkFiPay(){
     if(GOOGLE_CLIENT_ID&&!auth) return;
