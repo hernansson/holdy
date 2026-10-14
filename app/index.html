@@ -3444,7 +3444,7 @@
   }
   // Lee el Excel "resultados por info completa" de Balanz: CEDEARs abiertos (lotes finales) y vendidos (realizado).
   function balanzParse(sheets){
-    var names=Object.keys(sheets), out={open:[],sold:[],fixed:[],fixedSold:[],coupons:[],skipped:{},zero:0,pesos:0};
+    var names=Object.keys(sheets), out={open:[],sold:[],fixed:[],fixedSold:[],coupons:[],skipped:{},zero:0,pesos:0,cable:0};
     function sheet(re){ var k=names.filter(function(n){ return re.test(n.toLowerCase()); })[0]; return k?sheets[k]:null; }
     function table(rows){
       if(!rows||!rows.length) return [];
@@ -3458,6 +3458,13 @@
       if(/peso/i.test(String(cur||""))){ ccl=+ccl; if(!(ccl>0)) return null; out.pesos++; return price/ccl; }
       return price;
     }
+    /* CEDEARs: todo a dólar MEP (la base con la que la app y Balanz valúan lo abierto). Pesos → /MEP; cable (CCL) → ×CCL/MEP; MEP → tal cual. Si falta algún dato, cae al comportamiento anterior. */
+    function usdC(price,cur,ccl,mep){
+      var c=String(cur||"");
+      if(/cable|ccl/i.test(c)&&+ccl>0&&+mep>0&&+price>0){ out.cable++; return +price*ccl/mep; }
+      if(/peso/i.test(c)&&+mep>0&&+price>0){ out.pesos++; return +price/mep; }
+      return usd(price,cur,ccl);
+    }
     var fin=table(sheet(/finales/)), rea=table(sheet(/realizado/));
     if(!fin.length&&!rea.length){ out.error="hojas"; return out; }
     fin.forEach(function(r){
@@ -3470,7 +3477,7 @@
         out.fixed.push({tk:String(r.ticker).toUpperCase().trim(),q:qf,d:df,p:pf,desc:String(r.descripcion||"")}); return;
       }
       if(tp!=="cedears"){ skip(r.tipo==="Fondos"?"fondos":r.tipo); return; }
-      var q=+r.cantidad, d=xlDate(r.fecha), p=usd(r["precio compra"],r.moneda,r.dolarccl);
+      var q=+r.cantidad, d=xlDate(r.fecha), p=usdC(r["precio compra"],r.moneda,r.dolarccl,r.dolarmep);
       if(!(q>0)||!d) return;
       if(p===null){ out.zero++; return; }
       out.open.push({tk:String(r.ticker).toUpperCase().trim(),q:q,d:d,p:p});
@@ -3492,7 +3499,7 @@
       }
       if(tp2!=="cedears"){ skip(r.tipo==="Fondos"?"fondos":r.tipo); return; }
       var q=+r.cantidad, ds=xlDate(r.fecha), db=xlDate(r.fechacompra);
-      var pb=usd(r["precio compra"],r["moneda compra"],r.operacioncompradolarccl), ps=usd(r.precioventa,r["moneda venta"],r.operacionventadolarccl);
+      var pb=usdC(r["precio compra"],r["moneda compra"],r.operacioncompradolarccl,r.operacioncompradolarmep), ps=usdC(r.precioventa,r["moneda venta"],r.operacionventadolarccl,r.operacionventadolarmep);
       if(!(q>0)||!ds||!db) return;
       if(pb===null||ps===null){ out.zero++; return; }
       out.sold.push({tk:String(r.ticker).toUpperCase().trim(),q:q,db:db,pb:pb,ds:ds,ps:ps});
