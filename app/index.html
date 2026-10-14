@@ -103,7 +103,7 @@
     html[data-ui="m"] .status{display:none}
     html[data-ui="m"] .sum-card h2{display:none}
     html[data-ui="m"] .sum-card{position:relative}
-    html[data-ui="m"] .sum-hd{position:absolute; top:6px; right:2px; margin:0}
+    html[data-ui="m"] .sum-hd{position:static; margin:0; justify-content:flex-end}
     html[data-ui="m"] .sum-main{margin-top:8px}
     html[data-ui="m"] .big,html[data-ui="m"] .sum-main .big{font-size:30px; font-weight:800; letter-spacing:-.03em}
     html[data-ui="m"] .gain-line{margin-top:6px; font-size:14px}
@@ -189,6 +189,9 @@
   .gain-box small{font-size:12px; font-weight:600; padding-left:4px}
   .sum-hd{display:flex; align-items:center; justify-content:space-between; gap:8px}
   .sum-hd h2{margin:0}
+  .dcseg button{min-height:26px; font-size:12px; padding:0 10px; font-weight:600}
+  .dcseg{padding:2px; border-radius:10px}
+  .dcseg button{border-radius:8px}
   .sum-tg{display:inline-flex; align-items:center; gap:5px; border:0; background:transparent; color:var(--muted); font-size:12px; min-height:28px; padding:0 2px; box-shadow:none}
   .sum-tg svg{transition:transform .15s} .sum-tg.open svg{transform:rotate(180deg)}
   .gain-line{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-top:6px}
@@ -676,7 +679,7 @@
     </div>
     <div class="lhead"><span class="fl" id="ccyLbl">Moneda</span><div class="seg sm" id="segCcy"></div></div>
     <select id="fCcy" hidden><option value="USD">USD</option><option value="ARS">ARS</option></select>
-    <select id="fPxCcy" hidden><option value="ARS">Pesos (ARS)</option><option value="USD">Dólares (MEP)</option></select>
+    <select id="fPxCcy" hidden><option value="ARS">Pesos (ARS)</option><option value="MEP">Dólares MEP</option><option value="CCL">Dólares cable (CCL)</option></select>
     <div id="lotsBox" style="display:grid;gap:10px"></div>
     <button type="button" id="lotAdd">+ Agregar otra compra</button>
     <div class="hint" id="lotSum" style="font-size:13px;color:var(--muted)" hidden></div>
@@ -783,7 +786,7 @@
         <input id="sellPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
       </label>
     </div>
-    <label id="sellFxWrap" hidden>Dólar MEP del día de la venta
+    <label id="sellFxWrap" hidden><span id="sellFxLbl">Dólar CCL del día de la venta</span>
       <input id="sellFx" type="text" inputmode="decimal" autocomplete="off" placeholder="1450">
     </label>
     <div class="help" id="sellTot"></div>
@@ -1040,6 +1043,7 @@
     sort:["value","plpct","pl","day","ticker"].indexOf(uiRaw.sort)>=0?uiRaw.sort:"value",
     sortSold:["date","plpct","pl","ticker","days"].indexOf(uiRaw.sortSold)>=0?uiRaw.sortSold:"date",
     hide:!!uiRaw.hide,
+    dc:["CCL","MEP","ARS"].indexOf(uiRaw.dc)>=0?uiRaw.dc:"CCL",
     tab:uiRaw.tab==="fi"?"fi":(uiRaw.tab==="sold"?"sold":"acc")
   };
 
@@ -1047,8 +1051,13 @@
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
   var nfCache={};
-  function fmt(n,ccy){
+  // Moneda de visualización: todo se guarda en dólar CCL; acá se pasa a MEP o a pesos según ui.dc (con el dólar de hoy).
+  function dcF(){ var i=cedInfo; if(ui.dc==="CCL"||!i) return 1; if(ui.dc==="MEP") return i.f>0?i.f:1; return i.c>0?i.c:1; }
+  function dcCur(){ return (ui.dc==="ARS"&&cedInfo&&cedInfo.c>0)?"ARS":"USD"; }
+  function dtxt(n){ n=n*dcF(); return (dcCur()==="ARS"?"$ ":"US$ ")+Math.round(n).toLocaleString("es-AR"); }
+  function fmt(n,ccy,raw){
     if(n===null||n===undefined||!isFinite(n)) return "—";
+    if(ccy==="USD"&&!raw){ n=n*dcF(); ccy=dcCur(); }
     var key=ccy||"x";
     if(!nfCache[key]) nfCache[key]=new Intl.NumberFormat("es-AR",{style:"currency",currency:ccy||"USD",minimumFractionDigits:2,maximumFractionDigits:2});
     return nfCache[key].format(n);
@@ -1072,7 +1081,8 @@
   // Versión compacta para pantallas con muchos números: sin centavos desde 100.
   function fmtR(n,ccy){
     if(n===null||n===undefined||!isFinite(n)) return "—";
-    if(Math.abs(n)<100) return fmt(n,ccy);
+    if(ccy==="USD"){ n=n*dcF(); ccy=dcCur(); }
+    if(Math.abs(n)<100) return fmt(n,ccy,true);
     var key="r"+(ccy||"x");
     if(!nfCache[key]) nfCache[key]=new Intl.NumberFormat("es-AR",{style:"currency",currency:ccy||"USD",minimumFractionDigits:0,maximumFractionDigits:0});
     return nfCache[key].format(n);
@@ -1178,16 +1188,45 @@
   var LS_CED="cartera.ced.v1", cedInfo=load(LS_CED,null);
   var cedErr="";
   // Datos originales del CEDEAR guardados en la nota: {ced:ratio|A/U|cant,precio,dolar,fecha;...}
-  var CED_MARK=/\s*\{ced:([^}]*)\}/;
+  var CED_MARK=/\s*\{ced:([^}]*)\}/, CB_MARK=/\s*\{cb\}/;
   function cedMeta(p){
     var m=CED_MARK.exec((p&&p.note)||""); if(!m) return null;
     var a=m[1].split("|"), R=+a[0]; if(!(R>0)||!a[2]) return null;
-    var lots=a[2].split(";").map(function(x){ var f=x.split(","); return {q:+f[0],b:+f[1],fx:+f[2]||"",d:f[3]||""}; }).filter(function(l){return l.q>0&&l.b>0;});
-    return lots.length?{r:R,pes:a[1]==="A",lots:lots}:null;
+    var lots=a[2].split(";").map(function(x){ var f=x.split(","); return {q:+f[0],b:+f[1],fx:+f[2]||"",fx2:+f[4]||"",d:f[3]||""}; }).filter(function(l){return l.q>0&&l.b>0;});
+    var mode=a[1]; if(mode==="A") mode="P"; else if(mode==="U") mode="M"; else if(["P","M","C"].indexOf(mode)<0) mode="C"; /* P = pesos (con dólar CCL), M = dólares MEP, C = dólares cable (CCL) */
+    return lots.length?{r:R,pes:mode==="P",mode:mode,legacy:a[1]==="A"||a[1]==="U",lots:lots}:null;
   }
-  function plainNote(n){ return String(n||"").replace(CED_MARK,"").replace(/(^|\s·\s)CEDEAR 1:[\d.]+( \(convertido a la acción\))?/,"").trim(); }
+  function cedMetaStr(r,mode,lots){ return "{ced:"+r+"|"+mode+"|"+lots.map(function(l){ return [l.q,l.b,mode==="C"?0:(l.fx||0),l.d||"",mode==="M"?(l.fx2||0):0].join(","); }).join(";")+"}"; }
+  // Pasa a dólar CCL las posiciones que estaban en MEP (importadas de IOL, cargadas a mano o importadas antes de este cambio), con el dólar de hoy.
+  // El costo y la venta se dividen por el mismo factor: los porcentajes quedan igual, solo cambian los montos.
+  function ensureCcl(){
+    var i=cedInfo; if(!i||!(i.f>0)||!profData) return;
+    var f=i.f;
+    function fix(p){
+      if(!p||!isCedPos(p)||CB_MARK.test(p.note||"")) return false;
+      var cm=cedMeta(p);
+      if(p.lots&&p.lots.length) p.lots.forEach(function(l){ l.b=Math.round(l.b/f*1e6)/1e6; });
+      p.buy=p.buy/f;
+      if(p.sold) p.sold.p=Math.round(p.sold.p/f*1e6)/1e6;
+      var note=String(p.note||"");
+      if(cm){
+        var lots2=cm.lots.map(function(l){ return {q:l.q,b:cm.legacy&&cm.mode==="M"?Math.round(l.b/f*1e6)/1e6:l.b,fx:cm.legacy&&cm.mode==="P"?Math.round(l.fx*f*100)/100:l.fx,fx2:l.fx2,d:l.d}; });
+        note=note.replace(CED_MARK," "+cedMetaStr(cm.r,cm.legacy&&cm.mode==="M"?"C":cm.mode,lots2));
+      }
+      p.note=note+" {cb}";
+      return true;
+    }
+    profData.profiles.forEach(function(pr){
+      var ch=false;
+      (pr.id===profData.active?positions:(pr.positions||[])).forEach(function(p){ if(fix(p)) ch=true; });
+      (pr.closed||[]).forEach(function(p){ if(fix(p)) ch=true; });
+      if(ch&&!pr.readOnly){ pr.mod=Date.now(); if(pr.id===profData.active) pr.positions=positions; try{ save(LS_PROF,profData); if(typeof queuePush==="function") queuePush(pr); }catch(e){} }
+    });
+  }
+  function plainNote(n){ return String(n||"").replace(CED_MARK,"").replace(CB_MARK,"").replace(/(^|\s·\s)CEDEAR 1:[\d.]+( \(convertido a la acción\))?/,"").trim(); }
   function isCedPos(p){ return !p.fi && /CEDEAR/i.test(p.note||""); }
-  function cedF(p){ return (isCedPos(p)&&cedInfo&&cedInfo.f>0)?cedInfo.f:1; }
+  // Desde la base CCL el CEDEAR vale lo mismo que la acción (sin prima). Las posiciones viejas, en MEP, se pasan a CCL con ensureCcl().
+  function cedF(p){ return (isCedPos(p)&&!CB_MARK.test(p.note||"")&&cedInfo&&cedInfo.f>0)?cedInfo.f:1; }
   function fetchCedFactor(){
     cedErr="";
     return fetch("https://dolarapi.com/v1/dolares",{cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error("el servicio de dólares respondió "+r.status); return r.json(); }).then(function(a){
@@ -1263,6 +1302,7 @@
   }
 
   function render(){
+    ensureCcl();
     renderProfile();
     syncToolbar();
     renderNotice();
@@ -1390,7 +1430,7 @@
       var r=svg.getBoundingClientRect(), f=Math.max(0,Math.min(1,(ev_.clientX-r.left)/r.width)), d=x0+f*dx, bi=0, bd=1e9;
       pts.forEach(function(p,i){ var q=Math.abs(p[0]-d); if(q<bd){ bd=q; bi=i; } });
       var p=pts[bi], L=svg.querySelector("#evoL"); L.setAttribute("x1",X(p[0])); L.setAttribute("x2",X(p[0])); L.style.display="";
-      tip.style.display="block"; tip.textContent=dayStr(p[0]).split("-").reverse().join("/")+" · "+(ui.hide?MASK:"US$ "+Math.round(p[1]).toLocaleString("es-AR"))+" · invertido "+(ui.hide?MASK:Math.round(p[2]).toLocaleString("es-AR"));
+      tip.style.display="block"; tip.textContent=dayStr(p[0]).split("-").reverse().join("/")+" · "+(ui.hide?MASK:dtxt(p[1]))+" · invertido "+(ui.hide?MASK:Math.round(p[2]*dcF()).toLocaleString("es-AR"));
       var tw=tip.offsetWidth; tip.style.left=Math.max(0,Math.min(r.width-tw,f*r.width-tw/2))+"px";
     }
     function hideTip(){ tip.style.display="none"; svg.querySelector("#evoL").style.display="none"; }
@@ -1424,7 +1464,12 @@
 
       var card=el("div","sum-card");
       var npos=positions.filter(function(p){return p.ccy===ccy;}).length, inc=g.inc||0;
-      var hd=el("div","sum-hd"); hd.appendChild(el("h2",null,"Tu cartera hoy")); card.appendChild(hd);
+      var hd=el("div","sum-hd"); hd.appendChild(el("h2",null,"Tu cartera hoy"));
+      var dcs=el("div","seg sm dcseg"); dcs.setAttribute("aria-label","Moneda para mostrar");
+      [["CCL","CCL"],["MEP","MEP"],["ARS","$"]].forEach(function(o){ var b=el("button",ui.dc===o[0]?"on":"",o[1]); b.type="button"; b.title={CCL:"Dólar CCL",MEP:"Dólar MEP",ARS:"Pesos (al CCL de hoy)"}[o[0]];
+        b.addEventListener("click",function(){ if(ui.dc===o[0]) return; ui.dc=o[0]; save(LS_UI,ui); render(); if(o[0]!=="CCL"&&!cedInfo) fetchCedFactor().then(render); });
+        dcs.appendChild(b); });
+      hd.appendChild(dcs); card.appendChild(hd);
       if(costPriced<=0 && refreshing){
         var mk=el("div","sum-main"); mk.appendChild(el("div","big",el("span","skel","US$ 000.000"))); card.appendChild(mk);
         var gk=el("div","gain-line"); gk.appendChild(el("span","skel","+US$ 0.000 (+0,00%)")); card.appendChild(gk);
@@ -1642,7 +1687,7 @@
     var detailEls=[], lastCcy=null, lastFi=false;
     (function(){
       var th=el("div","thead");
-      [["Posición","ticker",""],["Broker","",""],["Cantidad","","r"],["Compra US$","","r"],["Precio US$","","r"],["Hoy","day","r"],["Peso","","r"],["Resultado","pl","r"],["Valor","value","r"]].forEach(function(c){
+      [["Posición","ticker",""],["Broker","",""],["Cantidad","","r"],["Compra "+(dcCur()==="ARS"?"$":"US$"),"","r"],["Precio "+(dcCur()==="ARS"?"$":"US$"),"","r"],["Hoy","day","r"],["Peso","","r"],["Resultado","pl","r"],["Valor","value","r"]].forEach(function(c){
         var b=el(c[1]?"button":"span","th "+c[2]+(c[1]&&ui.sort===c[1]?" on":""),c[0]);
         if(c[1]){ b.type="button"; b.addEventListener("click",function(){ ui.sort=c[1]; save(LS_UI,ui); render(); }); }
         th.appendChild(b);
@@ -1747,11 +1792,10 @@
       var mm_=ccyMismatch(p);
       if(mm_) notes.push("⚠ "+p.ticker+" cotiza en "+mm_+" y esta posición está en "+p.ccy+". Cambiá la moneda de la posición o cargá el precio manual.");
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
-      if(isCedPos(p) && cedF(p)===1) notes.push("CEDEAR sin ajuste de prima: "+(cedErr?cedErr+".":(cedInfo?"el factor CCL/MEP dio 1,000 (MEP "+cedInfo.d+" y CCL "+cedInfo.c+").":"todavía no se calculó; actualizá los precios."))+" Se muestra el valor de la acción.");
-      if(isCedPos(p) && cedF(p)!==1) notes.push("Valor ajustado por la prima del CEDEAR (dólar CCL / MEP: "+(cedF(p)>=1?"+":"")+((cedF(p)-1)*100).toFixed(1).replace(".",",")+"%).");
-      if(p.fi) notes.push(fiIsPar(p)?"No encontré precio de mercado para este bono: se valúa a la par (1), más los cupones.":"Precio de mercado en dólares MEP (data912.com, no es en tiempo real), más los cupones.");
+      if(isCedPos(p)) notes.push(CB_MARK.test(p.note||"")?"CEDEAR valuado en dólar CCL (igual que la acción de EE.UU.). Con el selector de arriba lo ves en MEP o en pesos.":"Todavía no tengo el dólar de hoy para pasar este CEDEAR a CCL"+(cedErr?" ("+cedErr+")":"")+"; actualizá los precios.");
+      if(p.fi) notes.push(fiIsPar(p)?"No encontré precio de mercado para este bono: se valúa a la par (1), más los cupones.":"Precio de mercado en dólares MEP (data912.com, no es en tiempo real), más los cupones. Los bonos se muestran tal cual, sin pasar de MEP a CCL.");
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
-      var pn_=String(p.note||"").replace(CED_MARK,""); if(pn_) notes.push(pn_);
+      var pn_=String(p.note||"").replace(CED_MARK,"").replace(CB_MARK,""); if(pn_) notes.push(pn_);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
 
       if(p.parts){
@@ -1842,7 +1886,7 @@
           if(/API key|límite|servidor de precios/.test(errors[t])) fatal=errors[t];
         }).then(worker);
     }
-    var needF=positions.some(function(p){ return p.source!=="manual" && isCedPos(p); });
+    var needF=ui.dc!=="CCL"||positions.some(function(p){ return isCedPos(p); });
     return Promise.all([worker(),worker(),worker(),needF?fetchCedFactor():null,needFi?fetchFiPrices():null]).then(function(){
       lastRefresh=Date.now(); save(LS_PRICES,prices);
       if(fatal) showBanner(fatal,true); else { clearBanner(); var bad=Object.keys(errors).filter(function(k){return tickers.indexOf(k)>=0;}); if(bad.length) showBanner("No se pudo obtener precio de: "+bad.join(", ")+". Si no se encuentran, probá con el sufijo de la bolsa (VUAA.DE) o usá precio manual.",false); }
@@ -1959,8 +2003,10 @@
     var b=document.createElement("label"); var blab=document.createTextNode("Precio de compra"); b.appendChild(blab);
     var ib=document.createElement("input"); ib.className="lb"; ib.type="text"; ib.inputMode="decimal"; ib.autocomplete="off"; ib.required=true; ib.placeholder="170.50"; ib.value=l.b===""||l.b==null?"":l.b; b.appendChild(ib);
     two.appendChild(a); two.appendChild(b); r.appendChild(two);
-    var fl=document.createElement("label"); fl.className="lfxw"; fl.hidden=true; fl.appendChild(document.createTextNode("Dólar MEP ese día (pesos por dólar)"));
+    var fl=document.createElement("label"); fl.className="lfxw"; fl.hidden=true; fl.appendChild(document.createTextNode("Dólar CCL ese día (pesos por dólar)"));
     var ifx=document.createElement("input"); ifx.className="lfx"; ifx.type="text"; ifx.inputMode="decimal"; ifx.autocomplete="off"; ifx.placeholder="1450"; ifx.value=l.fx||""; fl.appendChild(ifx); r.appendChild(fl);
+    var fl2=document.createElement("label"); fl2.className="lfx2w"; fl2.hidden=true; fl2.appendChild(document.createTextNode("Dólar CCL ese día (opcional)"));
+    var ifx2=document.createElement("input"); ifx2.className="lfx2"; ifx2.type="text"; ifx2.inputMode="decimal"; ifx2.autocomplete="off"; ifx2.placeholder="1500"; ifx2.value=l.fx2||""; fl2.appendChild(ifx2); r.appendChild(fl2);
     var dl=document.createElement("label"); dl.appendChild(document.createTextNode("Fecha de compra (opcional)"));
     var id=document.createElement("input"); id.className="ld"; id.type="text"; dateField(id,l.d||"",true); dl.appendChild(id); r.appendChild(dl);
     r.addEventListener("input",refreshLots);
@@ -1968,7 +2014,7 @@
   }
   function readLots(){
     return [].slice.call(lotsBox.querySelectorAll(".lotrow")).map(function(r){
-      return {q:pnum(r.querySelector(".lq").value), b:pnum(r.querySelector(".lb").value), fx:pnum(r.querySelector(".lfx").value), d:r.querySelector(".ld").dataset.iso||""};
+      return {q:pnum(r.querySelector(".lq").value), b:pnum(r.querySelector(".lb").value), fx:pnum(r.querySelector(".lfx").value), fx2:pnum(r.querySelector(".lfx2").value), d:r.querySelector(".ld").dataset.iso||""};
     });
   }
   // Opción de descontar la compra de la plata sin invertir del broker (solo posiciones nuevas, en dólares).
@@ -1982,23 +2028,25 @@
     var w=$("useCashWrap"), b=$("fBroker").value, bal=brokerCash(b), usd=isCed()||$("fCcy").value==="USD";
     var show=!editingId && !isRO() && usd && bal>0;
     w.hidden=!show; if(!show) return;
-    var cost=useCashCost(), t="Descontar de mi plata sin invertir en "+brokerName(b)+" (tenés "+fmt(bal,"USD")+")";
-    if(cost>0) t+=cost>bal?" · te queda en 0":" · te quedan "+fmt(bal-cost,"USD");
+    var cost=useCashCost(), t="Descontar de mi plata sin invertir en "+brokerName(b)+" (tenés "+fmt(bal,"USD",true)+")";
+    if(cost>0) t+=cost>bal?" · te queda en 0":" · te quedan "+fmt(bal-cost,"USD",true);
     $("useCashTxt").textContent=t;
   }
   function refreshLots(){
     syncUseCash();
     var rows=[].slice.call(lotsBox.querySelectorAll(".lotrow"));
-    var ced=isCed(), pes=ced&&$("fPxCcy").value==="ARS";
+    var ced=isCed(), px=$("fPxCcy").value, pes=ced&&px==="ARS", mepM=ced&&px==="MEP";
     rows.forEach(function(r,i){ r.querySelector(".lotn").textContent=rows.length>1?"Compra "+(i+1):"Compra"; r.querySelector(".lothead button").hidden=rows.length<2;
-      var lb=r.querySelectorAll(".two label"); lb[0].firstChild.nodeValue=ced?"Cantidad de CEDEARs":"Cantidad"; lb[1].firstChild.nodeValue=ced?"Precio por CEDEAR"+(pes?" (ARS)":" (USD)"):"Precio de compra";
-      var fw=r.querySelector(".lfxw"); fw.hidden=!pes; r.querySelector(".lfx").required=pes; });
+      var lb=r.querySelectorAll(".two label"); lb[0].firstChild.nodeValue=ced?"Cantidad de CEDEARs":"Cantidad"; lb[1].firstChild.nodeValue=ced?"Precio por CEDEAR"+(pes?" (ARS)":(mepM?" (US$ MEP)":" (US$ CCL)")):"Precio de compra";
+      var fw=r.querySelector(".lfxw"); fw.hidden=!(pes||mepM); r.querySelector(".lfx").required=pes;
+      fw.firstChild.nodeValue=pes?"Dólar CCL ese día (pesos por dólar)":"Dólar MEP ese día (opcional)";
+      r.querySelector(".lfx2w").hidden=!mepM; });
     var sm=$("lotSum");
     if(ced){
       var R=pnum($("fRatio").value), cl=cedConv(readLots());
       if(!(R>0)||!cl||!cl.length){ sm.hidden=true; return; }
       var q2=0,c2=0; cl.forEach(function(l){ q2+=l.q; c2+=l.q*l.b; });
-      sm.hidden=false; sm.textContent="Equivale a "+qq(q2)+" acciones a "+fmt(c2/q2,"USD")+" en promedio · Invertido: "+fmt(c2,"USD");
+      sm.hidden=false; sm.textContent="Equivale a "+qq(q2)+" acciones a "+fmt(c2/q2,"USD",true)+" en promedio · Invertido: "+fmt(c2,"USD",true);
       return;
     }
     var ls=readLots().filter(function(l){return l.q>0&&l.b>0;});
@@ -2011,9 +2059,11 @@
   function isCed(){ return $("fKind").value==="ced"; }
   // CEDEAR -> acción: cantidad/ratio, precio en USD de la acción = precio CEDEAR * ratio / dólar
   function cedConv(lots){
-    var R=pnum($("fRatio").value), pes=$("fPxCcy").value==="ARS", out=[];
+    var R=pnum($("fRatio").value), pes=$("fPxCcy").value==="ARS", mep=$("fPxCcy").value==="MEP", out=[];
     if(!(R>0)) return null;
-    for(var i=0;i<lots.length;i++){ var l=lots[i]; if(!(l.q>0&&l.b>0)||(pes&&!(l.fx>0))) continue; out.push({q:l.q/R,b:(pes?l.b/l.fx:l.b)*R,d:l.d}); }
+    for(var i=0;i<lots.length;i++){ var l=lots[i]; if(!(l.q>0&&l.b>0)||(pes&&!(l.fx>0))) continue;
+      var bu=l.b; if(pes) bu=l.b/l.fx; else if(mep) bu=(l.fx>0&&l.fx2>0)?l.b*l.fx/l.fx2:l.b/((cedInfo&&cedInfo.f>0)?cedInfo.f:1); /* MEP sin los dos dólares: uso la diferencia CCL/MEP de hoy */
+      out.push({q:l.q/R,b:bu*R,d:l.d}); }
     return out;
   }
   // Relaciones CEDEAR/acción (listados de BYMA de oct. 2026: Vertex, Rankia, Trivela). Cambian con splits, por eso se pueden editar.
@@ -2043,7 +2093,7 @@
     if(!ok){ var kb=$("segKind").lastChild; kb.disabled=true; kb.style.opacity=".4"; kb.title="Los CEDEARs se compran en brokers argentinos (Balanz, IOL)"; }
     var sel=c?$("fPxCcy"):$("fCcy");
     $("ccyLbl").textContent=c?"Precio del CEDEAR en":"Moneda";
-    drawSeg($("segCcy"),sel,c?{ARS:"Pesos",USD:"Dólares"}:{USD:"Dólares",ARS:"Pesos"});
+    drawSeg($("segCcy"),sel,c?{ARS:"Pesos",MEP:"MEP",CCL:"Cable"}:{USD:"Dólares",ARS:"Pesos"});
   }
   function syncBroker(){
     if(AR_BROKERS.indexOf($("fBroker").value)<0 && $("fKind").value==="ced") $("fKind").value="acc";
@@ -2073,12 +2123,12 @@
     lotsBox.textContent="";
     var cm=p?cedMeta(p):null;
     var ls=p?((p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}]):[{q:"",b:"",d:""}];
-    if(cm){ $("fKind").value="ced"; $("fRatio").value=cm.r; ratioTouched=true; $("fPxCcy").value=cm.pes?"ARS":"USD"; ls=cm.lots; }
+    if(cm){ $("fKind").value="ced"; $("fRatio").value=cm.r; ratioTouched=true; $("fPxCcy").value={P:"ARS",M:"MEP",C:"CCL"}[cm.mode]||"CCL"; ls=cm.lots; }
     ls.forEach(function(l){ addLotRow(l); });
     refreshLots();
     $("fSource").value=p?(p.source||"auto"):"auto";
     $("fManual").value=(p&&p.manualPrice)?p.manualPrice:"";
-    $("fNote").value=p?(cm?plainNote(p.note):(p.note||"")):"";
+    $("fNote").value=p?(cm?plainNote(p.note):String(p.note||"").replace(CB_MARK,"")):"";
     $("fFiR").value=(p&&p.fi)?p.fi.r:""; $("fFiC").value=(p&&p.fi&&p.fi.c)?p.fi.c:"";
     var fm_=(p&&p.fi&&p.fi.m)||""; $("fFiM").dataset.iso=fm_; $("fFiM").value=fromISO(fm_);
     $("fUseCash").checked=true;
@@ -2100,7 +2150,7 @@
     if(!sel.options.length) BROKERS.forEach(function(b){ var o=document.createElement("option"); o.value=b; o.textContent=brokerName(b); sel.appendChild(o); });
     box.textContent="";
     (pr.bal||[]).forEach(function(x){
-      var r=el("div","lotline"); r.appendChild(el("span",null,brokerName(x.b)+" · "+fmt(x.a,"USD")+(x.d?" · desde "+fromISO(x.d):"")));
+      var r=el("div","lotline"); r.appendChild(el("span",null,brokerName(x.b)+" · "+fmt(x.a,"USD",true)+(x.d?" · desde "+fromISO(x.d):"")));
       if(!ro){ var b=el("button",null,"Quitar"); b.type="button"; b.addEventListener("click",function(){ pr.bal=(pr.bal||[]).filter(function(y){return y!==x;}); saveProfiles(); renderCash(); render(); }); r.appendChild(b); }
       box.appendChild(r);
     });
@@ -2123,7 +2173,7 @@
     if(!ls.length) return;
     box.appendChild(el("div","help","Movimientos anteriores (se usan en la comparación):"));
     ls.forEach(function(c){
-      var r=el("div","lotline"); r.appendChild(el("span",c.a>0?"pos":"neg",fromISO(c.d)+" · "+(c.a>0?"Ingreso ":"Retiro ")+fmt(Math.abs(c.a),"USD")));
+      var r=el("div","lotline"); r.appendChild(el("span",c.a>0?"pos":"neg",fromISO(c.d)+" · "+(c.a>0?"Ingreso ":"Retiro ")+fmt(Math.abs(c.a),"USD",true)));
       if(!ro){ var b=el("button",null,"Quitar"); b.type="button"; b.addEventListener("click",function(){ pr.cash=(pr.cash||[]).filter(function(x){ return x!==c; }); saveProfiles(); renderCash(); }); r.appendChild(b); }
       box.appendChild(r);
     });
@@ -2144,14 +2194,14 @@
     var ced=isCed();
     if(ced){
       if(!(pnum($("fRatio").value)>0)){ alert("Falta la relación del CEDEAR (cada cuántos CEDEARs equivalen a 1 acción)."); return; }
-      for(var ci=0;ci<lots.length;ci++){ if($("fPxCcy").value==="ARS"&&lots[ci].q>0&&lots[ci].b>0&&!(lots[ci].fx>0)){ alert("Cargá el dólar MEP de cada compra para pasar el costo a dólares."); return; } }
+      for(var ci=0;ci<lots.length;ci++){ if($("fPxCcy").value==="ARS"&&lots[ci].q>0&&lots[ci].b>0&&!(lots[ci].fx>0)){ alert("Cargá el dólar CCL de cada compra para pasar el costo a dólares."); return; } }
     }
     for(var li=0;li<lots.length;li++){
       if(lots[li].d==="?"){ alert("La fecha no es válida. Escribila como dd/mm/aaaa (por ejemplo 12/03/2026) y que no sea futura."); return; }
       if(!(lots[li].q>0)){ alert("La cantidad tiene que ser mayor a 0."); return; }
       if(!(lots[li].b>0)){ alert("El precio de compra tiene que ser mayor a 0."); return; }
     }
-    var origLots=lots, cedPes=$("fPxCcy").value==="ARS";
+    var origLots=lots, cedMode={ARS:"P",MEP:"M",CCL:"C"}[$("fPxCcy").value]||"C";
     if(ced) lots=cedConv(lots);
     var qty=0,cst=0; lots.forEach(function(l){ qty+=l.q; cst+=l.q*l.b; }); var buy=cst/qty;
     if(ced && !cedChecked){
@@ -2175,10 +2225,11 @@
       broker:$("fBroker").value, ccy:$("fCcy").value, ticker:ticker, qty:qty, buy:buy, lots:keepLots,
       source:source, manualPrice:source==="manual"?manual:0, note:$("fNote").value.trim()
     };
-    if(ced){ data.ccy="USD"; var rr=+pnum($("fRatio").value).toFixed(4), cn="CEDEAR 1:"+rr+" {ced:"+rr+"|"+(cedPes?"A":"U")+"|"+origLots.map(function(l){ return [l.q,l.b,cedPes?l.fx:0,l.d||""].join(","); }).join(";")+"}"; data.note=data.note?data.note+" · "+cn:cn; }
+    if(ced){ data.ccy="USD"; var rr=+pnum($("fRatio").value).toFixed(4), cn="CEDEAR 1:"+rr+" "+cedMetaStr(rr,cedMode,origLots)+" {cb}"; data.note=data.note?data.note+" · "+cn:cn; }
     var fiR=pnum($("fFiR").value), fiM=$("fFiM").dataset.iso||"";
     if(fiM==="?"){ alert("El vencimiento no es válido. Escribilo como dd/mm/aaaa."); return; }
     var fiC=pnum($("fFiC").value); var oldP=editingId?positions.filter(function(x){return x.id===editingId;})[0]:null; data.fi=(isFinite(fiR)&&fiR>-20&&fiR<200)?{r:fiR,m:fiM,c:(isFinite(fiC)&&fiC>0&&fiC<100)?fiC:0}:null; if(data.fi&&oldP&&oldP.fi){ if(oldP.fi.cp) data.fi.cp=oldP.fi.cp; if(oldP.fi.n) data.fi.n=oldP.fi.n; }
+    if(!ced&&oldP&&CB_MARK.test(oldP.note||"")&&!CB_MARK.test(data.note)) data.note=(data.note+" {cb}").trim();
     if(editingId){
       positions=positions.map(function(x){
         if(x.id!==editingId) return x;
@@ -2212,14 +2263,15 @@
     $("sellDate").dataset.iso=todayStr(); $("sellDate").value=fromISO(todayStr());
     $("sellCash").value="keep";
     var cm=isCedPos(p)?cedMeta(p):null;
-    if(!cm&&isCedPos(p)&&CED_SUG[p.ticker]){ cm={r:CED_SUG[p.ticker],pes:false,est:true}; }
+    if(!cm&&isCedPos(p)&&CED_SUG[p.ticker]){ cm={r:CED_SUG[p.ticker],pes:false,mode:"C",est:true}; }
     sellCed=cm; sellPos=p;
     var cp=currentPrice(p);
-    $("sellFx").value=""; $("sellFxWrap").hidden=!(cm&&cm.pes);
+    $("sellFx").value=""; $("sellFxWrap").hidden=!(cm&&cm.pes); $("sellFxLbl").textContent="Dólar CCL del día de la venta";
     if(cm){
       var nC=Math.round(p.qty*cm.r*10000)/10000;
-      $("sellPxLbl").textContent="Precio de venta de 1 CEDEAR ("+(cm.pes?"en pesos":"en US$")+")";
-      $("sellPrice").value=(cp!==null&&!cm.pes)?(Math.round(cp/cm.r*10000)/10000):"";
+      $("sellPxLbl").textContent="Precio de venta de 1 CEDEAR ("+(cm.pes?"en pesos":(cm.mode==="M"?"en US$ MEP":"en US$ CCL"))+")";
+      var fM=(cedInfo&&cedInfo.f>0)?cedInfo.f:1;
+      $("sellPrice").value=(cp!==null&&!cm.pes)?(Math.round(cp*(cm.mode==="M"?fM:1)/cm.r*10000)/10000):"";
       sellInfo="Tenés "+nC+" CEDEAR"+(nC===1?"":"s")+(cm.est?" (1 acción = "+cm.r+" CEDEARs, según el listado; confirmalo en tu broker)":"")+". Poné el precio de uno solo, no el total.";
     } else {
       $("sellPxLbl").textContent="Precio de venta por acción";
@@ -2235,7 +2287,7 @@
     if(sellPos&&pr_>0){
       var n=sellCed?sellPos.qty*sellCed.r:sellPos.qty, tot=n*pr_, fx=pnum($("sellFx").value);
       if(sellCed&&sellCed.pes) t+=fx>0?" Total: ≈ US$ "+(tot/fx).toLocaleString("es-AR",{maximumFractionDigits:2})+" ($ "+tot.toLocaleString("es-AR",{maximumFractionDigits:0})+").":" Total: $ "+tot.toLocaleString("es-AR",{maximumFractionDigits:0})+".";
-      else t+=" Total que cobrás: US$ "+tot.toLocaleString("es-AR",{maximumFractionDigits:2})+".";
+      else t+=" Total que cobrás: US$ "+tot.toLocaleString("es-AR",{maximumFractionDigits:2})+(sellCed&&sellCed.mode==="M"?" (MEP)":(sellCed?" (CCL)":""))+".";
     }
     $("sellTot").textContent=t;
   }
@@ -2253,7 +2305,8 @@
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Elegí la fecha de venta."); return; }
     if(!(sp>0)){ alert("Poné el precio de venta."); return; }
     if(sellCed){
-      if(sellCed.pes){ var sfx=pnum($("sellFx").value); if(!(sfx>0)){ alert("Poné el dólar MEP del día de la venta para pasar el precio a dólares."); return; } sp=sp/sfx; }
+      if(sellCed.pes){ var sfx=pnum($("sellFx").value); if(!(sfx>0)){ alert("Poné el dólar CCL del día de la venta para pasar el precio a dólares."); return; } sp=sp/sfx; }
+      else if(sellCed.mode==="M"&&cedInfo&&cedInfo.f>0) sp=sp/cedInfo.f;
       sp=Math.round(sp*sellCed.r*1e6)/1e6;
     }
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
@@ -2640,7 +2693,7 @@
         b.addEventListener("click",function(){ if(cmpCash!==o[0]){ cmpCash=o[0]; buildCompare(cmpCtx.ents,cmpCtx.hist,cmpCtx.missing); } });
         cc.appendChild(b);
       });
-      var idle=real.map(function(x){ return (cmpCash&&x.curve&&x.curve.cash>0.5)?x.name+": US$ "+Math.round(x.curve.cash).toLocaleString("es-AR"):""; }).filter(Boolean);
+      var idle=real.map(function(x){ return (cmpCash&&x.curve&&x.curve.cash>0.5)?x.name+": "+dtxt(x.curve.cash):""; }).filter(Boolean);
       body.appendChild(el("div","help",cmpCash?"Cuenta el efectivo de tus ventas y depósitos como parte de la cartera, aunque en tu broker ya no esté."+(idle.length?" Efectivo sin invertir hoy según tus movimientos → "+idle.join(" · ")+". Si ya lo usaste o lo retiraste, cargalo como retiro en Efectivo.":""):"Mide solo las inversiones: el efectivo no cuenta y lo que vendés sale de la cartera. Es lo más parecido a tu broker si no dejás plata parada."));
     }
     if(csMax>csMin) body.appendChild(el("div","cmpchips")).id="cmpStartChips";
@@ -3458,12 +3511,14 @@
       if(/peso/i.test(String(cur||""))){ ccl=+ccl; if(!(ccl>0)) return null; out.pesos++; return price/ccl; }
       return price;
     }
-    /* CEDEARs: todo a dólar MEP (la base con la que la app y Balanz valúan lo abierto). Pesos → /MEP; cable (CCL) → ×CCL/MEP; MEP → tal cual. Si falta algún dato, cae al comportamiento anterior. */
+    /* CEDEARs: todo a dólar CCL (la base de la app: el CEDEAR vale lo mismo que la acción). Pesos → /CCL; MEP → ×MEP/CCL; cable → tal cual. Si falta algún dato, cae al comportamiento anterior. */
     function usdC(price,cur,ccl,mep){
-      var c=String(cur||"");
-      if(/cable|ccl/i.test(c)&&+ccl>0&&+mep>0&&+price>0){ out.cable++; return +price*ccl/mep; }
-      if(/peso/i.test(c)&&+mep>0&&+price>0){ out.pesos++; return +price/mep; }
-      return usd(price,cur,ccl);
+      var c=String(cur||""); price=+price; ccl=+ccl; mep=+mep;
+      if(!(price>0)) return null;
+      if(/cable|ccl/i.test(c)) return price;
+      if(/peso/i.test(c)) return ccl>0?(out.pesos++,price/ccl):null;
+      if(mep>0&&ccl>0){ out.cable++; return price*mep/ccl; }
+      return price;
     }
     var fin=table(sheet(/finales/)), rea=table(sheet(/realizado/));
     if(!fin.length&&!rea.length){ out.error="hojas"; return out; }
@@ -3679,8 +3734,8 @@
       return (list.length?fetchHistory(list,from):Promise.resolve({data:{}}))
         .then(function(j){
           var B=balanzBuild(P,j.data||{}), pos=[], closed=[];
-          B.open.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c) pos.push(c); });
-          B.closed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción)"},false); if(c&&c.sold) closed.push(c); });
+          B.open.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción) {cb}"},false); if(c) pos.push(c); });
+          B.closed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de Balanz (CEDEAR convertido a la acción) {cb}"},false); if(c&&c.sold) closed.push(c); });
           B.fixed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,fi:x.fi,source:"auto",note:"Importado de Balanz. Renta fija: rendimiento estimado con la tasa y el vencimiento de la descripción; revisalo."},false); if(c) pos.push(c); });
           B.fixedClosed.forEach(function(x){ var c=cleanPos({broker:"Balanz",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,fi:x.fi,source:"auto",note:"Importado de Balanz"},false); if(c&&c.sold) closed.push(c); });
           var nfx=B.fixed.length, nofi=B.fixed.filter(function(x){return !x.fi;}).map(function(x){return x.tk;});
