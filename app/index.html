@@ -365,6 +365,13 @@
   .fp-list{display:grid; gap:10px; max-height:46vh; overflow:auto; padding:2px; margin:0 -2px; outline:0; align-content:start; overscroll-behavior:contain;
     background:linear-gradient(var(--card) 30%,transparent),linear-gradient(transparent,var(--card) 70%) 0 100%,radial-gradient(farthest-side at 50% 0,rgba(0,0,0,.22),transparent),radial-gradient(farthest-side at 50% 100%,rgba(0,0,0,.22),transparent) 0 100%;
     background-repeat:no-repeat; background-size:100% 36px,100% 36px,100% 12px,100% 12px; background-attachment:local,local,scroll,scroll}
+  .cup-r{display:grid; grid-template-columns:1fr 104px; gap:8px; align-items:center; border:1px solid var(--line); border-radius:12px; padding:8px 10px; background:var(--card)}
+  .cup-r label{display:flex; align-items:center; gap:10px; margin:0; font-size:14px; font-weight:600}
+  .cup-r label input[type=checkbox]{width:20px; height:20px; min-height:0; flex:0 0 auto; accent-color:var(--brand)}
+  .cup-r label small{display:block; font-weight:400; color:var(--muted); font-size:12px}
+  .cup-r input[type=date]{min-height:38px; font-size:14px}
+  .cup-r.unck{opacity:.65}
+  .cup-add{justify-self:start; min-height:36px; padding:0 14px; border-radius:999px; font-size:13px; font-weight:500; background:var(--card); border:1px solid var(--line); color:var(--text); box-shadow:none}
   .fp-row{display:grid; grid-template-columns:104px 1fr; gap:8px}
   .fp-row label{display:grid; gap:3px; margin:0}
   .fp-it input,.fp-it select{min-height:38px; font-size:14px}
@@ -739,6 +746,19 @@
 
 <!-- comparación: pantalla propia (ver #cmpView más abajo) -->
 
+<dialog id="dlgCup" class="sheet">
+  <form method="dialog" id="formCup">
+    <h3 id="cupTitle">Cupones cobrados</h3>
+    <div class="help" style="font-size:14px;color:var(--muted)">Tildá los cupones que ya cobraste de verdad. Los que destildes dejan de contar como cobrados y, si ya pasó su fecha, te los vuelvo a preguntar. Si ya habías sumado alguno a tu plata sin invertir, ese saldo lo corregís en el menú “Plata sin invertir”.</div>
+    <div id="cupList" class="fp-list"></div>
+    <button type="button" id="cupAdd" class="cup-add">+ Agregar otro cobro</button>
+    <div class="btns">
+      <button type="button" id="cupCancel">Cancelar</button>
+      <button type="submit" class="primary">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgFiPay" class="sheet">
   <form method="dialog" id="formFiPay">
     <h3 id="fpTitle">Pagos de renta fija</h3>
@@ -1018,6 +1038,7 @@
   var ui={
     filter:["all","IBKR"].indexOf(uiRaw.filter)>=0?uiRaw.filter:"all",
     sort:["value","plpct","pl","day","ticker"].indexOf(uiRaw.sort)>=0?uiRaw.sort:"value",
+    sortSold:["date","plpct","pl","ticker","days"].indexOf(uiRaw.sortSold)>=0?uiRaw.sortSold:"date",
     hide:!!uiRaw.hide,
     tab:uiRaw.tab==="fi"?"fi":(uiRaw.tab==="sold"?"sold":"acc")
   };
@@ -1205,15 +1226,17 @@
 
   // ---------- Render ----------
   var SORTS={value:"Mayor valor",plpct:"Ganancia %",pl:"Ganancia $",day:"Variación del día",ticker:"Ticker A–Z"};
+  var SORTS_SOLD={date:"Venta más reciente",plpct:"Ganancia %",pl:"Ganancia $",days:"Más tiempo invertido",ticker:"Ticker A–Z"};
+  function sortSet(){ return ui.tab==="sold"?{map:SORTS_SOLD,key:"sortSold",def:"date"}:{map:SORTS,key:"sort",def:"value"}; }
   function syncToolbar(){
     $("toolbar").hidden=!(positions.length||(cur().closed||[]).length);
-    $("btnSort").hidden=(ui.tab==="sold");
+    $("btnSort").hidden=false;
     ui.filter="all";
     $("btnHide").setAttribute("aria-pressed",String(ui.hide));
     var eye='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ui.hide?'<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4 9.5 6a14 14 0 0 1-2.6 3.4M6.5 7.6A14 14 0 0 0 2.5 12c1 2 4.5 6 9.5 6 1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>':'<path d="M2.5 12c1-2 4.5-6 9.5-6s8.5 4 9.5 6c-1 2-4.5 6-9.5 6s-8.5-4-9.5-6z"/><circle cx="12" cy="12" r="3"/>')+'</svg>';
     $("btnHide").innerHTML=eye;
     $("btnSort").innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg><span></span>';
-    $("btnSort").lastChild.textContent=SORTS[ui.sort]||"Mayor valor"; var sl="Ordenar: "+(SORTS[ui.sort]||"Mayor valor"), hl=ui.hide?"Mostrar montos":"Ocultar montos"; $("btnSort").title=sl; $("btnSort").setAttribute("aria-label",sl); $("btnHide").title=hl; $("btnHide").setAttribute("aria-label",hl);
+    var ss=sortSet(), sn=ss.map[ui[ss.key]]||ss.map[ss.def]; $("btnSort").lastChild.textContent=sn; var sl="Ordenar: "+sn, hl=ui.hide?"Mostrar montos":"Ocultar montos"; $("btnSort").title=sl; $("btnSort").setAttribute("aria-label",sl); $("btnHide").title=hl; $("btnHide").setAttribute("aria-label",hl);
   }
 
   function renderProfile(){
@@ -1477,7 +1500,20 @@
     sp.appendChild(el("span","acc-pc",fmtPct(pct))); sp.appendChild(el("span","acc-amt",")")); return sp;
   }
   function renderSoldList(box){
-    var soldEls=[], cl=(cur().closed||[]).slice().sort(function(a,b){return a.sold.d<b.sold.d?1:-1;});
+    var soldEls=[], cl=(cur().closed||[]).slice();
+    function soldDays(c){ var hl=(c.lots&&c.lots.length?c.lots:[{q:c.qty,b:c.buy,d:""}]).filter(function(l){return l.d&&l.q>0&&l.b>0;}); if(!hl.length) return null; var sdn=dayNum(c.sold.d), wc=0, wd=0; hl.forEach(function(l){ var w=l.q*l.b; wc+=w; wd+=w*Math.max(0,sdn-dayNum(l.d)); }); return wd/wc; }
+    function soldVal(c){
+      var cost=c.qty*c.buy, gain=c.qty*c.sold.p-cost;
+      if(ui.sortSold==="pl") return gain;
+      if(ui.sortSold==="plpct") return cost>0?gain/cost:null;
+      if(ui.sortSold==="days") return soldDays(c);
+      return null;
+    }
+    cl.sort(function(a,b){
+      if(ui.sortSold==="ticker") return a.ticker<b.ticker?-1:(a.ticker>b.ticker?1:(a.sold.d<b.sold.d?1:-1));
+      if(ui.sortSold!=="date"){ var x=soldVal(a), y=soldVal(b); if(x===null&&y!==null) return 1; if(y===null&&x!==null) return -1; if(x!==y&&x!==null) return y-x; }
+      return a.sold.d<b.sold.d?1:(a.sold.d>b.sold.d?-1:0);
+    });
     if(openId && !cl.some(function(c){return soldKey(c)===openId;})) openId=null;
     cl.forEach(function(c){
       var cost=c.qty*c.buy, proceeds=c.qty*c.sold.p, gain=proceeds-cost, pct=cost>0?gain/cost:null;
@@ -1737,6 +1773,7 @@
         var acts=el("div","row-actions");
         var be=el("button",null,"Editar"); be.type="button"; be.addEventListener("click",function(){ openPos(p.id); });
         acts.appendChild(be);
+        if(p.fi){ var bc=el("button",null,"Cupones"); bc.type="button"; bc.addEventListener("click",function(){ openCup(p); }); acts.appendChild(bc); }
         var bd=el("button","danger","Eliminar"); bd.type="button"; bd.addEventListener("click",function(){
           openSell(p);
         });
@@ -2228,6 +2265,63 @@
     }
     positions=positions.filter(function(x){return x.id!==sellingId;});
     saveProfiles(); dlgSell.close(); render();
+  });
+
+
+  // ---------- Editar cupones cobrados de un bono ----------
+  var dlgCup=$("dlgCup"), cupPos=null, cupRows=[];
+  dlgCup.addEventListener("click",function(e){ if(e.target===dlgCup) dlgCup.close(); });
+  $("cupCancel").addEventListener("click",function(){ dlgCup.close(); });
+  function cupRowEl(r,i){
+    var row=el("div","cup-r"), lb=el("label"), ck=el("input"); ck.type="checkbox"; ck.checked=r.on; ck.id="cupC"+i; lb.appendChild(ck);
+    var tx=el("span"); tx.appendChild(document.createTextNode(r.free?"Otro cobro":r.date.split("-").reverse().join("/")));
+    if(!r.free&&r.real&&r.real!==r.date) tx.appendChild(el("small",null,"cobrado el "+r.real.split("-").reverse().join("/")));
+    lb.appendChild(tx); row.appendChild(lb);
+    if(r.free){ var dt=el("input"); dt.type="date"; dt.id="cupD"+i; dt.value=r.date||""; row.appendChild(dt); row.style.gridTemplateColumns="1fr 1fr 92px"; }
+    var am=el("input"); am.type="text"; am.setAttribute("inputmode","decimal"); am.autocomplete="off"; am.id="cupA"+i; am.value=r.amt>0?r.amt.toFixed(2).replace(".",","):""; row.appendChild(am);
+    ck.addEventListener("change",function(){ row.classList.toggle("unck",!ck.checked); });
+    row.classList.toggle("unck",!r.on);
+    return row;
+  }
+  function openCup(p){
+    if(isRO()) return;
+    cupPos=p; $("cupTitle").textContent="Cupones de "+p.ticker;
+    var cu=fiCoupons(p), sched=(cu&&cu.list)||[], cp=(p.fi.cp||[]).slice(), used={}, rows=[];
+    sched.forEach(function(c){
+      var sn=dayNum(c[0]), best=-1, bd=1e9;
+      cp.forEach(function(x,j){ if(used[j]) return; var d=Math.abs(dayNum(x[0])-sn); if(d<=6&&d<bd){ bd=d; best=j; } });
+      if(best>=0){ used[best]=1; rows.push({date:c[0],real:cp[best][0],amt:cp[best][1],on:true,sched:true}); }
+      else rows.push({date:c[0],amt:c[1],on:!p.fi.cp,sched:true});
+    });
+    cp.forEach(function(x,j){ if(!used[j]) rows.push({date:x[0],amt:x[1],on:true,sched:false}); });
+    rows.sort(function(a,b){ return a.date<b.date?1:-1; });
+    cupRows=rows; var box=$("cupList"); box.textContent="";
+    rows.forEach(function(r,i){ box.appendChild(cupRowEl(r,i)); });
+    if(!rows.length) box.appendChild(el("div","help","Todavía no hay cupones para este bono. Podés agregar los cobros a mano."));
+    try{ dlgCup.showModal(); }catch(e){}
+    try{ if(document.activeElement&&document.activeElement.blur) document.activeElement.blur(); }catch(e){}
+  }
+  $("cupAdd").addEventListener("click",function(){
+    var r={date:todayStr(),amt:0,on:true,sched:false,free:true}; cupRows.push(r);
+    var box=$("cupList"); if(box.firstChild&&!box.firstChild.classList.contains("cup-r")) box.textContent="";
+    var row=cupRowEl(r,cupRows.length-1); box.insertBefore(row,box.firstChild); box.scrollTop=0;
+  });
+  $("formCup").addEventListener("submit",function(ev){
+    ev.preventDefault(); var p=cupPos; if(!p||isRO()) return;
+    var out=[], pd=(p.fi.pd||[]).slice(), schedAll={};
+    for(var i=0;i<cupRows.length;i++){
+      var r=cupRows[i], on=$("cupC"+i).checked, amt=pnum($("cupA"+i).value), date=r.free?($("cupD"+i).value||""):(r.real||r.date);
+      if(r.sched) schedAll[r.date]=on;
+      if(!on) continue;
+      if(!(amt>0)){ alert("Poné el monto del cupón"+(r.free?"":" del "+r.date.split("-").reverse().join("/"))+" o destildalo."); return; }
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ alert("Poné la fecha del cobro."); return; }
+      out.push([date,Math.round(amt*100)/100]);
+    }
+    out.sort(function(a,b){ return a[0]<b[0]?-1:1; });
+    pd=pd.filter(function(d){ return !(d in schedAll); });
+    Object.keys(schedAll).forEach(function(d){ if(schedAll[d]) pd.push(d); });
+    p.fi.cp=out; if(pd.length) p.fi.pd=pd; else delete p.fi.pd;
+    saveProfiles(); dlgCup.close(); render();
   });
 
   // ---------- Pagos de renta fija: una vez por día, después de la fecha de cobro, pregunta qué hacer ----------
@@ -2769,10 +2863,11 @@
   dlgSort.addEventListener("click",function(e){ if(e.target===dlgSort) dlgSort.close(); });
   $("btnSort").addEventListener("click",function(){
     var box=$("sortList"); box.textContent="";
-    Object.keys(SORTS).forEach(function(k){
-      var b=el("button","pk-item"+(ui.sort===k?" on":""),SORTS[k]); b.type="button";
-      if(ui.sort===k) b.appendChild(el("span","ck","✓"));
-      b.addEventListener("click",function(){ dlgSort.close(); ui.sort=k; save(LS_UI,ui); render(); });
+    var ss=sortSet(), curK=ui[ss.key]||ss.def;
+    Object.keys(ss.map).forEach(function(k){
+      var b=el("button","pk-item"+(curK===k?" on":""),ss.map[k]); b.type="button";
+      if(curK===k) b.appendChild(el("span","ck","✓"));
+      b.addEventListener("click",function(){ dlgSort.close(); ui[ss.key]=k; save(LS_UI,ui); render(); });
       box.appendChild(b);
     });
     dlgSort.showModal();
