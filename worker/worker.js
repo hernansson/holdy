@@ -47,6 +47,7 @@ export default {
     if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data") return account(request, env, url, cors);
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
     if (url.pathname === "/history") return history(url, cors);
+    if (url.pathname === "/fx") return fxHistory(cors);
     if (url.pathname !== "/quote") return json({ error: "not_found" }, 404, cors);
 
     const symbol = (url.searchParams.get("symbol") || "").toUpperCase();
@@ -342,5 +343,25 @@ async function yahooHistory(symbol, p1, p2) {
     return { currency: cur.toUpperCase(), pts };
   } catch (e) {
     return null;
+  }
+}
+
+// Historial diario de dólar CCL y MEP (argentinadatos.com), por si el navegador no lo puede pedir directo.
+let fxCache = null;
+async function fxHistory(cors) {
+  if (fxCache && Date.now() - fxCache.at < 6 * 60 * 60 * 1000) return json(fxCache.data, 200, cors, "HIT");
+  try {
+    const get = async (casa) => {
+      const r = await fetch("https://api.argentinadatos.com/v1/cotizaciones/dolares/" + casa, { headers: { "Accept": "application/json" } });
+      if (!r.ok) throw new Error(String(r.status));
+      const a = await r.json();
+      return (Array.isArray(a) ? a : []).filter((x) => x && String(x.fecha) >= "2018-01-01").map((x) => ({ fecha: x.fecha, venta: x.venta, compra: x.compra }));
+    };
+    const [ccl, mep] = await Promise.all([get("contadoconliqui"), get("bolsa")]);
+    const data = { ccl, mep };
+    fxCache = { at: Date.now(), data };
+    return json(data, 200, cors, "MISS");
+  } catch (e) {
+    return json({ error: "fx_unavailable" }, 502, cors);
   }
 }
