@@ -197,7 +197,7 @@
   .sum-tg svg{transition:transform .15s} .sum-tg.open svg{transform:rotate(180deg)}
   .gain-line{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-top:6px}
   .gain-line .gl-lbl{font-size:12px; font-weight:500; color:var(--muted)}
-  .gain-tot{margin-top:4px; font-size:13px; color:var(--muted)} .gain-tot b{font-weight:700}
+  .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   .gain-line .gl-main{font-size:17px; font-weight:700}
   .gain-line .gl-sub,.day-line{font-size:12px; color:var(--muted); font-weight:500}
   .day-line{margin-top:2px}
@@ -1596,18 +1596,15 @@
         }
         var realized=0, nCl=0, rfx=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=pProceeds(c)-pCost(c); rfx+=fxPart(c); nCl++; } });
         var gfx=g.fx||0;
-        if(cashT>0){
-          rhead("Qué suma el número de arriba");
-          rrow("Lo que tenés invertido",mR(g.value,ccy),"",false,"",true);
-          rrow("Plata sin invertir",mR(cashT,ccy),"",false,"",true);
-          rrow("Total",mR(g.value+cashT,ccy),"",true);
-        }
-        rhead("Cómo se calcula la ganancia");
-        rrow("Variación de lo que tenés",mRs(diff,ccy),cls(diff),false,"vale hoy "+mR(g.value,ccy)+" − invertido "+mR(costPriced,ccy),true);
-        if(fxSig(gfx,costPriced)){ rrow("· por la acción",mRs(diff-gfx,ccy),cls(diff-gfx),false,"con el dólar fijo",true); rrow("· por el dólar",mRs(gfx,ccy),cls(gfx),false,"cambió desde que compraste",true); }
-        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"",true);
-        if(nCl) rrow("Ganancia por ventas ("+nCl+")",mRs(realized,ccy),cls(realized),false,fxSig(rfx,realized)?(mRs(realized-rfx,ccy)+" por la acción · "+mRs(rfx,ccy)+" por el dólar"):"",true);
-        rrow("Ganancia total",mRs(tot+realized,ccy),cls(tot+realized),true,nCl?"lo que tenés + lo que vendiste":"");
+        /* Detalle simple: de dónde sale el resultado, en 3 o 4 filas. Lo demás, en una nota chica. */
+        rrow("Lo que tenés",mRs(diff,ccy),cls(diff));
+        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos");
+        if(nCl) rrow("Lo que vendiste",mRs(realized,ccy),cls(realized));
+        rrow("Total",mRs(tot+realized,ccy),cls(tot+realized),true);
+        var fxAll=gfx+rfx, foot=[];
+        if(fxSig(fxAll,costPriced)) foot.push("De eso, "+mRs(fxAll,ccy)+" es por el dólar (cambió desde que compraste).");
+        if(cashT>0) foot.push("El número grande suma "+mR(cashT,ccy)+" sin invertir.");
+        if(foot.length) rc.appendChild(el("div","rfoot",foot.join(" ")));
         card.appendChild(rc);
         var kp=el("div","kpis");
         function kpi(lbl,val,c,sub){ var k=el("div","kpi"); k.appendChild(el("span","kl",lbl)); k.appendChild(el("span","kv"+(c?" "+c:""),val)); if(sub) k.appendChild(el("span","ks "+(c||""),sub)); kp.appendChild(k); }
