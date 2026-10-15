@@ -3461,20 +3461,28 @@
     if(!rows.length){ out.error="vacio"; return out; }
     function norm(s){ return String(s).toLowerCase().replace(/[^a-z\/]/g,""); }
     var hi=-1, ix={};
-    for(var r=0;r<Math.min(rows.length,5);r++){
+    for(var r=0;r<rows.length;r++){
       var nm=rows[r].map(norm);
-      if(nm.indexOf("symbol")>=0 && (nm.indexOf("quantity")>=0||nm.indexOf("tradeprice")>=0)){ hi=r; nm.forEach(function(k,j){ if(!(k in ix)) ix[k]=j; }); break; }
+      if(nm.indexOf("symbol")>=0 && (nm.indexOf("tradeprice")>=0||nm.indexOf("tprice")>=0)){ hi=r; nm.forEach(function(k,j){ if(!(k in ix)) ix[k]=j; }); break; }
     }
     var C;
+    var g=function(){ for(var a=0;a<arguments.length;a++) if(arguments[a] in ix) return ix[arguments[a]]; return -1; };
     if(hi>=0){
-      function g(){ for(var a=0;a<arguments.length;a++) if(arguments[a] in ix) return ix[arguments[a]]; return -1; }
       C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail")};
       if(C.sym<0||C.qty<0||C.px<0||(C.date<0&&C.dt<0)){ out.error="columnas"; return out; }
     } else if(rows[0].length>=72 && /^(BUY|SELL)$/.test(rows[0][54]||"")){
       C={asset:5,ccy:3,sym:7,date:30,dt:28,qty:35,px:36,side:54,lvl:71}; hi=-1;
     } else { out.error="formato"; return out; }
+    var skipSec=false;
     for(var k=hi+1;k<rows.length;k++){
-      var w=rows[k]; if(w.length<8) continue;
+      var w=rows[k];
+      /* Un Flex Query con varias secciones (Trades, Transfers…) trae un encabezado por sección: solo se leen las de Trades. */
+      if(hi>=0){ var nmk=w.map(norm); if(nmk.indexOf("symbol")>=0&&(nmk.indexOf("quantity")>=0||nmk.indexOf("tradeprice")>=0)){
+        skipSec=!(nmk.indexOf("tradeprice")>=0||nmk.indexOf("tprice")>=0);
+        if(!skipSec){ ix={}; nmk.forEach(function(kk,j){ if(!(kk in ix)) ix[kk]=j; }); C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail")}; }
+        continue; } }
+      if(skipSec) continue;
+      if(w.length<8) continue;
       if(C.sym>=0&&String(w[C.sym]||"").trim().toLowerCase()==="symbol") continue; /* encabezado de otro archivo */
       var asset=C.asset>=0?String(w[C.asset]).toUpperCase():"STK";
       if(asset!=="STK"){ out.other++; continue; }
@@ -3915,7 +3923,7 @@
       if(fs_.some(function(x){ return !/\.csv$/i.test(x.name)||x.size>5*1024*1024; })){ ibMsg("Para elegir varios archivos juntos tienen que ser los CSV de IBKR (uno por año)."); return; }
       Promise.all(fs_.map(function(x){ return x.text(); })).then(function(ts){
         ibRead(ts.map(function(t){ return String(t).replace(/^\uFEFF/,"").replace(/\s+$/,""); }).join("\n"));
-      }).catch(function(){ ibMsg("No pude leer los archivos."); });
+      }).catch(function(e){ try{ console.error("holdy-ibkr",e); }catch(x){} ibMsg("No pude leer los archivos."); });
       return;
     }
     var f=fs_[0]; if(!f) return;
