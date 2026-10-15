@@ -3714,7 +3714,7 @@
       var lo={q:x.q,b:Math.round(x.p*1e6)/1e6,d:x.d}; if(x.x) lo.x=x.x; f.lots.push(lo);
       var y=fiYield(f.terms,x.p,x.d); if(y===null) f.noY++; else { f.w+=x.q*x.p; f.wr+=x.q*x.p*y; }
     });
-    // Cupones cobrados: los del Excel; si uno se desvía más de 10% de lo que corresponde (nominal × cupón ÷ pagos por año), se usa el teórico.
+    // Cupones cobrados: las fechas salen del Excel; el monto es el exacto (nominal × cupón ÷ pagos por año). Si no se sabe la tasa, el del Excel.
     function fiN(f){
       var n0=/BONO TESORO/i.test(f.desc||"")?12:2, mine=(P.coupons||[]).filter(function(x){return x.tk===f.tk;});
       if(mine.length>=2){ var ds=mine.map(function(x){return dayNum(x.d);}).sort(function(a,b){return a-b;}), gaps=[];
@@ -3727,7 +3727,7 @@
       return (P.coupons||[]).filter(function(x){return x.tk===f.tk;}).map(function(x){
         var a=x.a;
         if(c>0){ var nom=0; f.lots.forEach(function(l){ if(l.d<x.d) nom+=l.q; });
-          var th=nom*c/100/monthly; if(th>0&&Math.abs(a-th)/th>0.1) a=Math.round(th*100)/100; }
+          var th=nom*c/100/monthly; if(th>0) a=Math.round(th*100)/100; } /* el cupón exacto es nominales × tasa; el Excel lo informa en pesos al oficial y da unos centavos distintos */
         return [x.d,a];
       }).sort(function(a,b){return a[0]<b[0]?-1:1;});
     }
