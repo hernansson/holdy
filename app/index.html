@@ -196,6 +196,8 @@
   .sum-tg{display:inline-flex; align-items:center; gap:5px; border:0; background:transparent; color:var(--muted); font-size:12px; min-height:28px; padding:0 2px; box-shadow:none}
   .sum-tg svg{transition:transform .15s} .sum-tg.open svg{transform:rotate(180deg)}
   .gain-line{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-top:6px}
+  .gain-line .gl-lbl{font-size:12px; font-weight:500; color:var(--muted)}
+  .gain-tot{margin-top:4px; font-size:13px; color:var(--muted)} .gain-tot b{font-weight:700}
   .gain-line .gl-main{font-size:17px; font-weight:700}
   .gain-line .gl-sub,.day-line{font-size:12px; color:var(--muted); font-weight:500}
   .day-line{margin-top:2px}
@@ -514,7 +516,7 @@
     .sum-card{display:grid; grid-template-columns:minmax(280px,380px) 1fr; column-gap:44px; align-items:center; padding:26px 32px}
     .sum-card>.sum-hd,.sum-card>.sum-main,.sum-card>.gain-line,.sum-card>.note{grid-column:1}
     .sum-card>.kpis{grid-column:2; grid-row:1/span 4; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px 0; align-self:stretch}
-    .sum-card>.recibo,.sum-tg,.sum-card>.gain-line{display:none!important}
+    .sum-card>.recibo,.sum-tg,.sum-card>.gain-line,.sum-card>.gain-tot{display:none!important}
     .sum-main .big{font-size:44px; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
     .sum-card>.kpis.k6{grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:22px}
     .kpi{display:flex; flex-direction:column; justify-content:center; gap:5px; padding:0 22px; border-left:1px solid var(--line)}
@@ -1572,8 +1574,14 @@
       mainRow.appendChild(el("div","big",mR(g.value+cashT,ccy)));
       if(costPriced>0){
         var diff=g.value-costPriced, tot=g.value+inc-costPriced;
+        var rz0=0, nz0=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ rz0+=pProceeds(c)-pCost(c); nz0++; } });
         var gl=el("div","gain-line "+cls(tot)); gl.appendChild(el("span",null,arrow(tot)+mRs(tot,ccy)));
-        gl.appendChild(el("span","gl-pct","("+fmtPct(tot/costPriced)+")")); card.appendChild(gl);
+        gl.appendChild(el("span","gl-pct","("+fmtPct(tot/costPriced)+")"));
+        if(nz0) gl.appendChild(el("span","gl-lbl","en lo que tenés"));
+        card.appendChild(gl);
+        /* Con ventas: el resultado total (lo que tenés + lo que ya vendiste), para que no se confunda con el de arriba. */
+        if(nz0){ var gt=tot+rz0, gtl=el("div","gain-tot"); gtl.appendChild(el("span",null,"Con lo que vendiste: "));
+          gtl.appendChild(el("b",cls(gt),arrow(gt)+mRs(gt,ccy))); card.appendChild(gtl); }
         var rc=el("div","recibo"); rc.hidden=!sumOpen[ccy];
         var tg=el("button","sum-tg",""); tg.type="button"; tg.setAttribute("aria-expanded",String(!!sumOpen[ccy]));
         tg.appendChild(el("span",null,"Detalle")); tg.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
