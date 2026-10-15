@@ -1247,10 +1247,9 @@
   }
   // ---------- Moneda para mostrar (CCL / MEP / $) con el dólar de cada fecha ----------
   // Cada monto se guarda en su moneda base: acciones y CEDEARs en dólar CCL ("C"), bonos en dólar MEP ("M").
-  // Al cargar o importar, lo que pagaste se pasa a la base con el dólar CCL y MEP DEL DÍA DE LA COMPRA (x=[ccl,mep], el Excel de Balanz lo trae).
-  // Lo que tenés hoy (costo y valor) se muestra en la moneda elegida con el dólar de HOY: "cuánto es si lo cambio hoy". Así el % es el mismo
-  // en CCL, MEP y pesos, y comprar en CCL y mirar en MEP no muestra una ganancia que no existe.
-  // Las ventas son historia: la compra va con el dólar de ese día y la venta con el del día de la venta (lo guardado o, si no está, el historial).
+  // Como las apps internacionales (StocksCafe, Portfolio Performance, Sharesight): lo que pagaste va con el dólar CCL y MEP DEL DÍA DE CADA COMPRA
+  // (x=[ccl,mep] guardado al importar; si no está, el historial) y lo que vale, con el de HOY (en una venta, con el del día de la venta).
+  // La ganancia se separa en "por la acción" (con el dólar fijo) y "por el dólar" (cuánto cambió el dólar desde que compraste).
   // Las funciones devuelven "unidades de pantalla": el monto en la moneda elegida dividido por dcF(), porque fmt() multiplica por dcF().
   var LS_FXH="cartera.fxh.v1", fxH=load(LS_FXH,null), fxBusy=null;
   function fxToday(){ var i=cedInfo; return (i&&i.c>0&&i.d>0)?{c:i.c,m:i.d}:null; }
@@ -1268,31 +1267,35 @@
     return (c>0&&m>0)?{c:c,m:m}:null;
   }
   function pBase(p){ return p&&p.fi?"M":"C"; }
-  // Monto en moneda base → unidades de pantalla. hist: con el dólar de esa fecha (ventas); si no, con el de hoy.
-  function effAmt(a,base,iso,x,hist){
+  // Monto en moneda base → unidades de pantalla, con el dólar r ({c,m}); sin r, con el de hoy.
+  function effR(a,base,r){
     if(ui.dc==="CCL"&&base==="C") return a;
-    var t=fxToday(); if(!t) return a;
-    var r=(hist&&fxOn(iso,x))||t, rb=base==="M"?r.m:r.c, rt=ui.dc==="ARS"?1:(ui.dc==="MEP"?r.m:r.c);
+    var t=fxToday(); if(!t) return a; r=r||t;
+    var rb=base==="M"?r.m:r.c, rt=ui.dc==="ARS"?1:(ui.dc==="MEP"?r.m:r.c);
     return a*rb/rt/dcF();
   }
   // Valor de hoy → unidades de pantalla (los bonos están en MEP; el resto ya está en CCL).
   function valF(p){ var t=fxToday(); return (p&&p.fi&&t&&!fiCcl(p))?t.m/t.c:1; }
   function fiCcl(p){ var q=fiQuote(p); return !!(q&&/C$/.test(q.s)); }
   function lotsOrOne(p){ return (p.lots&&p.lots.length)?p.lots:[{q:p.qty,b:p.buy,d:""}]; }
-  // Capital invertido en la moneda elegida: en lo que tenés, con el dólar de hoy; en lo vendido, con el del día de cada compra.
-  function pCost(p){
+  // Capital invertido en la moneda elegida. Sin "at": con el dólar del día de cada compra. at="hoy": con el de hoy. at={c,m}: con ese dólar.
+  function pCost(p,at){
     if(p.ccy!=="USD") return p.qty*p.buy;
-    if(p.parts) return p.parts.reduce(function(a,x){ return a+pCost(x); },0);
-    var base=pBase(p), h=!!p.sold; return lotsOrOne(p).reduce(function(a,l){ return a+effAmt(l.q*l.b,base,l.d,l.x,h); },0);
+    if(p.parts) return p.parts.reduce(function(a,x){ return a+pCost(x,at); },0);
+    var base=pBase(p); return lotsOrOne(p).reduce(function(a,l){ return a+effR(l.q*l.b,base,at==="hoy"?null:(at||fxOn(l.d,l.x))); },0);
   }
   function pBuy(p){ return p.qty>0?pCost(p)/p.qty:p.buy; }
-  function lotPx(p,l){ return p.ccy==="USD"?effAmt(l.b,pBase(p),l.d,l.x,!!p.sold):l.b; }
+  function lotPx(p,l){ return p.ccy==="USD"?effR(l.b,pBase(p),fxOn(l.d,l.x)):l.b; }
   // Lo que cobraste al vender, con el dólar del día de la venta.
-  function pProceeds(c){ return c.ccy==="USD"?effAmt(c.qty*c.sold.p,pBase(c),c.sold.d,c.sold.x,true):c.qty*c.sold.p; }
+  function sellFx(c){ return fxOn(c.sold.d,c.sold.x); }
+  function pProceeds(c){ return c.ccy==="USD"?effR(c.qty*c.sold.p,pBase(c),sellFx(c)):c.qty*c.sold.p; }
+  // Parte de la ganancia que viene del dólar: el costo pasado con el dólar de hoy (o del día de la venta) menos el costo con el dólar de cada compra.
+  function fxPart(p){ if(p.ccy!=="USD") return 0; return pCost(p,p.sold?(sellFx(p)||"hoy"):"hoy")-pCost(p); }
   function curPx(p){ var c=currentPrice(p); return (c===null||p.ccy!=="USD")?c:c*valF(p); }
-  // Cupones cobrados (en dólares MEP), con el dólar de hoy como el resto de lo que tenés.
+  // Cupones cobrados (en dólares MEP), cada uno con el dólar del día en que se cobró.
   function fiCpList(p){ if(!p||!p.fi) return []; if(p.fi.cp) return p.fi.cp; var cu=fiCoupons(p); return cu?cu.list:[]; }
-  function fiIncomeE(p){ return fiCpList(p).reduce(function(a,x){ return a+(p.ccy==="USD"?effAmt(x[1],"M",x[0],null,false):x[1]); },0); }
+  function fiIncomeE(p){ return fiCpList(p).reduce(function(a,x){ return a+(p.ccy==="USD"?effR(x[1],"M",fxOn(x[0],null)):x[1]); },0); }
+  function fxSig(f,base){ return Math.abs(f)>Math.max(0.005,Math.abs(base)*0.0005); }
   // Historial diario de dólar CCL y MEP (desde 2018), para las compras sin dólar guardado. Se renueva cada 12 h.
   function fetchFxHist(force){
     if(fxBusy) return fxBusy;
@@ -1493,7 +1496,13 @@
     }
     var days={"1M":30,"3M":90,"1A":365,"Todo":0}[evoRange], tn=dayNum(todayStr());
     var pts=c.pts.filter(function(p){ return !days||p[0]>=tn-days; }); if(pts.length<2) pts=c.pts.slice(-2);
-    pts=pts.map(function(p){ return [p[0],p[1],p[2]]; }); /* en CCL; dtxt() lo pasa a la moneda elegida con el dólar de hoy */
+    /* A unidades de pantalla: el valor de cada día con el dólar de ese día; lo invertido con el dólar de cada compra. */
+    var fT=dcF();
+    pts=pts.map(function(p){
+      if(p.length<7||ui.dc==="CCL"||!fxToday()) return [p[0],p[1],p[2]];
+      var c_=p[5]||1, m_=p[6]||1, v=ui.dc==="ARS"?p[1]*c_:p[1]*c_/m_, k=ui.dc==="ARS"?p[3]:p[4];
+      return [p[0],v/fT,k/fT];
+    });
     if(evoLive>0 && pts[pts.length-1][0]===tn && Math.abs(evoLive/pts[pts.length-1][1]-1)<0.05) pts[pts.length-1][1]=evoLive;
     var W=340,H=150,pad=8, min=Infinity,max=-Infinity;
     pts.forEach(function(p){ min=Math.min(min,p[1],p[2]); max=Math.max(max,p[1],p[2]); });
@@ -1536,7 +1545,7 @@
       var b=g.brokers[p.broker]||(g.brokers[p.broker]={cost:0,value:0,missing:0});
       b.cost+=cost;
       if(cp===null){ g.missing++; b.missing++; }
-      else { g.costPriced+=cost; g.value+=p.qty*cp; b.value+=p.qty*cp; if(p.fi){ b.inc=(b.inc||0)+fiIncomeE(p); } }
+      else { g.costPriced+=cost; g.fx=(g.fx||0)+fxPart(p); g.value+=p.qty*cp; b.value+=p.qty*cp; if(p.fi){ b.inc=(b.inc||0)+fiIncomeE(p); } }
       var di=dayInfo(p); if(di){ g.day+=di.amt; g.dayBase+=di.base; g.dayN++; }
     });
     Object.keys(byCcy).sort().forEach(function(ccy){
@@ -1549,7 +1558,7 @@
       var npos=positions.filter(function(p){return p.ccy===ccy;}).length, inc=g.inc||0;
       var hd=el("div","sum-hd"); hd.appendChild(el("h2",null,"Tu cartera hoy"));
       var dcs=el("div","seg sm dcseg"); dcs.setAttribute("aria-label","Moneda para mostrar");
-      [["CCL","CCL"],["MEP","MEP"],["ARS","$"]].forEach(function(o){ var b=el("button",ui.dc===o[0]?"on":"",o[1]); b.type="button"; b.title={CCL:"En dólar CCL",MEP:"En dólar MEP",ARS:"En pesos"}[o[0]]+" (lo que tenés, con el dólar de hoy; las ventas, con el de cada fecha)";
+      [["CCL","CCL"],["MEP","MEP"],["ARS","$"]].forEach(function(o){ var b=el("button",ui.dc===o[0]?"on":"",o[1]); b.type="button"; b.title={CCL:"En dólar CCL",MEP:"En dólar MEP",ARS:"En pesos"}[o[0]]+": lo que pagaste con el dólar de cada compra; lo que vale, con el de hoy";
         b.addEventListener("click",function(){ if(ui.dc===o[0]) return; ui.dc=o[0]; save(LS_UI,ui); render(); if(!cedInfo) fetchCedFactor().then(render); fetchFxHist().then(render); });
         dcs.appendChild(b); });
       hd.appendChild(dcs); card.appendChild(hd);
@@ -1578,7 +1587,8 @@
           var r=el("div","rrow"+(strong?" strong":"")+(mut?" mut":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
           r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
         }
-        var realized=0, nCl=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=pProceeds(c)-pCost(c); nCl++; } });
+        var realized=0, nCl=0, rfx=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=pProceeds(c)-pCost(c); rfx+=fxPart(c); nCl++; } });
+        var gfx=g.fx||0;
         if(cashT>0){
           rhead("Qué suma el número de arriba");
           rrow("Lo que tenés invertido",mR(g.value,ccy),"",false,"",true);
@@ -1587,8 +1597,9 @@
         }
         rhead("Cómo se calcula la ganancia");
         rrow("Variación de lo que tenés",mRs(diff,ccy),cls(diff),false,"vale hoy "+mR(g.value,ccy)+" − invertido "+mR(costPriced,ccy),true);
+        if(fxSig(gfx,costPriced)){ rrow("· por la acción",mRs(diff-gfx,ccy),cls(diff-gfx),false,"con el dólar fijo",true); rrow("· por el dólar",mRs(gfx,ccy),cls(gfx),false,"cambió desde que compraste",true); }
         if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos",false,"",true);
-        if(nCl) rrow("Ganancia por ventas ("+nCl+")",mRs(realized,ccy),cls(realized),false,"",true);
+        if(nCl) rrow("Ganancia por ventas ("+nCl+")",mRs(realized,ccy),cls(realized),false,fxSig(rfx,realized)?(mRs(realized-rfx,ccy)+" por la acción · "+mRs(rfx,ccy)+" por el dólar"):"",true);
         rrow("Ganancia total",mRs(tot+realized,ccy),cls(tot+realized),true,nCl?"el número verde de arriba no incluye las ventas":"");
         card.appendChild(rc);
         var kp=el("div","kpis");
@@ -1657,9 +1668,10 @@
       function tile(k,v){ var t=el("div","dtile"); t.appendChild(el("span","k",k)); t.appendChild(el("span","v",v)); tiles.appendChild(t); }
       tile("Capital invertido",mR(cost,c.ccy)); tile("Monto de venta",mR(proceeds,c.ccy)); g.appendChild(tiles);
       var pg=el("div","pgrid");
-      function pair(k,v,cc){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(cc?" "+cc:""),v)); pg.appendChild(d); }
+      function pair(k,v,cc,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(cc?" "+cc:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
       pair("Cantidad",qq(c.qty)); pair("Resultado",mRs(gain,c.ccy),cls(gain));
       pair("Precio de compra",mm(pBuy(c),c.ccy)); pair("Precio de venta",mm(c.qty>0?proceeds/c.qty:c.sold.p,c.ccy));
+      var sfx_=fxPart(c); if(fxSig(sfx_,cost)){ pair("Por la acción",mRs(gain-sfx_,c.ccy),cls(gain-sfx_),cost+sfx_>0?fmtPct((gain-sfx_)/(cost+sfx_)):""); pair("Por el dólar",mRs(sfx_,c.ccy),cls(sfx_)); }
       pair("Fecha de venta",c.sold.d.split("-").reverse().join("/")); pair("Broker",brokerName(c.broker));
       var hl=(c.lots&&c.lots.length?c.lots:[{q:c.qty,b:c.buy,d:""}]).filter(function(l){return l.d&&l.q>0&&l.b>0;}), sdn=dayNum(c.sold.d);
       if(hl.length){
@@ -1668,7 +1680,7 @@
         if(days>=30&&pct!==null&&pct>-1){ var an=Math.pow(1+pct,365/days)-1; pair("Rentabilidad anual est.",fmtPct(an),cls(an)); }
       }
       g.appendChild(pg); body.appendChild(g);
-      if(c.ccy==="USD"&&ui.dc!=="CCL") body.appendChild(el("div","note","En "+(ui.dc==="ARS"?"pesos":"dólar MEP")+" con el dólar de cada fecha: la compra con el del día que compraste y la venta con el del día que vendiste."));
+      if(c.ccy==="USD"&&(ui.dc!=="CCL"||c.fi)) body.appendChild(el("div","note","La compra va con el dólar del día que compraste y la venta, con el del día que vendiste."));
       if(!isRO()){
         var acts=el("div","row-actions"), bd=el("button","danger","Eliminar"); bd.type="button";
         bd.addEventListener("click",function(){
@@ -1832,6 +1844,7 @@
       if(nL){ var ds_=dl_.map(function(l){return l.d;}).sort(); pair("Compras",String(nL),"",ds_.length>1?ds_[0].split("-").reverse().join("/")+" a "+ds_[ds_.length-1].split("-").reverse().join("/"):""); }
       pair(nL?"Precio promedio de compra":"Precio de compra",mm(pBuy(p),p.ccy));
       pair(p.fi?(fiIsPar(p)?"Valor a la par":"Precio de mercado"):"Precio actual",cp===null?"—":fmt(cp,p.ccy),"",(p.fi&&fiIsPar(p))?"sin precio de mercado":(p.fi&&fiQuote(p))?"cotización "+fiQuote(p).s+(/C$/.test(fiQuote(p).s)?" (dólar CCL)":" (dólar MEP)"):"");
+      if(pl!==null&&p.ccy==="USD"){ var fxp=fxPart(p); if(fxSig(fxp,cost)){ pair("Por la acción",mRs(pl-fxp,p.ccy),cls(pl-fxp),cost+fxp>0?fmtPct((pl-fxp)/(cost+fxp)):""); pair("Por el dólar",mRs(fxp,p.ccy),cls(fxp),"cambió desde que compraste"); } }
       pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
       if(!p.parts) pair("Broker",brokerName(p.broker));
@@ -1879,7 +1892,8 @@
       if(errors[p.ticker] && p.source!=="manual" && !p.fi) notes.push("⚠ "+errors[p.ticker]+(stamp?" Se muestra el último precio guardado.":""));
       if(isCedPos(p)) notes.push(CB_MARK.test(p.note||"")?"CEDEAR valuado en dólar CCL (igual que la acción de EE.UU.).":"Todavía no tengo el dólar de hoy para pasar este CEDEAR a CCL"+(cedErr?" ("+cedErr+")":"")+"; actualizá los precios.");
       if(p.fi) notes.push(fiIsPar(p)?"No encontré precio de mercado para este bono: se valúa a la par (1), más los cupones.":"Precio de mercado en dólares "+(fiCcl(p)?"CCL":"MEP")+" (data912.com, no es en tiempo real), más los cupones.");
-      if(p.ccy==="USD"&&ui.dc!=="CCL") notes.push("En "+(ui.dc==="ARS"?"pesos":"dólar MEP")+" con el dólar de hoy: lo que pusiste y lo que vale, como si lo cambiaras hoy.");
+      if(p.ccy==="USD"&&(ui.dc!=="CCL"||p.fi)){ var noFx=lotsOrOne(p).some(function(l){ return !(l.x&&l.x[0]>0&&l.x[1]>0)&&!fxHist(l.d); });
+        notes.push("Lo que pagaste va con el dólar del día de cada compra y el valor, con el de hoy."+(noFx?" Hay compras sin fecha o sin cotización de ese día: para esas se usa el dólar de hoy.":"")); }
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       var pn_=String(p.note||"").replace(CED_MARK,"").replace(CB_MARK,""); if(pn_) notes.push(pn_);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
