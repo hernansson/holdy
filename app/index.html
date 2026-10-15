@@ -881,8 +881,8 @@
     </div>
 
     <div id="pvImp" style="display:grid;gap:12px" hidden>
-      <div class="help">IBKR: el CSV de un Flex Query con la sección Trades. Balanz: el Excel “Resultados por info completa”. IOL: el Excel de “Operaciones finalizadas” (pedilo desde el inicio de tu cuenta; las cauciones se ignoran). Se cargan tus compras y ventas con sus fechas.</div>
-      <input type="file" id="ibFile" accept=".csv,.xlsx,.xls,.html,.htm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Archivo de IBKR, Balanz o IOL">
+      <div class="help">IBKR: el CSV de un Flex Query con la sección Trades (IBKR da hasta 1 año por archivo: si tenés más, elegí todos los CSV juntos). Balanz: el Excel “Resultados por info completa”. IOL: el Excel de “Operaciones finalizadas” (pedilo desde el inicio de tu cuenta; las cauciones se ignoran). Se cargan tus compras y ventas con sus fechas.</div>
+      <input type="file" id="ibFile" multiple accept=".csv,.xlsx,.xls,.html,.htm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Archivo de IBKR, Balanz o IOL">
       <textarea id="ibText" rows="3" placeholder="…o pegá acá el contenido del CSV" aria-label="Contenido del CSV"></textarea>
       <button type="button" id="ibRead">Leer lo pegado</button>
       <div class="help" id="ibMsg" role="status" aria-live="polite" hidden></div>
@@ -3475,6 +3475,7 @@
     } else { out.error="formato"; return out; }
     for(var k=hi+1;k<rows.length;k++){
       var w=rows[k]; if(w.length<8) continue;
+      if(C.sym>=0&&String(w[C.sym]||"").trim().toLowerCase()==="symbol") continue; /* encabezado de otro archivo */
       var asset=C.asset>=0?String(w[C.asset]).toUpperCase():"STK";
       if(asset!=="STK"){ out.other++; continue; }
       if(C.lvl>=0 && w[C.lvl] && String(w[C.lvl]).toUpperCase()!=="EXECUTION") continue;
@@ -3485,6 +3486,7 @@
       if(!sym||!d||!isFinite(qty)||!isFinite(px)||qty===0||px<=0||(side!=="BUY"&&side!=="SELL")) continue;
       var ccy=C.ccy>=0?String(w[C.ccy]).toUpperCase():"USD";
       if(ccy!=="USD"){ out.nonUsd++; continue; }
+      var dk=w.join("\u0001"); if(out._seen&&out._seen[dk]) continue; (out._seen||(out._seen={}))[dk]=1; /* el mismo renglón en dos archivos que se pisan */
       out.trades.push({sym:sym,d:d,q:Math.abs(qty),p:px,s:side==="SELL"?"s":"b"});
     }
     return out;
@@ -3907,7 +3909,16 @@
     return true;
   }
   $("ibFile").addEventListener("change",function(){
-    var f=this.files&&this.files[0]; if(!f) return;
+    var fs_=[].slice.call(this.files||[]);
+    /* IBKR deja bajar hasta 1 año por archivo: se pueden elegir varios CSV (un año cada uno) y se leen juntos. */
+    if(fs_.length>1){
+      if(fs_.some(function(x){ return !/\.csv$/i.test(x.name)||x.size>5*1024*1024; })){ ibMsg("Para elegir varios archivos juntos tienen que ser los CSV de IBKR (uno por año)."); return; }
+      Promise.all(fs_.map(function(x){ return x.text(); })).then(function(ts){
+        ibRead(ts.map(function(t){ return String(t).replace(/^\uFEFF/,"").replace(/\s+$/,""); }).join("\n"));
+      }).catch(function(){ ibMsg("No pude leer los archivos."); });
+      return;
+    }
+    var f=fs_[0]; if(!f) return;
     if(f.size>5*1024*1024){ ibMsg("El archivo es demasiado grande."); return; }
     var rd=new FileReader();
     if(/\.xlsx$/i.test(f.name)){
