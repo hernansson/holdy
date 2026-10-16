@@ -202,11 +202,14 @@
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   /* Pestaña Cobros */
   .cob-hd{padding:4px 2px 12px}
-  dialog#dlgCob{height:min(80vh,720px); overflow:hidden; background:var(--bg); box-shadow:0 -8px 30px rgba(0,0,0,.25)}
-  dialog#dlgCob::backdrop{background:rgba(0,0,0,.6)}
-  #dlgCob .cob-hd{background:var(--card); border-radius:14px; padding:14px 16px; margin:4px 0 4px}
+  /* Hoja de cobros: fondo propio, distinto de la pantalla (en modo oscuro, más claro que el fondo de la app). */
+  dialog#dlgCob{--sh-bg:var(--bg); --sh-card:var(--card); height:min(80vh,720px); overflow:hidden; background:var(--sh-bg); box-shadow:0 -10px 40px rgba(0,0,0,.35); border-top:1px solid var(--line)}
+  @media (prefers-color-scheme: dark){ dialog#dlgCob{--sh-bg:#1a1f26; --sh-card:#242a33; border-top-color:#2c333d} }
+  dialog#dlgCob::backdrop{background:rgba(0,0,0,.72)}
+  #dlgCob .cob-hd{background:var(--sh-card); border-radius:14px; padding:14px 16px; margin:4px 0 4px}
   #dlgCob .cob-m{border-bottom:0; margin-top:16px; padding:0 4px 6px}
-  #dlgCob .cob-g{background:var(--card); border-radius:14px; padding:0 14px}
+  #dlgCob .cob-top button{background:var(--sh-card)}
+  #dlgCob .cob-g{background:var(--sh-card); border-radius:14px; padding:0 14px}
   #dlgCob .cob-g .cob-r:last-child{border-bottom:0}
   #dlgCob #cobSeg{background:color-mix(in srgb,var(--text) 8%,transparent)}
   @media (max-width:699px){ dialog#dlgCob{height:86dvh; overflow:hidden} }
@@ -490,6 +493,8 @@
   details.acc>summary::-webkit-details-marker{display:none}
   details.acc>summary::after{content:"▾"; color:var(--muted); transition:transform .15s}
   details.acc[open]>summary::after{transform:rotate(180deg)}
+  .fci-tag{font-size:12px; font-weight:500; color:var(--muted); white-space:nowrap; line-height:1.2}
+  .acc-l.acc-l2{flex-direction:column; align-items:flex-start; justify-content:center; gap:1px}
   .acc-l{flex:1; min-width:0; display:flex; flex-direction:row; align-items:center; align-self:stretch; gap:8px}
   .bk-tag{font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); background:var(--chip); border-radius:6px; padding:2px 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
   .acc-r{flex-direction:row!important; align-items:center!important; gap:8px!important}
@@ -1138,7 +1143,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v180"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v181"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1272,6 +1277,8 @@
   // ---------- Fondos comunes (FCI): valor de la cuotaparte del día, de argentinadatos.com (datos de la CNV/CAFCI) ----------
   var LS_FCI="cartera.fci.v1", fciQ=load(LS_FCI,null), fciBusy=null, fciErr="";
   function isFci(p){ return /\{fci:[PD]\}/.test((p&&p.note)||""); }
+  /* Pestaña Renta fija: bonos/ONs y fondos que no sean de acciones (renta variable → Acciones). */
+  function isRF(p){ if(p.fi) return true; if(!isFci(p)) return false; var e=fciFind(p); return !(e&&e.c==="rentaVariable"); }
   function fciCur(p){ var m=/\{fci:([PD])\}/.exec((p&&p.note)||""); return m?m[1]:"P"; }
   function normF(t){ return String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim(); }
   var FCI_NAMES={INSTITUA:"balanz institucional clase a"}; /* código de Balanz → nombre en la CNV (los que no estén, se buscan por parecido) */
@@ -1290,7 +1297,7 @@
     if(!force&&fciQ&&fciQ.m&&Date.now()-(fciQ.t||0)<4*3600*1000) return Promise.resolve();
     var cats=["rentaFija","rentaMixta","mercadoDinero","rentaVariable","otros"];
     fciBusy=Promise.all(cats.map(function(c){ return fetch("https://api.argentinadatos.com/v1/finanzas/fci/"+c+"/ultimo",{cache:"no-store"}).then(function(r){ return r.ok?r.json():[]; }).catch(function(){ return []; }); }))
-      .then(function(all){ var m={}, n=0; all.forEach(function(a){ (Array.isArray(a)?a:[]).forEach(function(x){ var v=+(x&&x.vcp); if(x&&x.fondo&&v>0){ m[normF(x.fondo)]={v:v,d:String(x.fecha||"").slice(0,10),n:String(x.fondo)}; n++; } }); });
+      .then(function(all){ var m={}, n=0; all.forEach(function(a,i){ (Array.isArray(a)?a:[]).forEach(function(x){ var v=+(x&&x.vcp); if(x&&x.fondo&&v>0){ m[normF(x.fondo)]={v:v,d:String(x.fecha||"").slice(0,10),n:String(x.fondo),c:cats[i]}; n++; } }); });
         if(n<20) throw new Error("sin datos"); fciQ={t:Date.now(),m:m}; save(LS_FCI,fciQ); fciErr=""; })
       .catch(function(){ fciErr="No se pudo traer el valor de los fondos; se usa el último guardado."; }).then(function(){ fciBusy=null; });
     return fciBusy;
@@ -1757,7 +1764,7 @@
     var t=$("tabs"), cl=vClosed().length, positions=vPos();
     if(ui.tab==="sold" && !cl) ui.tab="acc";
     t.hidden=!(positions.length||cl); t.textContent="";
-    var nF=positions.filter(function(p){return p.fi;}).length, nA=positions.length-nF;
+    var nF=positions.filter(isRF).length, nA=positions.length-nF;
     var defs=[["acc","Acciones",nA],["fi","Renta fija",nF]]; if(cl) defs.push(["sold","Vendidas",cl]);
     if(ui.tab==="cob") ui.tab=nF?"fi":"acc";
     defs.forEach(function(x){
@@ -1982,7 +1989,7 @@
       if(ui.sort==="day"){ var d=dayInfo(p); return (d&&d.base>0)?d.amt/d.base:null; }
       return null;
     }
-    var filtered=positions.filter(function(p){ return (!!p.fi)===(ui.tab==="fi"); });
+    var filtered=positions.filter(function(p){ return isRF(p)===(ui.tab==="fi"); });
     cobEntry(box,ui.tab==="fi"?"cp":"dv");
     // Mismas acciones en distintos brokers: una sola fila, con el detalle por broker al abrirla.
     (function(){
@@ -2031,7 +2038,6 @@
       box.appendChild(th);
     })();
     renderDist(sorted,totalByCcy);
-    sorted=sorted.filter(function(p){return !p.fi;}).concat(sorted.filter(function(p){return !!p.fi;}));
     sorted.forEach(function(p){
       if(multiCcy && !p.fi && p.ccy!==lastCcy){ box.appendChild(el("div","grp","En "+p.ccy)); lastCcy=p.ccy; }
       var cp=curPx(p);
@@ -2048,6 +2054,7 @@
       var sum=document.createElement("summary");
       var l=el("div","acc-l");
       l.appendChild(el("span","tick",p.ticker));
+      if(isFci(p)){ l.classList.add("acc-l2"); l.appendChild(el("span","fci-tag","Fondo en "+(fciCur(p)==="P"?"pesos":"dólares"))); }
       sum.appendChild(l);
       var xs=el("div","acc-x");
       xs.appendChild(el("span","cx cx-bk",p.parts?String(p.broker):brokerName(p.broker)));
