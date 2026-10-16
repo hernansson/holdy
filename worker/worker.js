@@ -48,6 +48,7 @@ export default {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
     if (url.pathname === "/history") return history(url, cors);
     if (url.pathname === "/fx") return fxHistory(cors);
+    if (url.pathname === "/insight") return insight(url, env, cors);
     if (url.pathname !== "/quote") return json({ error: "not_found" }, 404, cors);
 
     const symbol = (url.searchParams.get("symbol") || "").toUpperCase();
@@ -364,4 +365,111 @@ async function fxHistory(cors) {
   } catch (e) {
     return json({ error: "fx_unavailable" }, 502, cors);
   }
+}
+
+// ---------- /insight?symbol=AAPL: qué pasó con la acción ----------
+// Junta noticias del último mes y la opinión de los analistas (Finnhub, plan gratis), el precio de un año (Yahoo)
+// y le pide a Workers AI (cupo gratis diario de Cloudflare; binding "AI") un resumen en castellano.
+// Se guarda 12 h en el KV (HOLDY_KV) para no repetir el trabajo.
+const INS_TTL = 12 * 60 * 60;
+const insMem = new Map();
+const AI_MODELS = ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/meta/llama-3.1-8b-instruct"];
+
+async function insight(url, env, cors) {
+  const symbol = (url.searchParams.get("symbol") || "").toUpperCase();
+  if (!/^[A-Z0-9.\-]{1,12}$/.test(symbol)) return json({ error: "bad_symbol" }, 400, cors);
+  if (!env.FINNHUB_KEY) return json({ error: "not_configured" }, 500, cors);
+  const day = new Date().toISOString().slice(0, 10);
+  const key = "ins:" + symbol + ":" + day;
+  const mem = insMem.get(key);
+  if (mem) return json(mem, 200, cors, "HIT");
+  if (env.HOLDY_KV) {
+    const kv = await env.HOLDY_KV.get(key, "json");
+    if (kv) { insMem.set(key, kv); return json(kv, 200, cors, "HIT"); }
+  }
+  const fh = async (path) => {
+    try {
+      const r = await fetch("https://finnhub.io/api/v1/" + path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(env.FINNHUB_KEY));
+      return r.ok ? await r.json() : null;
+    } catch (e) { return null; }
+  };
+  const base = symbol.split(".")[0];
+  const from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const now = Math.floor(Date.now() / 1000);
+  const ycands = symbol.includes(".") ? [symbol] : (ALIAS[symbol] ? [ALIAS[symbol]] : [symbol, symbol + ".L", symbol + ".SW"]);
+  const [news, recs, prof, hist] = await Promise.all([
+    fh("company-news?symbol=" + base + "&from=" + from + "&to=" + day),
+    fh("stock/recommendation?symbol=" + base),
+    fh("stock/profile2?symbol=" + base),
+    (async () => { for (const c of ycands) { const d = await yahooHistory(c, now - 372 * 86400, now + 86400); if (d) return d; } return null; })(),
+  ]);
+
+  // Precio: cambios y rango de 52 semanas.
+  let px = null;
+  if (hist && hist.pts.length > 5) {
+    const pts = hist.pts, last = pts[pts.length - 1][1];
+    const back = (days) => { const t = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10); let v = pts[0][1]; for (const p of pts) { if (p[0] <= t) v = p[1]; else break; } return v; };
+    const closes = pts.map((p) => p[1]);
+    px = { last, cur: hist.currency, w1: last / back(7) - 1, m1: last / back(30) - 1, m3: last / back(91) - 1, y1: last / back(365) - 1,
+      lo: Math.min(...closes), hi: Math.max(...closes), spark: pts.filter((_, i) => i % 3 === 0 || i === pts.length - 1).map((p) => p[1]) };
+  }
+
+  // Analistas: el mes más reciente.
+  let rec = null;
+  if (Array.isArray(recs) && recs.length) {
+    const r = recs.slice().sort((a, b) => (a.period < b.period ? 1 : -1))[0];
+    const n = (r.strongBuy || 0) + (r.buy || 0) + (r.hold || 0) + (r.sell || 0) + (r.strongSell || 0);
+    if (n > 0) rec = { period: r.period, sb: r.strongBuy || 0, b: r.buy || 0, h: r.hold || 0, s: r.sell || 0, ss: r.strongSell || 0, n };
+  }
+
+  // Noticias: sin repetidos, las más recientes primero.
+  const seen = new Set();
+  const items = (Array.isArray(news) ? news : []).filter((x) => x && x.headline && x.url)
+    .sort((a, b) => (b.datetime || 0) - (a.datetime || 0))
+    .filter((x) => { const k = x.headline.toLowerCase().slice(0, 60); if (seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, 40)
+    .map((x) => ({ t: String(x.headline).slice(0, 220), s: String(x.summary || "").slice(0, 300), src: String(x.source || ""), d: new Date((x.datetime || 0) * 1000).toISOString().slice(0, 10), u: String(x.url) }));
+
+  const out = { symbol, name: (prof && prof.name) || "", industry: (prof && prof.finnhubIndustry) || "", px, rec, news: items.slice(0, 10).map(({ s, ...r }) => r), ai: null, day };
+
+  // Resumen con IA (si el Worker tiene el binding "AI").
+  if (env.AI && (items.length || px)) {
+    const pct = (v) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+    const ctx = [
+      "Empresa: " + (out.name || symbol) + " (" + symbol + ")" + (out.industry ? ", sector " + out.industry : ""),
+      px ? "Precio: " + px.last.toFixed(2) + " " + px.cur + ". Cambio 1 semana " + pct(px.w1) + ", 1 mes " + pct(px.m1) + ", 3 meses " + pct(px.m3) + ", 1 año " + pct(px.y1) + ". Rango 52 semanas " + px.lo.toFixed(2) + " a " + px.hi.toFixed(2) + "." : "",
+      rec ? "Analistas (" + rec.period + "): " + (rec.sb + rec.b) + " compra, " + rec.h + " mantener, " + (rec.s + rec.ss) + " venta, de " + rec.n + "." : "",
+      "Noticias del último mes (fecha · título · resumen):",
+      ...items.slice(0, 25).map((x) => "- " + x.d + " · " + x.t + (x.s ? " · " + x.s : "")),
+    ].filter(Boolean).join("\n");
+    const sys = "Sos un analista financiero que le explica a un inversor argentino, en castellano rioplatense simple y sin jerga, qué pasó con una acción. " +
+      "Usá SOLO los datos que te doy; si no alcanzan para explicar un movimiento, decilo. No inventes cifras ni hechos. No recomiendes comprar ni vender. " +
+      "Respondé SOLO con un JSON válido: {\"resumen\": \"3 a 5 oraciones: por qué subió o bajó en el último mes y qué está pasando con la empresa\", " +
+      "\"aFavor\": [\"hasta 3 puntos positivos, cortos\"], \"enContra\": [\"hasta 3 riesgos o puntos negativos, cortos\"], " +
+      "\"titulares\": [\"los primeros 8 títulos de noticias traducidos al castellano, en el mismo orden\"]}";
+    for (const model of AI_MODELS) {
+      try {
+        const r = await env.AI.run(model, { messages: [{ role: "system", content: sys }, { role: "user", content: ctx }], max_tokens: 1100, temperature: 0.3 });
+        const txt = typeof r === "string" ? r : (r && (typeof r.response === "string" ? r.response : JSON.stringify(r.response || "")));
+        const ai = parseAi(txt);
+        if (ai) { out.ai = { ...ai, model: model.split("/").pop() }; break; }
+      } catch (e) { /* probamos el siguiente modelo */ }
+    }
+  }
+  insMem.set(key, out);
+  if (insMem.size > 200) insMem.delete(insMem.keys().next().value);
+  if (env.HOLDY_KV && (out.ai || !env.AI)) await env.HOLDY_KV.put(key, JSON.stringify(out), { expirationTtl: INS_TTL });
+  return json(out, 200, cors, "MISS");
+}
+
+function parseAi(txt) {
+  if (!txt) return null;
+  let o = null;
+  const m = String(txt).match(/\{[\s\S]*\}/);
+  if (m) { try { o = JSON.parse(m[0]); } catch (e) { o = null; } }
+  const arr = (a) => (Array.isArray(a) ? a.map((x) => String(x).trim()).filter(Boolean).slice(0, 3) : []);
+  if (o && typeof o.resumen === "string" && o.resumen.trim()) return { resumen: o.resumen.trim().slice(0, 1500), aFavor: arr(o.aFavor), enContra: arr(o.enContra),
+    titulares: Array.isArray(o.titulares) ? o.titulares.slice(0, 8).map((x) => String(x).slice(0, 240)) : [] };
+  const plain = String(txt).replace(/[{}"]/g, "").trim();
+  return plain.length > 40 ? { resumen: plain.slice(0, 1500), aFavor: [], enContra: [] } : null;
 }

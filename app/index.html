@@ -202,17 +202,50 @@
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   /* Pestaña Cobros */
   .cob-hd{padding:4px 2px 12px}
+  #insBody{flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; margin:0 -18px; padding:2px 18px calc(24px + env(safe-area-inset-bottom))}
+  .ins-sub{font-size:12.5px; color:var(--muted); margin-top:2px}
+  .ins-btn{display:flex; align-items:center; gap:10px; width:100%; margin-top:14px; padding:12px 14px; border-radius:14px; border:1px solid color-mix(in srgb,var(--brand) 35%,var(--line)); background:color-mix(in srgb,var(--brand) 9%,transparent); color:var(--text); font-weight:600; font-size:14.5px; text-align:left; box-shadow:none; min-height:46px}
+  .ins-btn .ins-ic{color:var(--brand); font-size:16px} .ins-btn .ins-go{margin-left:auto; color:var(--muted); font-size:20px; line-height:1}
+  .ins-card{background:var(--sh-card); border-radius:14px; padding:14px 16px; margin:0 0 10px}
+  .ins-k{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px}
+  .ins-big{font-size:28px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+  .ins-chg{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0 4px}
+  .ins-chip{display:grid; gap:1px; padding:7px 8px; border-radius:10px; background:var(--sh-bg); text-align:center} .ins-chip small{font-size:11px; color:var(--muted)} .ins-chip b{font-size:13.5px; font-variant-numeric:tabular-nums}
+  .ins-chip.pos b{color:var(--pos)} .ins-chip.neg b{color:var(--neg)}
+  .ins-spark{display:block; width:100%; height:64px; margin-top:10px}
+  .ins-cap{font-size:12px; color:var(--muted); margin-top:6px; line-height:1.4}
+  .ins-rng{margin-top:16px}
+  .ins-bar{position:relative; height:6px; border-radius:3px; background:linear-gradient(90deg,var(--neg),#d6a400,var(--pos)); opacity:.9; margin:14px 4px 6px}
+  .ins-dot{position:absolute; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; background:var(--text); border:3px solid var(--sh-card)}
+  .ins-buy{position:absolute; top:-6px; width:2px; height:18px; margin-left:-1px; background:var(--muted)}
+  .ins-rl{display:flex; justify-content:space-between; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .ins-txt{margin:0; font-size:15px; line-height:1.55} .ins-txt.muted{color:var(--muted); font-size:14px}
+  .ins-pc{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px}
+  .ins-col{background:var(--sh-bg); border-radius:10px; padding:10px 12px} .ins-col b{font-size:13px} .ins-col.pos b{color:var(--pos)} .ins-col.neg b{color:var(--neg)}
+  .ins-col ul{margin:6px 0 0; padding-left:16px; font-size:13px; line-height:1.45} .ins-col li{margin-bottom:4px}
+  @media (max-width:420px){ .ins-pc{grid-template-columns:1fr} }
+  .ins-rec{font-size:15px} .ins-rec b{font-size:26px; font-weight:800; color:var(--pos)}
+  .ins-stack{display:flex; height:10px; border-radius:5px; overflow:hidden; gap:2px; margin:10px 0 8px}
+  .ins-stack i,.ins-lg i{background:var(--muted)} .ins-stack i.pos,.ins-lg i.pos{background:var(--pos)} .ins-stack i.neg,.ins-lg i.neg{background:var(--neg)} .ins-stack i.mid,.ins-lg i.mid{background:#d6a400}
+  .ins-lg{display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--muted)} .ins-lg span{display:inline-flex; align-items:center; gap:5px} .ins-lg i{width:8px; height:8px; border-radius:50%; display:inline-block}
+  .ins-news{display:grid; gap:3px; padding:10px 0; border-top:1px solid var(--line); color:var(--text); text-decoration:none} .ins-k+.ins-news{border-top:0; padding-top:0}
+  .ins-nt{font-size:14px; line-height:1.4; font-weight:500} .ins-news small{font-size:12px; color:var(--muted)}
+  .ins-foot{font-size:12px; color:var(--muted); text-align:center; margin:8px 10px 0}
+  .ins-load{display:grid; justify-items:center; gap:14px; padding:60px 10px; color:var(--muted); font-size:14px}
+  .ins-spin{width:28px; height:28px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--brand); animation:ins-r .8s linear infinite} @keyframes ins-r{to{transform:rotate(360deg)}}
+  .ins-err{padding:40px 10px; color:var(--muted); font-size:14px; text-align:center; line-height:1.5}
   /* Hoja de cobros: fondo propio, distinto de la pantalla (en modo oscuro, más claro que el fondo de la app). */
-  dialog#dlgCob{--sh-bg:var(--bg); --sh-card:var(--card); height:min(80vh,720px); overflow:hidden; background:var(--sh-bg); box-shadow:0 -10px 40px rgba(0,0,0,.35); border-top:1px solid var(--line)}
-  @media (prefers-color-scheme: dark){ dialog#dlgCob{--sh-bg:#1a1f26; --sh-card:#242a33; border-top-color:#2c333d} }
-  dialog#dlgCob::backdrop{background:rgba(0,0,0,.72)}
+  dialog#dlgCob,dialog#dlgIns{--sh-bg:var(--bg); --sh-card:var(--card); height:min(80vh,720px); overflow:hidden; background:var(--sh-bg); box-shadow:0 -10px 40px rgba(0,0,0,.35); border-top:1px solid var(--line)}
+  @media (prefers-color-scheme: dark){ dialog#dlgCob,dialog#dlgIns{--sh-bg:#1a1f26; --sh-card:#242a33; border-top-color:#2c333d} }
+  dialog#dlgIns::backdrop,dialog#dlgCob::backdrop{background:rgba(0,0,0,.72)}
   #dlgCob .cob-hd{background:var(--sh-card); border-radius:14px; padding:14px 16px; margin:4px 0 4px}
   #dlgCob .cob-m{border-bottom:0; margin-top:16px; padding:0 4px 6px}
-  #dlgCob .cob-top button{background:var(--sh-card)}
+  #dlgCob .cob-top button,#dlgIns .cob-top button{background:var(--sh-card)}
   #dlgCob .cob-g{background:var(--sh-card); border-radius:14px; padding:0 14px}
   #dlgCob .cob-g .cob-r:last-child{border-bottom:0}
   #dlgCob #cobSeg{background:color-mix(in srgb,var(--text) 8%,transparent)}
-  @media (max-width:699px){ dialog#dlgCob{height:86dvh; overflow:hidden} }
+  @media (max-width:699px){ dialog#dlgCob{height:86dvh; overflow:hidden} dialog#dlgIns{height:94dvh; overflow:hidden} }
+  @media (min-width:700px){ dialog#dlgIns{height:min(88vh,820px)} } dialog#dlgIns[open]{display:flex; flex-direction:column}
   dialog#dlgCob[open]{display:flex; flex-direction:column}
   .cob-sheet{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding:14px 18px 0; box-sizing:border-box}
   #cobSeg[hidden]{display:none} #cobSeg{display:flex; width:100%; margin:0 0 6px; flex:0 0 auto} #cobSeg button{flex:1}
@@ -812,6 +845,13 @@
 
 <!-- comparación: pantalla propia (ver #cmpView más abajo) -->
 
+<dialog id="dlgIns" class="sheet">
+  <div class="cob-sheet">
+    <div class="cob-top"><div><h3 id="insTitle"></h3><div class="ins-sub" id="insSub"></div></div><button type="button" id="insClose" aria-label="Cerrar">✕</button></div>
+    <div id="insBody"></div>
+  </div>
+</dialog>
+
 <dialog id="dlgCob" class="sheet">
   <div class="cob-sheet">
     <div class="cob-top"><h3 id="cobTitle">Cupones</h3><button type="button" id="cobClose" aria-label="Cerrar">✕</button></div>
@@ -1143,7 +1183,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v181"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v182"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1906,6 +1946,60 @@
     if(calOpen) hd.classList.add("open");
     box.appendChild(cal);
   }
+  // ---------- "¿Qué pasó con X?": noticias, analistas y resumen con IA (Worker /insight) ----------
+  var insCache={};
+  function insOk(p){ return p&&!p.fi&&!isFci(p)&&p.ccy==="USD"&&/^[A-Z][A-Z0-9.\-]{0,11}$/.test(p.ticker||"")&&!!PROXY_URL; }
+  function openIns(p){
+    var d=$("dlgIns"), bx=$("insBody"); $("insTitle").textContent=p.ticker; $("insSub").textContent=""; bx.textContent="";
+    var ld=el("div","ins-load"); ld.appendChild(el("div","ins-spin")); ld.appendChild(el("div",null,"Buscando noticias y armando el resumen…")); bx.appendChild(ld);
+    if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); } bx.scrollTop=0;
+    var k=p.ticker+"|"+todayStr(), hit=insCache[k];
+    (hit?Promise.resolve(hit):fetch(PROXY_URL+"/insight?symbol="+encodeURIComponent(p.ticker)).then(function(r){
+      if(r.status===404) throw new Error("old"); if(!r.ok) throw new Error("http"); return r.json(); }).then(function(j){ insCache[k]=j; return j; }))
+      .then(function(j){ if($("insTitle").textContent===p.ticker) renderIns(bx,j,p); })
+      .catch(function(e){ bx.textContent=""; bx.appendChild(el("div","ins-err",e&&e.message==="old"?"El servidor de Holdy (el Worker de Cloudflare) todavía no tiene esta función. Hay que pegar la versión nueva de worker/worker.js y desplegarla.":"No pude traer la información ahora. Probá de nuevo en un rato.")); });
+  }
+  function renderIns(bx,j,p){
+    bx.textContent=""; var F2=function(v){ return v.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2}); }, P=function(v){ return (v>=0?"+":"−")+Math.abs(v*100).toFixed(1).replace(".",",")+"%"; };
+    $("insSub").textContent=[j.name,j.industry].filter(Boolean).join(" · ");
+    function card(title){ var c=el("div","ins-card"); if(title) c.appendChild(el("div","ins-k",title)); bx.appendChild(c); return c; }
+    var px=j.px;
+    if(px){
+      var c=card(null), top=el("div","ins-px"); top.appendChild(el("span","ins-big","US$ "+px.last.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})));
+      c.appendChild(top);
+      var ch=el("div","ins-chg"); [["1 sem",px.w1],["1 mes",px.m1],["3 meses",px.m3],["1 año",px.y1]].forEach(function(x){ var b=el("span","ins-chip "+cls(x[1])); b.appendChild(el("small",null,x[0])); b.appendChild(el("b",null,P(x[1]))); ch.appendChild(b); }); c.appendChild(ch);
+      if(px.spark&&px.spark.length>3){ var a=px.spark, mn=Math.min.apply(null,a), mx=Math.max.apply(null,a), W=300, H=64, pts=a.map(function(v,i){ return (i/(a.length-1)*W).toFixed(1)+","+(H-2-(mx>mn?(v-mn)/(mx-mn):.5)*(H-4)).toFixed(1); }).join(" ");
+        var up=a[a.length-1]>=a[0]; c.insertAdjacentHTML("beforeend",'<svg class="ins-spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true"><polyline points="'+pts+'" fill="none" stroke="var(--'+(up?"pos":"neg")+')" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>'); c.appendChild(el("div","ins-cap","Último año")); }
+      if(px.hi>px.lo){ var rg=el("div","ins-rng"), bar=el("div","ins-bar"), pos=function(v){ return Math.max(0,Math.min(100,(v-px.lo)/(px.hi-px.lo)*100)); };
+        var dot=el("i","ins-dot"); dot.style.left=pos(px.last)+"%"; bar.appendChild(dot);
+        var bb=pBuy(p), showB=bb>0&&bb>=px.lo&&bb<=px.hi; if(showB){ var mk=el("i","ins-buy"); mk.style.left=pos(bb)+"%"; bar.appendChild(mk); }
+        rg.appendChild(el("div","ins-k","Dónde está hoy entre el mínimo y el máximo del año")); rg.appendChild(bar);
+        var lb=el("div","ins-rl"); lb.appendChild(el("span",null,"Mín. US$ "+F2(px.lo))); lb.appendChild(el("span",null,"Máx. US$ "+F2(px.hi))); rg.appendChild(lb);
+        var fr=(px.last-px.lo)/(px.hi-px.lo); rg.appendChild(el("div","ins-cap",(fr>0.85?"Cerca del máximo del año":(fr<0.15?"Cerca del mínimo del año":"A mitad de camino entre su mínimo y su máximo"))+" · está "+P(px.last/px.hi-1)+" desde el máximo."+(showB?" La rayita es tu precio de compra (US$ "+F2(bb)+").":(bb>0?" Tu precio de compra (US$ "+F2(bb)+") está "+(bb<px.lo?"abajo del mínimo":"arriba del máximo")+" del año.":""))));
+        c.appendChild(rg); }
+    }
+    var ai=j.ai;
+    var c2=card("Qué pasó"+(px?" este último mes":""));
+    if(ai){ c2.appendChild(el("p","ins-txt",ai.resumen));
+      if((ai.aFavor||[]).length||(ai.enContra||[]).length){ var g=el("div","ins-pc");
+        [["A favor",ai.aFavor,"pos"],["En contra",ai.enContra,"neg"]].forEach(function(x){ if(!x[1]||!x[1].length) return; var col=el("div","ins-col "+x[2]); col.appendChild(el("b",null,x[0])); var ul=el("ul"); x[1].forEach(function(t){ ul.appendChild(el("li",null,t)); }); col.appendChild(ul); g.appendChild(col); });
+        c2.appendChild(g); }
+      c2.appendChild(el("div","ins-cap","Resumen hecho con IA a partir de las noticias de abajo. Puede tener errores: revisá las fuentes.")); }
+    else c2.appendChild(el("p","ins-txt muted",(j.news&&j.news.length)?"Todavía no está activado el resumen con IA en el servidor. Mientras tanto, abajo tenés las noticias.":"No encontré noticias de este último mes para "+p.ticker+(/^(SPY|QQQ|VOO|XL[A-Z]|VUAA|EQAC|IVV|DIA)$/.test(p.ticker)?" (es un ETF: sigue a un índice o sector, no a una empresa).":".")));
+    var rec=j.rec, c3=card("Qué dicen los analistas");
+    if(rec){ var buy=rec.sb+rec.b, sell=rec.s+rec.ss, hold=rec.h, n=rec.n;
+      var big=el("div","ins-rec"); big.appendChild(el("b",null,Math.round(buy/n*100)+"%")); big.appendChild(el("span",null," recomienda comprar")); c3.appendChild(big);
+      var sb=el("div","ins-stack"); [[buy,"pos"],[hold,"mid"],[sell,"neg"]].forEach(function(x){ if(!x[0]) return; var i=el("i",x[1]); i.style.flexGrow=String(x[0]); sb.appendChild(i); }); c3.appendChild(sb);
+      var lg=el("div","ins-lg"); [["Comprar",buy,"pos"],["Mantener",hold,"mid"],["Vender",sell,"neg"]].forEach(function(x){ var s_=el("span"); s_.appendChild(el("i",x[2])); s_.appendChild(document.createTextNode(x[0]+" "+Math.round(x[1]/n*100)+"%")); lg.appendChild(s_); }); c3.appendChild(lg);
+      var MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+      c3.appendChild(el("div","ins-cap",n+" analistas · "+MES[+rec.period.slice(5,7)-1]+" "+rec.period.slice(0,4)+". Es la opinión de los bancos y brokers que siguen a la empresa, no una garantía.")); }
+    else c3.appendChild(el("p","ins-txt muted","No hay opinión de analistas para este ticker."));
+    if(j.news&&j.news.length){ var c4=card("Noticias"), tr=(ai&&ai.titulares)||[];
+      j.news.forEach(function(x,i){ var a=el("a","ins-news"); a.href=x.u; a.target="_blank"; a.rel="noopener noreferrer";
+        a.appendChild(el("span","ins-nt",tr[i]&&tr.length>=Math.min(j.news.length,8)-1?tr[i]:x.t)); a.appendChild(el("small",null,x.src+" · "+x.d.split("-").reverse().slice(0,2).join("/"))); c4.appendChild(a); }); }
+    bx.appendChild(el("div","ins-foot","Esto es información para entender qué pasó, no una recomendación de compra o venta."));
+  }
+
   // ---------- Pestaña Cobros: cupones (bonos) y dividendos (acciones), cobrados y próximos ----------
   var cobView="prox";
   function cobItems(){
@@ -2143,6 +2237,8 @@
           :"⚠ No encontré el valor de hoy de este fondo"+(fciErr?" ("+fciErr+")":"")+". Podés cargarlo a mano en Editar → precio manual (en dólares CCL por cuotaparte)."); }
       var pn_=String(p.note||"").replace(CED_MARK,"").replace(CB_MARK,"").replace(/\s*\{fci:[PD]\}/,""); if(pn_) notes.push(pn_);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
+      if(insOk(p)){ var bi=el("button","ins-btn"); bi.type="button"; bi.appendChild(el("span","ins-ic","✦")); bi.appendChild(el("span",null,"¿Qué pasó con "+p.ticker+"?")); bi.appendChild(el("span","ins-go","›"));
+        bi.addEventListener("click",function(){ openIns(p); }); body.appendChild(bi); }
 
       if(p.parts){
         var bk=el("div","lotlist"); bk.appendChild(el("div","k","Por broker"));
@@ -2715,6 +2811,8 @@
 
   // ---------- Editar cupones cobrados de un bono ----------
   $("cobClose").addEventListener("click",function(){ $("dlgCob").close(); });
+  $("insClose").addEventListener("click",function(){ $("dlgIns").close(); });
+  $("dlgIns").addEventListener("click",function(e){ if(e.target===this) this.close(); });
   $("dlgCob").addEventListener("click",function(e){ if(e.target===this) this.close(); });
   var dlgCup=$("dlgCup"), cupPos=null, cupRows=[];
   dlgCup.addEventListener("click",function(e){ if(e.target===dlgCup) dlgCup.close(); });
