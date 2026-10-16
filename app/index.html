@@ -1183,7 +1183,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v182"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v183"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1961,7 +1961,8 @@
   }
   function renderIns(bx,j,p){
     bx.textContent=""; var F2=function(v){ return v.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2}); }, P=function(v){ return (v>=0?"+":"−")+Math.abs(v*100).toFixed(1).replace(".",",")+"%"; };
-    $("insSub").textContent=[j.name,j.industry].filter(Boolean).join(" · ");
+    $("insSub").textContent=j.etf?"ETF · fondo que cotiza en bolsa":[j.name,j.industry].filter(Boolean).join(" · ");
+    if(j.etf){ var ce=el("div","ins-card"); ce.appendChild(el("div","ins-k","Qué es")); ce.appendChild(el("p","ins-txt",j.etf)); ce.appendChild(el("div","ins-cap","No es una empresa: se mueve con el mercado o con el sector que sigue. Por eso las noticias de abajo son del mercado en general.")); bx.appendChild(ce); }
     function card(title){ var c=el("div","ins-card"); if(title) c.appendChild(el("div","ins-k",title)); bx.appendChild(c); return c; }
     var px=j.px;
     if(px){
@@ -1979,21 +1980,21 @@
         c.appendChild(rg); }
     }
     var ai=j.ai;
-    var c2=card("Qué pasó"+(px?" este último mes":""));
+    var c2=card((j.etf?"Qué pasó con el mercado":"Qué pasó")+(px?" este último mes":""));
     if(ai){ c2.appendChild(el("p","ins-txt",ai.resumen));
       if((ai.aFavor||[]).length||(ai.enContra||[]).length){ var g=el("div","ins-pc");
         [["A favor",ai.aFavor,"pos"],["En contra",ai.enContra,"neg"]].forEach(function(x){ if(!x[1]||!x[1].length) return; var col=el("div","ins-col "+x[2]); col.appendChild(el("b",null,x[0])); var ul=el("ul"); x[1].forEach(function(t){ ul.appendChild(el("li",null,t)); }); col.appendChild(ul); g.appendChild(col); });
         c2.appendChild(g); }
       c2.appendChild(el("div","ins-cap","Resumen hecho con IA a partir de las noticias de abajo. Puede tener errores: revisá las fuentes.")); }
     else c2.appendChild(el("p","ins-txt muted",(j.news&&j.news.length)?"Todavía no está activado el resumen con IA en el servidor. Mientras tanto, abajo tenés las noticias.":"No encontré noticias de este último mes para "+p.ticker+(/^(SPY|QQQ|VOO|XL[A-Z]|VUAA|EQAC|IVV|DIA)$/.test(p.ticker)?" (es un ETF: sigue a un índice o sector, no a una empresa).":".")));
-    var rec=j.rec, c3=card("Qué dicen los analistas");
+    var rec=j.rec, c3=j.etf?null:card("Qué dicen los analistas");
     if(rec){ var buy=rec.sb+rec.b, sell=rec.s+rec.ss, hold=rec.h, n=rec.n;
       var big=el("div","ins-rec"); big.appendChild(el("b",null,Math.round(buy/n*100)+"%")); big.appendChild(el("span",null," recomienda comprar")); c3.appendChild(big);
       var sb=el("div","ins-stack"); [[buy,"pos"],[hold,"mid"],[sell,"neg"]].forEach(function(x){ if(!x[0]) return; var i=el("i",x[1]); i.style.flexGrow=String(x[0]); sb.appendChild(i); }); c3.appendChild(sb);
       var lg=el("div","ins-lg"); [["Comprar",buy,"pos"],["Mantener",hold,"mid"],["Vender",sell,"neg"]].forEach(function(x){ var s_=el("span"); s_.appendChild(el("i",x[2])); s_.appendChild(document.createTextNode(x[0]+" "+Math.round(x[1]/n*100)+"%")); lg.appendChild(s_); }); c3.appendChild(lg);
       var MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
       c3.appendChild(el("div","ins-cap",n+" analistas · "+MES[+rec.period.slice(5,7)-1]+" "+rec.period.slice(0,4)+". Es la opinión de los bancos y brokers que siguen a la empresa, no una garantía.")); }
-    else c3.appendChild(el("p","ins-txt muted","No hay opinión de analistas para este ticker."));
+    else if(c3) c3.appendChild(el("p","ins-txt muted","No hay opinión de analistas para este ticker."));
     if(j.news&&j.news.length){ var c4=card("Noticias"), tr=(ai&&ai.titulares)||[];
       j.news.forEach(function(x,i){ var a=el("a","ins-news"); a.href=x.u; a.target="_blank"; a.rel="noopener noreferrer";
         a.appendChild(el("span","ins-nt",tr[i]&&tr.length>=Math.min(j.news.length,8)-1?tr[i]:x.t)); a.appendChild(el("small",null,x.src+" · "+x.d.split("-").reverse().slice(0,2).join("/"))); c4.appendChild(a); }); }

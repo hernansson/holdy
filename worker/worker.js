@@ -373,6 +373,20 @@ async function fxHistory(cors) {
 // Se guarda 12 h en el KV (HOLDY_KV) para no repetir el trabajo.
 const INS_TTL = 12 * 60 * 60;
 const insMem = new Map();
+// ETFs conocidos: qué siguen y con qué índice se comparan las noticias.
+const ETF_INFO = {
+  SPY: "Sigue al S&P 500: las 500 empresas más grandes de EE.UU.", VOO: "Sigue al S&P 500: las 500 empresas más grandes de EE.UU.",
+  IVV: "Sigue al S&P 500: las 500 empresas más grandes de EE.UU.", VUAA: "Sigue al S&P 500 (versión que reinvierte los dividendos, cotiza en Londres).",
+  CSPX: "Sigue al S&P 500 (versión que reinvierte los dividendos, cotiza en Londres).", QQQ: "Sigue al Nasdaq-100: las 100 empresas no financieras más grandes del Nasdaq, sobre todo tecnológicas.",
+  EQAC: "Sigue al Nasdaq-100 (versión que reinvierte los dividendos, cotiza en Suiza).", DIA: "Sigue al Dow Jones: 30 empresas grandes y tradicionales de EE.UU.",
+  IWM: "Sigue al Russell 2000: 2.000 empresas chicas de EE.UU.", VTI: "Sigue a todo el mercado de acciones de EE.UU.",
+  XLF: "Sector financiero del S&P 500: bancos, aseguradoras y tarjetas.", XLK: "Sector tecnológico del S&P 500.", XLE: "Sector energético del S&P 500: petroleras y gas.",
+  XLV: "Sector salud del S&P 500: laboratorios y empresas médicas.", XLY: "Consumo discrecional del S&P 500 (Amazon, Tesla, comercios).", XLP: "Consumo básico del S&P 500 (alimentos, supermercados).",
+  XLI: "Sector industrial del S&P 500.", XLU: "Empresas de servicios públicos del S&P 500 (luz, gas, agua).", XLB: "Materiales del S&P 500 (químicas, minería).",
+  XLRE: "Sector inmobiliario del S&P 500.", XLC: "Comunicaciones del S&P 500 (Alphabet, Meta, Netflix).", SMH: "Empresas de semiconductores (chips).",
+  EEM: "Acciones de países emergentes.", EWZ: "Acciones de Brasil.", GLD: "Sigue al precio del oro.", SLV: "Sigue al precio de la plata.", ARKK: "Empresas de innovación elegidas por ARK Invest.",
+  TLT: "Bonos del Tesoro de EE.UU. a más de 20 años.", IBIT: "Sigue al precio del bitcoin.",
+};
 const AI_MODELS = ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/meta/llama-3.1-8b-instruct"];
 
 async function insight(url, env, cors) {
@@ -380,7 +394,7 @@ async function insight(url, env, cors) {
   if (!/^[A-Z0-9.\-]{1,12}$/.test(symbol)) return json({ error: "bad_symbol" }, 400, cors);
   if (!env.FINNHUB_KEY) return json({ error: "not_configured" }, 500, cors);
   const day = new Date().toISOString().slice(0, 10);
-  const key = "ins3:" + symbol + ":" + day;
+  const key = "ins4:" + symbol + ":" + day;
   const mem = insMem.get(key);
   if (mem) return json(mem, 200, cors, "HIT");
   if (env.HOLDY_KV) {
@@ -397,12 +411,15 @@ async function insight(url, env, cors) {
   const from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
   const now = Math.floor(Date.now() / 1000);
   const ycands = symbol.includes(".") ? [symbol] : (ALIAS[symbol] ? [ALIAS[symbol]] : [symbol, symbol + ".L", symbol + ".SW"]);
-  const [news, recs, prof, hist] = await Promise.all([
+  const [news, recs, prof, hist, gen] = await Promise.all([
     fh("company-news?symbol=" + base + "&from=" + from + "&to=" + day),
     fh("stock/recommendation?symbol=" + base),
     fh("stock/profile2?symbol=" + base),
     (async () => { for (const c of ycands) { const d = await yahooHistory(c, now - 372 * 86400, now + 86400); if (d) return d; } return null; })(),
+    ETF_INFO[base] ? fh("news?category=general") : null,
   ]);
+  // ETF: no es una empresa. Se usan las noticias generales del mercado (y las del ticker si hay).
+  const etf = ETF_INFO[base] || ((!prof || !prof.name) && hist ? "Es un ETF o fondo que cotiza en bolsa." : "");
 
   // Precio: cambios y rango de 52 semanas.
   let px = null;
@@ -424,19 +441,21 @@ async function insight(url, env, cors) {
 
   // Noticias: sin repetidos, las más recientes primero.
   const seen = new Set();
-  const items = (Array.isArray(news) ? news : []).filter((x) => x && x.headline && x.url)
+  const cutoff = Date.now() / 1000 - 30 * 86400;
+  const pool = (Array.isArray(news) ? news : []).concat(etf && Array.isArray(gen) ? gen.filter((x) => x && x.datetime > cutoff) : []);
+  const items = pool.filter((x) => x && x.headline && x.url)
     .sort((a, b) => (b.datetime || 0) - (a.datetime || 0))
     .filter((x) => { const k = x.headline.toLowerCase().slice(0, 60); if (seen.has(k)) return false; seen.add(k); return true; })
     .slice(0, 40)
     .map((x) => ({ t: String(x.headline).slice(0, 220), s: String(x.summary || "").slice(0, 300), src: String(x.source || ""), d: new Date((x.datetime || 0) * 1000).toISOString().slice(0, 10), u: String(x.url) }));
 
-  const out = { symbol, name: (prof && prof.name) || "", industry: (prof && prof.finnhubIndustry) || "", px, rec, news: items.slice(0, 10).map(({ s, ...r }) => r), ai: null, day };
+  const out = { symbol, name: (prof && prof.name) || "", industry: (prof && prof.finnhubIndustry) || "", etf: etf || "", px, rec: etf ? null : rec, news: items.slice(0, 10).map(({ s, ...r }) => r), ai: null, day };
 
   // Resumen con IA (si el Worker tiene el binding "AI").
   if (env.AI && (items.length || px)) {
     const pct = (v) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
     const ctx = [
-      "Empresa: " + (out.name || symbol) + " (" + symbol + ")" + (out.industry ? ", sector " + out.industry : ""),
+      etf ? "ETF: " + symbol + ". " + etf + " Explicá qué movió al mercado o a ese índice/sector en el último mes, no a una empresa en particular." : "Empresa: " + (out.name || symbol) + " (" + symbol + ")" + (out.industry ? ", sector " + out.industry : ""),
       px ? "Precio: " + px.last.toFixed(2) + " " + px.cur + ". Cambio 1 semana " + pct(px.w1) + ", 1 mes " + pct(px.m1) + ", 3 meses " + pct(px.m3) + ", 1 año " + pct(px.y1) + ". Rango 52 semanas " + px.lo.toFixed(2) + " a " + px.hi.toFixed(2) + "." : "",
       rec ? "Analistas (" + rec.period + "): " + (rec.sb + rec.b) + " compra, " + rec.h + " mantener, " + (rec.s + rec.ss) + " venta, de " + rec.n + "." : "",
       "Noticias del último mes (fecha · título · resumen):",

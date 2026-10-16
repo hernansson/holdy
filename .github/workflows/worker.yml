@@ -71,5 +71,7 @@ jobs:
           echo "::notice title=quote::$Q"
           I=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/insight?symbol=AAPL" | jq -c '{name, px: (.px.last), rec: (.rec.n), news: (.news|length), model: .ai.model, ai: (.ai.resumen // null | if . then .[0:400] else null end), tit: (.ai.titulares // [] | .[0:2])}')
           echo "::notice title=insight::$I"
+          E=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/insight?symbol=SPY" | jq -c '{etf, px: (.px.last), rec, news: (.news|length), ai: (.ai.resumen // null | if . then .[0:400] else null end), tit: (.ai.titulares // [] | .[0:2])}')
+          echo "::notice title=insight SPY::$E"
           S=$(curl -sS -o /dev/null -w "%{http_code}" "$U/me/data")
           echo "::notice title=me/data sin sesion (debe ser 401)::$S"
