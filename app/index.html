@@ -1093,7 +1093,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v171"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v172"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1647,14 +1647,13 @@
         /* Cada fila antes de comisiones; las comisiones van en su propia fila y restan. El total no cambia. */
         var feeO=PS.filter(function(p){ return p.ccy===ccy&&curPx(p)!==null; }).reduce(function(t,p){ return t+pFees(p); },0);
         var feeC=vClosed().filter(function(c){ return c.ccy===ccy&&c.sold; }).reduce(function(t,c){ return t+pFees(c); },0);
-        rrow("Lo que tenés hoy",mRs(diff+feeO,ccy),cls(diff+feeO),false,"vale "+mR(g.value,ccy)+" · pagaste "+mR(costPriced-feeO,ccy),false);
+        rrow("Inversiones actuales",mRs(diff+feeO,ccy),cls(diff+feeO),false,"pagaste "+mR(costPriced-feeO,ccy)+" · hoy valen "+mR(g.value,ccy),false);
         if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos");
         if(dv0>0) rrow("Dividendos cobrados","+"+mR(dv0,ccy),"pos");
-        if(nCl) rrow("Lo que ya vendiste",mRs(realized+feeC,ccy),cls(realized+feeC));
-        if(feeO+feeC>=0.005) rrow("Comisiones de compra y venta",mRs(-(feeO+feeC),ccy),"neg");
+        if(nCl) rrow("Ventas",mRs(realized+feeC,ccy),cls(realized+feeC),false,"ganancia de lo que vendiste",false);
+        if(feeO+feeC>=0.005) rrow("Comisiones",mRs(-(feeO+feeC),ccy),"neg",false,"lo que cobraron los brokers",false);
         rrow("Total",mRs(tot+realized+dv0,ccy),cls(tot+realized+dv0),true);
         var fxAll=gfx+rfx, foot=[];
-        if(fxSig(fxAll,costPriced)) foot.push("De eso, "+mRs(fxAll,ccy)+" es por el dólar (cambió desde que compraste).");
         if(cashT>0) foot.push("El número grande suma "+mR(cashT,ccy)+" sin invertir.");
         if(foot.length) rc.appendChild(el("div","rfoot",foot.join(" ")));
         card.appendChild(rc);
