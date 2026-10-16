@@ -198,6 +198,11 @@
   .gain-line{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-top:6px}
   .gain-line .gl-lbl{font-size:12px; font-weight:500; color:var(--muted)}
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
+  /* Filtro por broker: pestañas de texto, arriba del resumen */
+  .bkf{grid-column:1/-1; display:flex; gap:18px; margin:0 0 4px; border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none}
+  .bkf::-webkit-scrollbar{display:none}
+  .bkf button{background:none; border:0; box-shadow:none; border-radius:0; padding:6px 0 8px; min-height:0; font-size:14px; font-weight:600; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; cursor:pointer}
+  .bkf button.on{color:var(--text); border-bottom-color:var(--brand,var(--text))}
   .gain-line .gl-main{font-size:17px; font-weight:700}
   .gain-line .gl-sub,.day-line{font-size:12px; color:var(--muted); font-weight:500}
   .day-line{margin-top:2px}
@@ -1051,7 +1056,8 @@
   var refreshing=false, lastRefresh=0, editingId=null;
   var uiRaw=load(LS_UI,{});
   var ui={
-    filter:["all","IBKR"].indexOf(uiRaw.filter)>=0?uiRaw.filter:"all",
+    filter:"all",
+    bk:typeof uiRaw.bk==="string"?uiRaw.bk:"",
     sort:["value","plpct","pl","day","ticker"].indexOf(uiRaw.sort)>=0?uiRaw.sort:"value",
     sortSold:["date","plpct","pl","ticker","days"].indexOf(uiRaw.sortSold)>=0?uiRaw.sortSold:"date",
     hide:!!uiRaw.hide,
@@ -1427,8 +1433,8 @@
   var EVO_TTL=6*3600*1000;
   function hashStr(t){ var h=5381; for(var i=0;i<t.length;i++) h=((h<<5)+h+t.charCodeAt(i))|0; return String(h>>>0); }
   function evoInfo(){
-    var pr=cur(), e=cmpEvents(pr), ev=e.ev.filter(function(x){return x.t!=="c";});
-    return {pr:pr,e:e,ev:ev,key:"v2:"+pr.id+":"+(fxH&&fxH.d?fxH.d.length:0)+":"+hashStr(ev.map(function(x){return [x.d,x.tk,x.q,x.p,x.t,x.x?x.x.join("/"):""].join(",");}).join("|"))};
+    var pr=vProf(), e=cmpEvents(pr), ev=e.ev.filter(function(x){return x.t!=="c";});
+    return {pr:pr,e:e,ev:ev,key:"v2:"+pr.id+":"+(bkOn()||"")+":"+(fxH&&fxH.d?fxH.d.length:0)+":"+hashStr(ev.map(function(x){return [x.d,x.tk,x.q,x.p,x.t,x.x?x.x.join("/"):""].join(",");}).join("|"))};
   }
   function evoBuild(info){
     var ev=info.ev; if(!ev.length) return Promise.resolve(null);
@@ -1481,7 +1487,7 @@
     if(evoBusy===info.key||!navigator.onLine){ evoDraw(); return; }
     evoBusy=info.key; evoErr=""; evoDraw();
     evoBuild(info).then(function(r){
-      if(r){ var o={}; o[info.key]={t:Date.now(),pts:r.pts,skipped:r.skipped}; evoCache=o; save(LS_EVO,evoCache); }
+      if(r){ var o={}; Object.keys(evoCache).filter(function(k){ return k.split(":")[1]===info.pr.id; }).slice(-5).forEach(function(k){ o[k]=evoCache[k]; }); o[info.key]={t:Date.now(),pts:r.pts,skipped:r.skipped}; evoCache=o; save(LS_EVO,evoCache); } /* uno por broker del perfil */
       else evoErr="No hay precios históricos suficientes para el gráfico.";
     }).catch(function(e){ try{ console.error("holdy-evo",e); }catch(x){} evoErr="No se pudo traer el historial para el gráfico."; }).then(function(){ evoBusy=""; evoDraw(); });
   }
@@ -1540,9 +1546,11 @@
   }
   function renderSummary(){
     var box=$("summary"); box.textContent="";
-    if(!positions.length) return;
+    renderBkFilter(box);
+    var PS=vPos();
+    if(!PS.length){ if(bkOn()) box.appendChild(el("div","note","No tenés posiciones abiertas en "+brokerName(bkOn())+".")); if(!positions.length) return; }
     var byCcy={};
-    positions.forEach(function(p){
+    PS.forEach(function(p){
       var cp=curPx(p);
       var g=byCcy[p.ccy]||(byCcy[p.ccy]={cost:0,value:0,missing:0,brokers:{},day:0,dayBase:0,dayN:0,costPriced:0});
       var cost=pCost(p);
@@ -1560,7 +1568,7 @@
       var pl=g.value-costPriced+(g.inc||0), pct=costPriced>0?pl/costPriced:null;
 
       var card=el("div","sum-card");
-      var npos=positions.filter(function(p){return p.ccy===ccy;}).length, inc=g.inc||0;
+      var npos=PS.filter(function(p){return p.ccy===ccy;}).length, inc=g.inc||0;
       var hd=el("div","sum-hd"); hd.appendChild(el("h2",null,"Tu cartera hoy"));
       var dcs=el("div","seg sm dcseg"); dcs.setAttribute("aria-label","Moneda para mostrar");
       [["CCL","CCL"],["MEP","MEP"],["ARS","$"]].forEach(function(o){ var b=el("button",ui.dc===o[0]?"on":"",o[1]); b.type="button"; b.title={CCL:"En dólar CCL",MEP:"En dólar MEP",ARS:"En pesos"}[o[0]]+": lo que pagaste con el dólar de cada compra; lo que vale, con el de hoy";
@@ -1572,12 +1580,12 @@
         var gk=el("div","gain-line"); gk.appendChild(el("span","skel","+US$ 0.000 (+0,00%)")); card.appendChild(gk);
       } else {
       var mainRow=el("div","sum-main"); card.appendChild(mainRow);
-      var cashT=ccy==="USD"?balTotal():0;
+      var cashT=ccy==="USD"?vBalTotal():0;
       mainRow.appendChild(el("div","big",mR(g.value+cashT,ccy)));
       if(costPriced>0){
         var diff=g.value-costPriced, tot=g.value+inc-costPriced;
         /* Arriba, un solo resultado: lo que tenés + lo que ya vendiste. El % es sobre todo lo que pusiste (lo que tenés + lo que costó lo vendido). */
-        var rz0=0, cz0=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ var cc_=pCost(c); rz0+=pProceeds(c)-cc_; cz0+=cc_; } });
+        var rz0=0, cz0=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ var cc_=pCost(c); rz0+=pProceeds(c)-cc_; cz0+=cc_; } });
         var gt=tot+rz0, gb=costPriced+cz0;
         var gl=el("div","gain-line "+cls(gt)); gl.appendChild(el("span",null,arrow(gt)+mRs(gt,ccy)));
         gl.appendChild(el("span","gl-pct","("+fmtPct(gb>0?gt/gb:null)+")"));
@@ -1596,7 +1604,7 @@
           var r=el("div","rrow"+(strong?" strong":"")+(mut?" mut":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
           r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
         }
-        var realized=0, nCl=0, rfx=0; (cur().closed||[]).forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=pProceeds(c)-pCost(c); rfx+=fxPart(c); nCl++; } });
+        var realized=0, nCl=0, rfx=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=pProceeds(c)-pCost(c); rfx+=fxPart(c); nCl++; } });
         var gfx=g.fx||0;
         /* Detalle simple: de dónde sale el resultado, en 3 o 4 filas. Lo demás, en una nota chica. */
         rrow("Lo que tenés",mRs(diff,ccy),cls(diff));
@@ -1627,7 +1635,7 @@
   }
 
   function renderTabs(){
-    var t=$("tabs"), cl=(cur().closed||[]).length;
+    var t=$("tabs"), cl=vClosed().length, positions=vPos();
     if(ui.tab==="sold" && !cl) ui.tab="acc";
     t.hidden=!(positions.length||cl); t.textContent="";
     var nF=positions.filter(function(p){return p.fi;}).length, nA=positions.length-nF;
@@ -1645,7 +1653,7 @@
     sp.appendChild(el("span","acc-pc",fmtPct(pct))); sp.appendChild(el("span","acc-amt",")")); return sp;
   }
   function renderSoldList(box){
-    var soldEls=[], cl=(cur().closed||[]).slice();
+    var soldEls=[], cl=vClosed().slice();
     function soldDays(c){ var hl=(c.lots&&c.lots.length?c.lots:[{q:c.qty,b:c.buy,d:""}]).filter(function(l){return l.d&&l.q>0&&l.b>0;}); if(!hl.length) return null; var sdn=dayNum(c.sold.d), wc=0, wd=0; hl.forEach(function(l){ var w=l.q*l.b; wc+=w; wd+=w*Math.max(0,sdn-dayNum(l.d)); }); return wd/wc; }
     function soldVal(c){
       var cost=pCost(c), gain=pProceeds(c)-cost;
@@ -1708,8 +1716,8 @@
   function renderDist(sorted,totalByCcy){
     var box=$("dist"); box.textContent="";
     var ccy="USD", tot=totalByCcy[ccy]||0, items=[], byBk={};
-    (positions||[]).forEach(function(p){ if(p.ccy!==ccy) return; var c=curPx(p); if(c===null) return; var v=p.qty*c; items.push({k:p.ticker,v:v}); byBk[p.broker]=(byBk[p.broker]||0)+v; });
-    (cur().bal||[]).forEach(function(x){ byBk[x.b]=(byBk[x.b]||0)+x.a; });
+    vPos().forEach(function(p){ if(p.ccy!==ccy) return; var c=curPx(p); if(c===null) return; var v=p.qty*c; items.push({k:p.ticker,v:v}); byBk[p.broker]=(byBk[p.broker]||0)+v; });
+    vBal().forEach(function(x){ byBk[x.b]=(byBk[x.b]||0)+x.a; });
     if(!items.length){ return; }
     var m={}; items.forEach(function(x){ m[x.k]=(m[x.k]||0)+x.v; });
     var arr=Object.keys(m).map(function(k){return {k:k,v:m[k]};}).sort(function(a,b){return b.v-a.v;});
@@ -1732,6 +1740,8 @@
     renderTabs();
     var box=$("list"); box.textContent=""; $("dist").textContent="";
     if(ui.tab==="sold"){ renderSoldList(box); return; }
+    var allN=allPosN(), positions=vPos(); /* con el filtro de broker, solo las de ese broker */
+    if(allN&&!positions.length){ box.appendChild(el("div","empty","No tenés posiciones abiertas en "+brokerName(bkOn())+".")); return; }
     if(!positions.length){
       var e=el("div","empty");
       e.appendChild(el("div",null,"Todavía no cargaste ninguna posición."));
@@ -1750,7 +1760,7 @@
       if(ui.sort==="day"){ var d=dayInfo(p); return (d&&d.base>0)?d.amt/d.base:null; }
       return null;
     }
-    var filtered=positions.filter(function(p){ return (ui.filter==="all"||p.broker===ui.filter) && (!!p.fi)===(ui.tab==="fi"); });
+    var filtered=positions.filter(function(p){ return (!!p.fi)===(ui.tab==="fi"); });
     // Mismas acciones en distintos brokers: una sola fila, con el detalle por broker al abrirla.
     (function(){
       var gm={}, out=[], done={};
@@ -2258,6 +2268,27 @@
   $("cashClose").addEventListener("click",function(){ dlgCash.close(); });
   dateField($("cashDate"),"",true);
   function balTotal(pr){ var t=0; ((pr||cur()).bal||[]).forEach(function(x){ t+=x.a; }); return t; }
+  // ---------- Filtro por broker (ui.bk: "" = todos) ----------
+  function bkList(){ var o={}, pr=cur(); positions.concat(pr.closed||[]).forEach(function(p){ o[p.broker]=1; }); (pr.bal||[]).forEach(function(x){ if(x.a) o[x.b]=1; }); return BROKERS.filter(function(b){ return o[b]; }).concat(Object.keys(o).filter(function(b){ return BROKERS.indexOf(b)<0; })); }
+  function bkOn(){ if(!ui.bk) return ""; var l=bkList(); if(l.length<2||l.indexOf(ui.bk)<0){ ui.bk=""; } return ui.bk; }
+  function allPosN(){ return positions.length; }
+  function vPos(){ var b=bkOn(); return b?positions.filter(function(p){ return p.broker===b; }):positions; }
+  function vClosed(){ var b=bkOn(), c=cur().closed||[]; return b?c.filter(function(p){ return p.broker===b; }):c; }
+  function vBal(){ var b=bkOn(), l=cur().bal||[]; return b?l.filter(function(x){ return x.b===b; }):l; }
+  function vBalTotal(){ return vBal().reduce(function(t,x){ return t+x.a; },0); }
+  function vProf(){ var pr=cur(), b=bkOn(); return b?{id:pr.id,positions:vPos(),closed:vClosed(),cash:[],bal:vBal()}:pr; }
+  function bkShort(b){ return b==="IBKR"?"IBKR":(BROKER_NAMES[b]&&BROKER_NAMES[b].length<=10?BROKER_NAMES[b]:b); }
+  function renderBkFilter(box){
+    var l=bkList(); if(l.length<2) return;
+    var nav=el("div","bkf"); nav.setAttribute("role","tablist"); nav.setAttribute("aria-label","Ver por broker");
+    [""].concat(l).forEach(function(b){
+      var on=bkOn()===b, x=el("button",on?"on":"",b?bkShort(b):"Todos"); x.type="button"; x.setAttribute("role","tab"); x.setAttribute("aria-selected",String(on));
+      if(b) x.title=brokerName(b);
+      x.addEventListener("click",function(){ if(ui.bk===b) return; ui.bk=b; openId=null; save(LS_UI,ui); render(); });
+      nav.appendChild(x);
+    });
+    box.appendChild(nav);
+  }
   function renderBal(){
     var pr=cur(), ro=isRO(), sel=$("balBroker"), box=$("balList");
     if(!sel.options.length) BROKERS.forEach(function(b){ var o=document.createElement("option"); o.value=b; o.textContent=brokerName(b); sel.appendChild(o); });
@@ -2574,7 +2605,7 @@
 
   function renderSold(){
     var box=$("soldBox"); box.textContent="";
-    var cl=cur().closed||[]; if(!cl.length) return;
+    var cl=vClosed(); if(!cl.length) return;
     var det=document.createElement("details"); det.className="sold";
     det.appendChild(el("summary",null,"Vendidas ("+cl.length+")"));
     cl.slice().sort(function(a,b){return a.sold.d<b.sold.d?1:-1;}).forEach(function(c){
