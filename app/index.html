@@ -198,6 +198,17 @@
   .gain-line{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-top:6px}
   .gain-line .gl-lbl{font-size:12px; font-weight:500; color:var(--muted)}
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
+  /* Calendario de cobros (pestaña Renta fija) */
+  .cal{border:1px solid var(--line); border-radius:14px; background:var(--card); padding:12px 14px; margin:4px 0 12px}
+  .cal-hd{display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:8px; background:none; border:0; box-shadow:none; padding:0; min-height:0; cursor:pointer; color:var(--text)}
+  .cal-t{font-weight:700; font-size:15px} .cal-s{font-size:13px; color:var(--muted)}
+  .cal-hd::after{content:"▾"; color:var(--muted); font-size:12px; margin-left:6px} .cal-hd.open::after{content:"▴"}
+  .cal-nx{margin-top:6px; font-size:13px; color:var(--muted)} .cal-nx b{color:var(--pos); font-weight:700}
+  .cal-b{margin-top:10px; display:grid; gap:2px}
+  .cal-m{display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-top:8px; padding-bottom:4px; border-bottom:1px solid var(--line)}
+  .cal-r{display:grid; grid-template-columns:44px 1fr auto; gap:8px; font-size:14px; padding:5px 0}
+  .cal-d{color:var(--muted); font-variant-numeric:tabular-nums} .cal-a{font-weight:600; font-variant-numeric:tabular-nums}
+  .cal-note{font-size:12px; color:var(--muted); margin-top:8px}
   /* Filtro por broker: pestañas de texto, arriba del resumen */
   .bkf{grid-column:1/-1; display:flex; gap:18px; margin:0 0 4px; border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none}
   .bkf::-webkit-scrollbar{display:none}
@@ -1750,6 +1761,46 @@
     var bt=bks.reduce(function(a,x){return a+x.v;},0);
     if(bks.length>1) block("Por broker",bks,bt);
   }
+  // ---------- Calendario de cobros (renta fija): cupones y vencimientos de los próximos 12 meses ----------
+  function fiSchedule(p,horizon){
+    var out=[]; if(!p.fi||!(p.fi.c>0)||!p.fi.m) return out;
+    var tn=dayNum(todayStr()), end=tn+horizon, M=dayNum(p.fi.m), nn=p.fi.n||2, step=12/nn, k=0, d;
+    var q=(p.lots&&p.lots.length)?p.lots.reduce(function(a,l){return a+l.q;},0):p.qty;
+    while((d=fiMonthsBack(p.fi.m,k*step))>tn){ if(d<=end) out.push({d:d,a:q*p.fi.c/(100*nn),k:"cupón"}); k++; if(k>600) break; }
+    if(M>tn&&M<=end) out.push({d:M,a:q,k:"vencimiento"});
+    return out;
+  }
+  var calOpen=false;
+  function renderCal(box,list){
+    var ev=[], noM=[];
+    list.forEach(function(p){ if(!p.fi) return; if(!p.fi.m||!(p.fi.c>0)){ noM.push(p.ticker); return; }
+      fiSchedule(p,365).forEach(function(x){ ev.push({d:x.d,t:p.ticker,k:x.k,a:effR(x.a,cpBase(p),null),c:cpBase(p)==="C"}); }); });
+    if(!ev.length&&!noM.length) return;
+    ev.sort(function(a,b){ return a.d-b.d; });
+    var tot=ev.reduce(function(t,x){return t+x.a;},0), cal=el("div","cal");
+    var hd=el("button","cal-hd"); hd.type="button"; hd.setAttribute("aria-expanded",String(calOpen));
+    var ht=el("span","cal-t","Próximos cobros"); hd.appendChild(ht);
+    var hs=el("span","cal-s",ev.length?(ui.hide?MASK:mR(tot,"USD"))+" en 12 meses":"—"); hd.appendChild(hs);
+    cal.appendChild(hd);
+    var nx=ev[0];
+    if(nx){ var nl=el("div","cal-nx"); nl.appendChild(el("span",null,"Próximo: "+nx.t+" · "+dayStr(nx.d).split("-").reverse().slice(0,2).join("/")+" · ")); nl.appendChild(el("b",null,(ui.hide?MASK:mm(nx.a,"USD"))+(nx.k==="vencimiento"?" (vence)":""))); cal.appendChild(nl); }
+    var body=el("div","cal-b"); body.hidden=!calOpen;
+    var MES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"], lastM="";
+    ev.forEach(function(x){
+      var ds=dayStr(x.d), mk=ds.slice(0,7);
+      if(mk!==lastM){ lastM=mk; var mt=ev.filter(function(y){ return dayStr(y.d).slice(0,7)===mk; }).reduce(function(t,y){return t+y.a;},0);
+        var mh=el("div","cal-m"); mh.appendChild(el("span",null,MES[+ds.slice(5,7)-1]+" "+ds.slice(0,4))); mh.appendChild(el("span",null,ui.hide?MASK:mR(mt,"USD"))); body.appendChild(mh); }
+      var r=el("div","cal-r"); r.appendChild(el("span","cal-d",ds.slice(8,10)+"/"+ds.slice(5,7)));
+      r.appendChild(el("span","cal-tk",x.t+(x.k==="vencimiento"?" · vence (capital)":"")+(x.c?" · cable":"")));
+      r.appendChild(el("span","cal-a",ui.hide?MASK:mm(x.a,"USD"))); body.appendChild(r);
+    });
+    if(noM.length) body.appendChild(el("div","cal-note","Sin fecha de vencimiento o tasa para calcular: "+noM.join(", ")+". Cargalas en Editar."));
+    body.appendChild(el("div","cal-note","Estimado con los nominales que tenés hoy y la tasa de cada bono."));
+    cal.appendChild(body);
+    hd.addEventListener("click",function(){ calOpen=!calOpen; body.hidden=!calOpen; hd.setAttribute("aria-expanded",String(calOpen)); hd.classList.toggle("open",calOpen); });
+    if(calOpen) hd.classList.add("open");
+    box.appendChild(cal);
+  }
   function renderList(){
     renderTabs();
     var box=$("list"); box.textContent=""; $("dist").textContent="";
@@ -1811,6 +1862,7 @@
     if(openId && !sorted.some(function(p){return posKey(p)===openId;})) openId=null;
     
     var detailEls=[], lastCcy=null, lastFi=false;
+    if(ui.tab==="fi") renderCal(box,positions);
     (function(){
       var th=el("div","thead");
       [["Posición","ticker",""],["Broker","",""],["Cantidad","","r"],["Compra "+(dcCur()==="ARS"?"$":"US$"),"","r"],["Precio "+(dcCur()==="ARS"?"$":"US$"),"","r"],["Hoy","day","r"],["Peso","","r"],["Resultado","pl","r"],["Valor","value","r"]].forEach(function(c){
