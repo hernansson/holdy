@@ -394,7 +394,7 @@ async function insight(url, env, cors) {
   if (!/^[A-Z0-9.\-]{1,12}$/.test(symbol)) return json({ error: "bad_symbol" }, 400, cors);
   if (!env.FINNHUB_KEY) return json({ error: "not_configured" }, 500, cors);
   const day = new Date().toISOString().slice(0, 10);
-  const key = "ins4:" + symbol + ":" + day;
+  const key = "ins5:" + symbol + ":" + day;
   const mem = insMem.get(key);
   if (mem) return json(mem, 200, cors, "HIT");
   if (env.HOLDY_KV) {
@@ -442,7 +442,9 @@ async function insight(url, env, cors) {
   // Noticias: sin repetidos, las más recientes primero.
   const seen = new Set();
   const cutoff = Date.now() / 1000 - 30 * 86400;
-  const pool = (Array.isArray(news) ? news : []).concat(etf && Array.isArray(gen) ? gen.filter((x) => x && x.datetime > cutoff) : []);
+  // De las noticias generales, solo las de mercado y economía (no política internacional suelta).
+  const MKT = /\b(stocks?|market|wall street|s&p|nasdaq|dow|fed|federal reserve|powell|rates?|inflation|cpi|ppi|jobs|payrolls|unemployment|gdp|recession|treasur|yields?|bonds?|earnings|tariffs?|oil|crude|dollar|economy|economic|equities|rally|sell-?off|index|etf|investors?|shares)\b/i;
+  const pool = (Array.isArray(news) ? news : []).concat(etf && Array.isArray(gen) ? gen.filter((x) => x && x.datetime > cutoff && MKT.test((x.headline || "") + " " + (x.summary || ""))) : []);
   const items = pool.filter((x) => x && x.headline && x.url)
     .sort((a, b) => (b.datetime || 0) - (a.datetime || 0))
     .filter((x) => { const k = x.headline.toLowerCase().slice(0, 60); if (seen.has(k)) return false; seen.add(k); return true; })
