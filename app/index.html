@@ -212,6 +212,7 @@
   /* Filtro por broker: pestañas de texto, arriba del resumen */
   .bkf{grid-column:1/-1; display:flex; gap:18px; margin:0 0 4px; border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none}
   .bkf::-webkit-scrollbar{display:none}
+  .dr-ver{padding:14px 4px 2px; font-size:11px; color:var(--muted); opacity:.6; text-align:center}
   .bkf button{background:none; border:0; box-shadow:none; border-radius:0; padding:6px 0 8px; min-height:0; font-size:14px; font-weight:600; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; cursor:pointer}
   .bkf button.on{color:var(--text); border-bottom-color:var(--brand,var(--text))}
   .gain-line .gl-main{font-size:17px; font-weight:700}
@@ -636,6 +637,7 @@
     <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Cuenta y respaldo</span></button>
     <div class="dr-sep"></div>
     <button type="button" class="dr-item danger" id="menuOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></svg><span>Cerrar sesión</span></button>
+    <div class="dr-ver" id="drVer"></div>
   </div>
 </dialog>
 
@@ -1091,6 +1093,8 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
+  var APP_VER="holdy-v171"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
   var nfCache={};
@@ -4496,6 +4500,8 @@
     document.addEventListener("visibilitychange",function(){ if(!document.hidden && swReg){ try{ swReg.update(); }catch(e){} } });
     // Versión de la app al abrirla (se lee de sw.js). El aviso solo sale si después cambia de verdad.
     var loadVer=null;
+    /* Si en el servidor hay una versión más nueva que la que está corriendo, se avisa enseguida. */
+    setTimeout(function(){ swVer().then(function(v){ if(v&&v!==APP_VER) showUpd(); }); },2500);
     function swVer(){ return fetch("sw.js",{cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){ var m=/CACHE\s*=\s*"([^"]+)"/.exec(t); return m?m[1]:null; }).catch(function(){ return null; }); }
     swVer().then(function(v){ loadVer=v; });
     navigator.serviceWorker.addEventListener("controllerchange",function(){
