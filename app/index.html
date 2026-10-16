@@ -1640,16 +1640,18 @@
         var realized=0, nCl=0, rfx=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=pProceeds(c)-pCost(c); rfx+=fxPart(c); nCl++; } });
         var gfx=g.fx||0;
         /* Detalle simple: de dónde sale el resultado, en 3 o 4 filas. Lo demás, en una nota chica. */
-        rrow("Lo que tenés",mRs(diff,ccy),cls(diff));
+        /* Cada fila antes de comisiones; las comisiones van en su propia fila y restan. El total no cambia. */
+        var feeO=PS.filter(function(p){ return p.ccy===ccy&&curPx(p)!==null; }).reduce(function(t,p){ return t+pFees(p); },0);
+        var feeC=vClosed().filter(function(c){ return c.ccy===ccy&&c.sold; }).reduce(function(t,c){ return t+pFees(c); },0);
+        rrow("Lo que tenés hoy",mRs(diff+feeO,ccy),cls(diff+feeO),false,"vale "+mR(g.value,ccy)+" · pagaste "+mR(costPriced-feeO,ccy),false);
         if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos");
-        if(nCl) rrow("Lo que vendiste",mRs(realized,ccy),cls(realized));
         if(dv0>0) rrow("Dividendos cobrados","+"+mR(dv0,ccy),"pos");
+        if(nCl) rrow("Lo que ya vendiste",mRs(realized+feeC,ccy),cls(realized+feeC));
+        if(feeO+feeC>=0.005) rrow("Comisiones de compra y venta",mRs(-(feeO+feeC),ccy),"neg");
         rrow("Total",mRs(tot+realized+dv0,ccy),cls(tot+realized+dv0),true);
         var fxAll=gfx+rfx, foot=[];
         if(fxSig(fxAll,costPriced)) foot.push("De eso, "+mRs(fxAll,ccy)+" es por el dólar (cambió desde que compraste).");
         if(cashT>0) foot.push("El número grande suma "+mR(cashT,ccy)+" sin invertir.");
-        var feeT=PS.concat(vClosed()).filter(function(p){return p.ccy===ccy;}).reduce(function(t,p){ return t+pFees(p); },0);
-        if(feeT>=0.5) foot.push("Ya descuenta "+mR(feeT,ccy)+" de comisiones.");
         if(foot.length) rc.appendChild(el("div","rfoot",foot.join(" ")));
         card.appendChild(rc);
         var kp=el("div","kpis");
