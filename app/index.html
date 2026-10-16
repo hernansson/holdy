@@ -1138,7 +1138,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v179"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v180"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1296,7 +1296,11 @@
     return fciBusy;
   }
   /* Cuotaparte de hoy en dólar CCL (la base): fondo en pesos → ÷ CCL de hoy; en dólares (MEP) → × MEP/CCL. */
-  function fciPx(p){ var e=fciFind(p), t=fxToday(); if(!e||!t) return null; return fciCur(p)==="P"?e.v/t.c:e.v*t.m/t.c; }
+  /* La CNV/CAFCI suele publicar el valor por cada 1.000 cuotapartes: se elige la escala que deja el precio cerca de lo que pagaste. */
+  function fciVal(p,e){ var t=fxToday(), b=pBuy(p); if(!e) return null; var v=e.v;
+    if(t&&b>0){ var px=function(x){ return fciCur(p)==="P"?x/t.c:x*t.m/t.c; }; [1000,1000000].forEach(function(k){ if(Math.abs(Math.log(px(v/k)/b))<Math.abs(Math.log(px(v)/b))) v=v/k; }); }
+    return v; }
+  function fciPx(p){ var e=fciFind(p), t=fxToday(); if(!e||!t) return null; var v=fciVal(p,e); return fciCur(p)==="P"?v/t.c:v*t.m/t.c; }
   function currentPrice(p){
     if(p.fi) return fiPrice(p);
     if(isFci(p)&&p.source!=="manual") return fciPx(p);
@@ -2128,7 +2132,7 @@
         notes.push("Lo que pagaste va con el dólar del día de cada compra y el valor, con el de hoy."+(noFx?" Hay compras sin fecha o sin cotización de ese día: para esas se usa el dólar de hoy.":"")); }
       if(stamp) notes.push((p.source==="manual"?"Precio manual, cargado ":"Dato de mercado ")+timeAgo(stamp)+".");
       if(isFci(p)&&p.source!=="manual"){ var fe_=fciFind(p);
-        notes.push(fe_?"Cuotaparte "+(fciCur(p)==="P"?"$ ":"US$ ")+fe_.v.toLocaleString("es-AR",{maximumFractionDigits:4})+" del "+fe_.d.split("-").reverse().join("/")+" ("+fe_.n+", datos de la CNV vía argentinadatos.com)"+(fciCur(p)==="P"?", pasada a dólar con el CCL de hoy.":".")
+        notes.push(fe_?"Cuotaparte "+(fciCur(p)==="P"?"$ ":"US$ ")+fciVal(p,fe_).toLocaleString("es-AR",{maximumFractionDigits:4})+" del "+fe_.d.split("-").reverse().join("/")+" ("+fe_.n+", datos de la CNV vía argentinadatos.com)"+(fciCur(p)==="P"?", pasada a dólar con el CCL de hoy.":".")
           :"⚠ No encontré el valor de hoy de este fondo"+(fciErr?" ("+fciErr+")":"")+". Podés cargarlo a mano en Editar → precio manual (en dólares CCL por cuotaparte)."); }
       var pn_=String(p.note||"").replace(CED_MARK,"").replace(CB_MARK,"").replace(/\s*\{fci:[PD]\}/,""); if(pn_) notes.push(pn_);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
