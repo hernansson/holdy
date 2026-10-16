@@ -975,6 +975,15 @@
   function okId(v){ return typeof v==="string" && ID_RE.test(v); }
   function okCode(v){ return typeof v==="string" && /^[A-Za-z0-9_\-]{8,40}$/.test(v); }
   // Movimientos de efectivo del perfil: [{d:"aaaa-mm-dd", a:monto en USD (+ depósito, − retiro)}]
+  // Dividendos cobrados (netos de impuestos), por perfil: [{b:broker, t:ticker, d:fecha, a:US$, c:"C" cable | "M" MEP}]
+  function cleanDiv(arr){
+    var out=[]; if(!Array.isArray(arr)) return out;
+    arr.slice(0,2000).forEach(function(x){ if(!x) return;
+      var A=Array.isArray(x), b=A?bkFrom(x[0]):String(x.b||""), t=String(A?x[1]:x.t||"").toUpperCase().trim().slice(0,20), d=String(A?x[2]:x.d||""), a=+(A?x[3]:x.a), c=(A?x[4]===1:x.c==="C")?"C":"M";
+      if(t&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&isFinite(a)&&a!==0&&Math.abs(a)<1e9) out.push({b:BROKERS.indexOf(b)>=0?b:"IBKR",t:t,d:d,a:Math.round(a*100)/100,c:c}); });
+    return out;
+  }
+  function divT(arr){ return (arr||[]).map(function(x){ return [bkCode(x.b),x.t,x.d,x.a,x.c==="C"?1:0]; }); }
   function cleanCash(arr){
     var out=[]; if(!Array.isArray(arr)) return out;
     arr.slice(0,400).forEach(function(c){ if(!c) return;
@@ -1037,7 +1046,7 @@
   function initProfiles(){
     var d=load(LS_PROF,null);
     if(d && Array.isArray(d.profiles) && d.profiles.length){
-      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.closed=(Array.isArray(pr.closed)?pr.closed:[]).map(function(c){return cleanPos(c,false);}).filter(function(c){return c&&c.sold;}); pr.name=cleanName(pr.name)||"Perfil"; pr.cash=cleanCash(pr.cash); pr.bal=cleanBal(pr.bal); });
+      d.profiles.forEach(function(pr){ if(!Array.isArray(pr.positions)) pr.positions=[]; pr.closed=(Array.isArray(pr.closed)?pr.closed:[]).map(function(c){return cleanPos(c,false);}).filter(function(c){return c&&c.sold;}); pr.name=cleanName(pr.name)||"Perfil"; pr.cash=cleanCash(pr.cash); pr.bal=cleanBal(pr.bal); pr.div=cleanDiv(pr.div); });
       if(!d.profiles.some(function(x){return x.id===d.active;})) d.active=d.profiles[0].id;
       if(!d.tomb || typeof d.tomb!=="object") d.tomb={};
       return d;
@@ -1589,7 +1598,7 @@
         var diff=g.value-costPriced, tot=g.value+inc-costPriced;
         /* Arriba, un solo resultado: lo que tenés + lo que ya vendiste. El % es sobre todo lo que pusiste (lo que tenés + lo que costó lo vendido). */
         var rz0=0, cz0=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ var cc_=pCost(c); rz0+=pProceeds(c)-cc_; cz0+=cc_; } });
-        var gt=tot+rz0, gb=costPriced+cz0;
+        var dv0=ccy==="USD"?divSum(vDiv()):0, gt=tot+rz0+dv0, gb=costPriced+cz0;
         var gl=el("div","gain-line "+cls(gt)); gl.appendChild(el("span",null,arrow(gt)+mRs(gt,ccy)));
         gl.appendChild(el("span","gl-pct","("+fmtPct(gb>0?gt/gb:null)+")"));
         card.appendChild(gl);
@@ -1613,7 +1622,8 @@
         rrow("Lo que tenés",mRs(diff,ccy),cls(diff));
         if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos");
         if(nCl) rrow("Lo que vendiste",mRs(realized,ccy),cls(realized));
-        rrow("Total",mRs(tot+realized,ccy),cls(tot+realized),true);
+        if(dv0>0) rrow("Dividendos cobrados","+"+mR(dv0,ccy),"pos");
+        rrow("Total",mRs(tot+realized+dv0,ccy),cls(tot+realized+dv0),true);
         var fxAll=gfx+rfx, foot=[];
         if(fxSig(fxAll,costPriced)) foot.push("De eso, "+mRs(fxAll,ccy)+" es por el dólar (cambió desde que compraste).");
         if(cashT>0) foot.push("El número grande suma "+mR(cashT,ccy)+" sin invertir.");
@@ -1621,7 +1631,7 @@
         card.appendChild(rc);
         var kp=el("div","kpis");
         function kpi(lbl,val,c,sub){ var k=el("div","kpi"); k.appendChild(el("span","kl",lbl)); k.appendChild(el("span","kv"+(c?" "+c:""),val)); if(sub) k.appendChild(el("span","ks "+(c||""),sub)); kp.appendChild(k); }
-        kpi(nCl?"Ganancia total":"Resultado",mRs(tot+realized,ccy),cls(tot+realized),nCl?"tenés "+mRs(tot,ccy)+" · vendido "+mRs(realized,ccy):fmtPct(tot/costPriced));
+        kpi((nCl||dv0>0)?"Ganancia total":"Resultado",mRs(tot+realized+dv0,ccy),cls(tot+realized+dv0),nCl?"tenés "+mRs(tot,ccy)+" · vendido "+mRs(realized,ccy)+(dv0>0?" · dividendos +"+mR(dv0,ccy):""):fmtPct(tot/costPriced));
         kpi("Hoy",g.dayN?mRs(g.day,ccy):"—",g.dayN?cls(g.day):"",(g.dayN&&g.dayBase>0)?fmtPct(g.day/g.dayBase):"");
         kpi("Capital invertido",mR(costPriced,ccy),"",nCl?"lo que costó lo que tenés":"lo que pusiste");
         if(cashT>0) kpi("Plata sin invertir",mR(cashT,ccy),"","la cargaste vos, ya está sumada");
@@ -1687,6 +1697,7 @@
       var pg=el("div","pgrid");
       function pair(k,v,cc,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(cc?" "+cc:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
       pair("Cantidad",qq(c.qty)); pair("Resultado",mRs(gain,c.ccy),cls(gain));
+      if(c.ccy==="USD"&&!positions.some(function(x){ return x.ticker===c.ticker&&x.broker===c.broker; })){ var sdv=divsOf(c.ticker,[c.broker]); if(sdv.length) pair("Dividendos de "+c.ticker,"+"+mm(divSum(sdv),c.ccy),"pos",sdv.length+(sdv.length===1?" cobro":" cobros")+" mientras la tuviste"); }
       pair("Precio de compra",mm(pBuy(c),c.ccy)); pair("Precio de venta",mm(c.qty>0?proceeds/c.qty:c.sold.p,c.ccy));
       var sfx_=fxPart(c); if(fxSig(sfx_,cost)){ pair("Por la acción",mRs(gain-sfx_,c.ccy),cls(gain-sfx_),cost+sfx_>0?fmtPct((gain-sfx_)/(cost+sfx_)):""); pair("Por el dólar",mRs(sfx_,c.ccy),cls(sfx_)); }
       pair("Fecha de venta",c.sold.d.split("-").reverse().join("/")); pair("Broker",brokerName(c.broker));
@@ -1817,6 +1828,8 @@
       var cp=curPx(p);
       var cost=pCost(p), value=cp===null?null:p.qty*cp;
       var inc=p.fi?fiIncomeE(p):0;
+      var pdv=(!p.fi&&p.ccy==="USD")?divsOf(p.ticker,p.parts?p.parts.map(function(x){return x.broker;}):[p.broker]):[], pdvE=divSum(pdv);
+      inc+=pdvE; /* los dividendos cobrados de esta acción suman a su ganancia */
       var pl=value===null?null:value-cost+inc, pct=(pl===null||cost<=0)?null:pl/cost;
       var weight=(value===null||!totalByCcy[p.ccy])?null:value/totalByCcy[p.ccy];
       var di=dayInfo(p), dpct=(di&&di.base>0)?di.amt/di.base:null;
@@ -1864,6 +1877,7 @@
       pair(nL?"Precio promedio de compra":"Precio de compra",mm(pBuy(p),p.ccy));
       pair(p.fi?(fiIsPar(p)?"Valor a la par":"Precio de mercado"):"Precio actual",cp===null?"—":fmt(cp,p.ccy),"",(p.fi&&fiIsPar(p))?"sin precio de mercado":(p.fi&&fiQuote(p))?"cotización "+fiQuote(p).s+(/C$/.test(fiQuote(p).s)?" (dólar CCL)":" (dólar MEP)"):"");
       if(pl!==null&&p.ccy==="USD"){ var fxp=fxPart(p); if(fxSig(fxp,cost)){ pair("Por la acción",mRs(pl-fxp,p.ccy),cls(pl-fxp),cost+fxp>0?fmtPct((pl-fxp)/(cost+fxp)):""); pair("Por el dólar",mRs(fxp,p.ccy),cls(fxp),"cambió desde que compraste"); } }
+      if(pdv.length){ var lastD=pdv.map(function(x){return x.d;}).sort().pop(); pair("Dividendos cobrados","+"+mm(pdvE,p.ccy),"pos",pdv.length+(pdv.length===1?" cobro":" cobros")+" · último "+lastD.split("-").reverse().slice(0,2).join("/")); }
       pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
       if(!p.parts) pair("Broker",brokerName(p.broker));
@@ -2278,6 +2292,11 @@
   function vPos(){ var b=bkOn(); return b?positions.filter(function(p){ return p.broker===b; }):positions; }
   function vClosed(){ var b=bkOn(), c=cur().closed||[]; return b?c.filter(function(p){ return p.broker===b; }):c; }
   function vBal(){ var b=bkOn(), l=cur().bal||[]; return b?l.filter(function(x){ return x.b===b; }):l; }
+  function vDiv(){ var b=bkOn(), l=cur().div||[]; return b?l.filter(function(x){ return x.b===b; }):l; }
+  // Dividendo → unidades de pantalla, con el dólar del día en que se cobró (casi siempre en cable).
+  function divE(x){ return effR(x.a,x.c==="C"?"C":"M",fxOn(x.d,null)); }
+  function divSum(list){ return (list||[]).reduce(function(t,x){ return t+divE(x); },0); }
+  function divsOf(t,bks){ return (cur().div||[]).filter(function(x){ return x.t===t&&bks.indexOf(x.b)>=0; }); }
   function vBalTotal(){ return vBal().reduce(function(t,x){ return t+x.a; },0); }
   function vProf(){ var pr=cur(), b=bkOn(); return b?{id:pr.id,positions:vPos(),closed:vClosed(),cash:[],bal:vBal()}:pr; }
   function bkShort(b){ return b==="IBKR"?"IBKR":(BROKER_NAMES[b]&&BROKER_NAMES[b].length<=10?BROKER_NAMES[b]:b); }
@@ -3136,7 +3155,7 @@
     return {v:2,i:pr.shareKey,n:pr.name,t:Date.now(),p:pr.positions.map(function(x){
       return [bkCode(x.broker),x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,x.source==="manual"?1:0,x.manualPrice||0,x.note||""].concat(lotsT(x)); }),c:(pr.closed||[]).map(function(x){
       return [bkCode(x.broker),x.ccy==="ARS"?1:0,x.ticker,x.qty,x.buy,0,0,""].concat(lotsT(x)); })
-      ,sb:(pr.bal||[]).map(function(c){return c.d?[bkCode(c.b),c.a,c.d]:[bkCode(c.b),c.a];}),m:(pr.cash||[]).map(function(c){return [c.d,c.a];})};
+      ,sb:(pr.bal||[]).map(function(c){return c.d?[bkCode(c.b),c.a,c.d]:[bkCode(c.b),c.a];}),m:(pr.cash||[]).map(function(c){return [c.d,c.a];}),dv:divT(pr.div)};
   }
   // Devuelve {id,name,t,positions,dropped} o lanza error. Todo lo que viene del link se trata como no confiable.
   function parsePayload(o){
@@ -3158,7 +3177,7 @@
       if(c&&c.sold) cls_.push(c);
     });
     var bal_=cleanBal((Array.isArray(o.sb)?o.sb:[]).map(function(r){return {b:bkFrom(r[0]),a:r[1],d:r[2]};})), cash_=cleanCash(o.m);
-    return {id:id,name:cleanName(o.n)||"Perfil compartido",t:t,positions:out,closed:cls_,bal:bal_,cash:cash_,dropped:dropped};
+    return {id:id,name:cleanName(o.n)||"Perfil compartido",t:t,positions:out,closed:cls_,bal:bal_,cash:cash_,div:cleanDiv(o.dv),dropped:dropped};
   }
 
   // ---------- Sincronización por código (requiere KV en el Worker) ----------
@@ -3213,7 +3232,7 @@
           pr.syncGone=false; pr.syncChecked=Date.now();
           if(!j || !(j.updated>(pr.syncUpdated||0))){ save(LS_PROF,profData); return; }
           var d=parsePayload(j.data);
-          pr.positions=d.positions; pr.closed=d.closed||[]; pr.bal=d.bal||[]; pr.cash=d.cash||[]; pr.sharedAt=d.t; pr.syncUpdated=j.updated;
+          pr.positions=d.positions; pr.closed=d.closed||[]; pr.bal=d.bal||[]; pr.cash=d.cash||[]; pr.div=d.div||[]; pr.sharedAt=d.t; pr.syncUpdated=j.updated;
           if(pr.id===profData.active) positions=pr.positions;
           save(LS_PROF,profData);
         });
@@ -3260,10 +3279,10 @@
     var d=pendingShare.d, ex=pendingShare.exist, name=cleanName($("shName").value)||d.name;
     pendingShare=null;
     cur().positions=positions;
-    if(ex){ ex.positions=d.positions; ex.closed=d.closed||[]; ex.bal=d.bal||[]; ex.cash=d.cash||[]; ex.name=name; ex.sharedAt=d.t; ex.mod=Date.now(); if(d.syncCode){ ex.syncCode=d.syncCode; ex.syncUpdated=d.syncUpdated; ex.syncGone=false; } profData.active=ex.id; }
+    if(ex){ ex.positions=d.positions; ex.closed=d.closed||[]; ex.bal=d.bal||[]; ex.cash=d.cash||[]; ex.div=d.div||[]; ex.name=name; ex.sharedAt=d.t; ex.mod=Date.now(); if(d.syncCode){ ex.syncCode=d.syncCode; ex.syncUpdated=d.syncUpdated; ex.syncGone=false; } profData.active=ex.id; }
     else {
       if(profData.profiles.length>=20){ alert("Llegaste al máximo de 20 perfiles."); return; }
-      var np={id:rid(),name:name,positions:d.positions,closed:d.closed||[],bal:d.bal||[],cash:d.cash||[],readOnly:true,shareId:d.id,sharedAt:d.t,mod:Date.now()};
+      var np={id:rid(),name:name,positions:d.positions,closed:d.closed||[],bal:d.bal||[],cash:d.cash||[],div:d.div||[],readOnly:true,shareId:d.id,sharedAt:d.t,mod:Date.now()};
       if(d.syncCode){ np.syncCode=d.syncCode; np.syncUpdated=d.syncUpdated; }
       profData.profiles.push(np); profData.active=np.id;
     }
@@ -3526,7 +3545,7 @@
     for(var k=hi+1;k<rows.length;k++){
       var w=rows[k];
       /* Un Flex Query con varias secciones (Trades, Transfers…) trae un encabezado por sección: solo se leen las de Trades. */
-      if(hi>=0){ var nmk=w.map(norm); if(nmk.indexOf("symbol")>=0&&(nmk.indexOf("quantity")>=0||nmk.indexOf("tradeprice")>=0)){
+      if(hi>=0){ var nmk=w.map(norm); if(nmk.indexOf("symbol")>=0&&(nmk.indexOf("quantity")>=0||nmk.indexOf("tradeprice")>=0||nmk.indexOf("amount")>=0||nmk.indexOf("clientaccountid")>=0)){
         skipSec=!(nmk.indexOf("tradeprice")>=0||nmk.indexOf("tprice")>=0);
         if(!skipSec){ ix={}; nmk.forEach(function(kk,j){ if(!(kk in ix)) ix[kk]=j; }); C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail")}; }
         continue; } }
@@ -3546,7 +3565,30 @@
       var dk=w.join("\u0001"); if(out._seen&&out._seen[dk]) continue; (out._seen||(out._seen={}))[dk]=1; /* el mismo renglón en dos archivos que se pisan */
       out.trades.push({sym:sym,d:d,q:Math.abs(qty),p:px,s:side==="SELL"?"s":"b"});
     }
+    out.divs=ibkrDivs(rows);
     return out;
+  }
+  // Sección "Cash Transactions" del Flex Query: dividendos (y su retención) en USD, netos por acción y fecha. null si el archivo no la trae.
+  function ibkrDivs(rows){
+    function norm(s){ return String(s).toLowerCase().replace(/[^a-z\/]/g,""); }
+    var C=null, any=false, by={};
+    rows.forEach(function(w){
+      var nm=w.map(norm);
+      if(nm.indexOf("symbol")>=0&&(nm.indexOf("clientaccountid")>=0||nm.indexOf("currencyprimary")>=0||nm.indexOf("type")>=0)){
+        var it=nm.indexOf("type"), ia=nm.indexOf("amount");
+        if(it>=0&&ia>=0){ any=true; C={t:it,a:ia,s:nm.indexOf("symbol"),c:nm.indexOf("currencyprimary"),d:["date/time","settledate","reportdate","date"].map(function(k){return nm.indexOf(k);}).filter(function(i){return i>=0;})[0]}; }
+        else C=null;
+        return;
+      }
+      if(!C) return;
+      var ty=String(w[C.t]||""); if(!/dividend|withholding|in lieu/i.test(ty)) return;
+      if(C.c>=0&&String(w[C.c]||"").toUpperCase()!=="USD") return;
+      var sym=String(w[C.s]||"").trim().toUpperCase().replace(/\s+/g,"-"), a=parseFloat(w[C.a]), d=ibDate(C.d!==undefined?w[C.d]:"");
+      if(!sym||!d||!isFinite(a)||!a) return;
+      var k=sym+"|"+d; by[k]=(by[k]||0)+a;
+    });
+    if(!any) return null;
+    return Object.keys(by).map(function(k){ var p=k.split("|"); return {t:p[0],d:p[1],a:Math.round(by[k]*100)/100,c:"C"}; }).filter(function(x){ return x.a>0; });
   }
   // Une las ejecuciones del mismo día y acción, y arma lotes abiertos y ventas cerradas (primero en entrar, primero en salir).
   function ibkrBuild(trades){
@@ -3665,7 +3707,7 @@
   }
   // Lee el Excel "resultados por info completa" de Balanz: CEDEARs abiertos (lotes finales) y vendidos (realizado).
   function balanzParse(sheets){
-    var names=Object.keys(sheets), out={open:[],sold:[],fixed:[],fixedSold:[],coupons:[],skipped:{},zero:0,pesos:0,cable:0};
+    var names=Object.keys(sheets), out={open:[],sold:[],fixed:[],fixedSold:[],coupons:[],divs:[],skipped:{},zero:0,pesos:0,cable:0};
     function sheet(re){ var k=names.filter(function(n){ return re.test(n.toLowerCase()); })[0]; return k?sheets[k]:null; }
     function table(rows){
       if(!rows||!rows.length) return [];
@@ -3715,6 +3757,13 @@
       out.open.push({tk:String(r.ticker).toUpperCase().trim(),q:q,d:d,p:p,x:fx2(r.dolarccl,r.dolarmep)});
     });
     rea.forEach(function(r){
+      /* Dividendos de CEDEARs: vienen netos, en dólares ("C.V. 7000" = cable). Si vinieran en pesos, se pasan con el CCL de ese día. */
+      if(r.ticker&&String(r["tipo movimiento"]||"")==="Dividendo"){
+        var da=+r.dividendos, dd=xlDate(r.fecha), dm=String(r["moneda venta"]||"");
+        if(/peso/i.test(dm)){ var dc=+r.operacionventadolarccl; da=dc>0?da/dc:0; dm="cable"; }
+        if(da>0&&dd) out.divs.push({t:String(r.ticker).toUpperCase().trim(),d:dd,a:Math.round(da*100)/100,c:/cable|ccl|7000/i.test(dm)?"C":"M"});
+        return;
+      }
       if(r.ticker&&String(r["tipo movimiento"]||"")==="Cupón"){
         var ca=+r.cupones, cc=+r.operacionventadolaroficial||+r.operacionventadolarccl, cd=xlDate(r.fecha); /* Balanz paga cupones al dólar oficial: cierra exacto con cupón × nominal */
         if(ca>0&&cc>0&&cd) out.coupons.push({tk:String(r.ticker).toUpperCase().trim(),d:cd,a:Math.round(ca/cc*100)/100,c:/cable|ccl|7000/i.test(String(r["moneda venta"]||""))?"C":"M"});
@@ -3887,17 +3936,19 @@
     B.open.forEach(function(x){ var c=cleanPos({broker:"IBKR",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de IBKR"},false); if(c) pos.push(c); });
     B.closed.forEach(function(x){ var c=cleanPos({broker:"IBKR",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de IBKR"},false); if(c&&c.sold) closed.push(c); });
     if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."); return; }
-    ibState={pos:pos,closed:closed,broker:"IBKR"};
+    ibState={pos:pos,closed:closed,broker:"IBKR",divs:P.divs};
     var tks={}; pos.concat(closed).forEach(function(c){ tks[c.ticker]=1; });
     function fd(s){ return s.split("-").reverse().join("/"); }
     var msg="Encontré "+B.fills+" operaciones de "+Object.keys(tks).length+" acciones, entre el "+fd(B.dmin)+" y el "+fd(B.dmax)+": "+pos.length+" posiciones abiertas y "+closed.length+" ventas.";
     if(P.nonUsd||P.other) msg+=" Quedaron afuera "+(P.nonUsd+P.other)+" operaciones en otra moneda o que no son acciones.";
+    if(P.divs) msg+=" Dividendos: "+P.divs.length+" cobros (US$ "+P.divs.reduce(function(a,x){return a+x.a;},0).toLocaleString("es-AR",{maximumFractionDigits:2})+" netos).";
+    else msg+=" Este archivo no trae dividendos (agregá la sección Cash Transactions al Flex Query para importarlos).";
     if(B.orphan) msg+=" "+B.orphan+" venta(s) no tienen compra previa en el archivo (quizás compraste antes del rango) y se ignoraron.";
     ibMsg(msg); ibShowAct();
   }
-  function ibFinish(pos,closed,extra,broker){
+  function ibFinish(pos,closed,extra,broker,divs){
     if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."+(extra||"")); return; }
-    ibState={pos:pos,closed:closed,broker:broker||"Balanz"};
+    ibState={pos:pos,closed:closed,broker:broker||"Balanz",divs:divs||null};
     var tks={}; pos.concat(closed).forEach(function(c){ tks[c.ticker]=1; });
     ibMsg("Armé "+pos.length+" posiciones abiertas y "+closed.length+" ventas de "+Object.keys(tks).length+" acciones."+(extra||"")); ibShowAct();
   }
@@ -3927,7 +3978,8 @@
           if(sk.length){ var n=0; sk.forEach(function(k){ n+=P.skipped[k]; }); extra+=" Quedaron afuera "+n+" lotes ("+sk.join(", ")+")."; }
           if(P.zero) extra+=" "+P.zero+" lote(s) sin costo o sin cotización quedaron afuera.";
           if(B.noHist.length) extra+=" Sin precio histórico: "+B.noHist.join(", ")+".";
-          ibFinish(pos,closed,extra);
+          if(P.divs.length) extra+=" Dividendos: "+P.divs.length+" cobros (US$ "+P.divs.reduce(function(a,x){return a+x.a;},0).toLocaleString("es-AR",{maximumFractionDigits:2})+" netos).";
+          ibFinish(pos,closed,extra,"Balanz",P.divs);
         });
     }).catch(function(e){
       try{ console.error("holdy-balanz",e); }catch(x){}
@@ -4036,7 +4088,7 @@
     if(v==="new"){
       if(profData.profiles.length>=20){ ibMsg("Llegaste al máximo de 20 perfiles."); return; }
       var n=cleanName($("ibName").value)||ibState.broker;
-      var np={id:rid(),name:n,positions:ibState.pos,closed:ibState.closed,readOnly:false,mod:Date.now()};
+      var np={id:rid(),name:n,positions:ibState.pos,closed:ibState.closed,readOnly:false,mod:Date.now(),div:(ibState.divs||[]).map(function(x){ return {b:ibState.broker,t:x.t,d:x.d,a:x.a,c:x.c}; })};
       profData.profiles.push(np); profData.active=np.id;
     } else {
       var pr=profData.profiles.filter(function(x){return x.id===v;})[0]; if(!pr||pr.readOnly) return;
@@ -4044,6 +4096,8 @@
       if(!confirm("Se van a actualizar las operaciones importadas de "+br+" en “"+pr.name+"”. ¿Seguir?")) return;
       pr.positions=pr.positions.filter(function(x){return !isImp(x,br);}).concat(ibState.pos);
       pr.closed=(pr.closed||[]).filter(function(x){return !isImp(x,br);}).concat(ibState.closed);
+      /* Dividendos: si el archivo los trae, reemplazan a los de ese broker; si no los trae (IBKR sin Cash Transactions), se dejan los que había. */
+      if(ibState.divs) pr.div=(pr.div||[]).filter(function(x){return x.b!==br;}).concat(ibState.divs.map(function(x){ return {b:br,t:x.t,d:x.d,a:x.a,c:x.c}; }));
       pr.mod=Date.now(); profData.active=pr.id;
     }
     positions=cur().positions; openId=null; ibState=null;
@@ -4080,6 +4134,7 @@
     if(pr.closed&&pr.closed.length) o.c=pr.closed.map(posTuple);
     if(pr.cash&&pr.cash.length) o.m=pr.cash.map(function(c){return [c.d,c.a];});
     if(pr.bal&&pr.bal.length) o.sb=pr.bal.map(function(c){return c.d?[bkCode(c.b),c.a,c.d]:[bkCode(c.b),c.a];});
+    if(pr.div&&pr.div.length) o.dv=divT(pr.div);
     if(pr.sync) o.sync=pr.sync;
     if(pr.shareKey) o.shareKey=pr.shareKey;
     if(pr.syncCode) o.syncCode=pr.syncCode;
@@ -4101,7 +4156,7 @@
       if(!x || !okId(x.id)) return;
       var o={id:String(x.id),name:cleanName(x.name)||"Perfil",mod:+x.mod||0,readOnly:!!x.readOnly,
         positions:(Array.isArray(x.p)?x.p:[]).slice(0,300).map(posFromTuple).filter(Boolean),
-        closed:(Array.isArray(x.c)?x.c:[]).slice(0,300).map(posFromTuple).filter(function(c){return c&&c.sold;}),cash:cleanCash(x.m),bal:cleanBal((Array.isArray(x.sb)?x.sb:[]).map(function(r){return {b:bkFrom(r[0]),a:r[1],d:r[2]};}))};
+        closed:(Array.isArray(x.c)?x.c:[]).slice(0,300).map(posFromTuple).filter(function(c){return c&&c.sold;}),cash:cleanCash(x.m),bal:cleanBal((Array.isArray(x.sb)?x.sb:[]).map(function(r){return {b:bkFrom(r[0]),a:r[1],d:r[2]};})),div:cleanDiv(x.dv)};
       if(x.sync && okCode(x.sync.code) && typeof x.sync.secret==="string" && /^[a-z0-9]{16,100}$/.test(x.sync.secret)) o.sync={code:String(x.sync.code),secret:String(x.sync.secret)};
       if(okId(x.shareKey)) o.shareKey=String(x.shareKey);
       if(okCode(x.syncCode)) o.syncCode=String(x.syncCode);
@@ -4115,7 +4170,7 @@
     return out;
   }
   function fromRemote(r,l){
-    var o={id:r.id,name:r.name,mod:r.mod,readOnly:r.readOnly,positions:r.syncCode?(l?l.positions:[]):r.positions,closed:r.syncCode?(l?(l.closed||[]):[]):(r.closed||[]),cash:r.syncCode?(l?(l.cash||[]):[]):(r.cash||[]),bal:r.syncCode?(l?(l.bal||[]):[]):(r.bal||[])};
+    var o={id:r.id,name:r.name,mod:r.mod,readOnly:r.readOnly,positions:r.syncCode?(l?l.positions:[]):r.positions,closed:r.syncCode?(l?(l.closed||[]):[]):(r.closed||[]),cash:r.syncCode?(l?(l.cash||[]):[]):(r.cash||[]),bal:r.syncCode?(l?(l.bal||[]):[]):(r.bal||[]),div:r.syncCode?(l?(l.div||[]):[]):(r.div||[])};
     ["sync","shareKey","syncCode","shareId","owner","sharedAt"].forEach(function(k){ if(r[k]) o[k]=r[k]; });
     if(l){ if(l.syncUpdated) o.syncUpdated=l.syncUpdated; if(l.syncGone) o.syncGone=l.syncGone; }
     return o;
