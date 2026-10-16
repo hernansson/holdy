@@ -202,7 +202,13 @@
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   /* Pestaña Cobros */
   .cob-hd{padding:4px 2px 12px}
-  dialog#dlgCob{height:min(80vh,720px); overflow:hidden}
+  dialog#dlgCob{height:min(80vh,720px); overflow:hidden; background:var(--bg); box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+  dialog#dlgCob::backdrop{background:rgba(0,0,0,.6)}
+  #dlgCob .cob-hd{background:var(--card); border-radius:14px; padding:14px 16px; margin:4px 0 4px}
+  #dlgCob .cob-m{border-bottom:0; margin-top:16px; padding:0 4px 6px}
+  #dlgCob .cob-g{background:var(--card); border-radius:14px; padding:0 14px}
+  #dlgCob .cob-g .cob-r:last-child{border-bottom:0}
+  #dlgCob #cobSeg{background:color-mix(in srgb,var(--text) 8%,transparent)}
   @media (max-width:699px){ dialog#dlgCob{height:86dvh; overflow:hidden} }
   dialog#dlgCob[open]{display:flex; flex-direction:column}
   .cob-sheet{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding:14px 18px 0; box-sizing:border-box}
@@ -1132,7 +1138,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v178"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v179"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1933,16 +1939,17 @@
     hd.appendChild(el("div","cob-ch",cobView==="prox"?"Cupones y vencimientos de tus bonos, estimados con la tasa de cada uno.":(isD?"Netos de impuestos, con el dólar del día del cobro. Los futuros no se conocen de antemano.":"Lo que te pagaron tus bonos, incluidos los que ya vendiste.")));
     box.appendChild(hd);
     if(!list.length) box.appendChild(el("div","cob-sum",cobView==="prox"?"No hay cupones a cobrar en los próximos 12 meses.":"Todavía no hay cobros. Se cargan al importar los archivos de tus brokers."));
-    var lastM="";
+    var lastM="", grp=null;
     list.forEach(function(x){
       var mk=x.d.slice(0,7);
       if(mk!==lastM){ lastM=mk; var mt=list.filter(function(y){ return y.d.slice(0,7)===mk; }).reduce(function(t,y){return t+y.a;},0);
-        var mh=el("div","cob-m"); mh.appendChild(el("span",null,MES[+x.d.slice(5,7)-1]+(x.d.slice(0,4)!==yr||cobView==="prox"?" "+x.d.slice(0,4):""))); mh.appendChild(el("span",null,M(mt))); box.appendChild(mh); }
+        var mh=el("div","cob-m"); mh.appendChild(el("span",null,MES[+x.d.slice(5,7)-1]+(x.d.slice(0,4)!==yr||cobView==="prox"?" "+x.d.slice(0,4):""))); mh.appendChild(el("span",null,M(mt))); box.appendChild(mh);
+        grp=el("div","cob-g"); box.appendChild(grp); }
       var r=el("div","cob-r");
       r.appendChild(el("span","cob-d",x.d.slice(8,10)+"/"+x.d.slice(5,7)));
       var mid=el("span","cob-t"); mid.appendChild(el("b",null,x.t)); if(x.k==="Vencimiento") mid.appendChild(el("span","cob-tag vt",x.k));
       mid.appendChild(el("small",null,bkShort(x.bk)+(x.c?" · cable":""))); r.appendChild(mid);
-      r.appendChild(el("span","cob-a",M2(x.a))); box.appendChild(r);
+      r.appendChild(el("span","cob-a",M2(x.a))); grp.appendChild(r);
     });
     var nm=vPos().filter(function(p){ return p.fi&&(!(p.fi.c>0)||!p.fi.m); }).map(function(p){return p.ticker;});
     if(cobView==="prox"&&nm.length) box.appendChild(el("div","cob-note","Sin tasa o vencimiento para calcular: "+nm.join(", ")+" (cargalos en Editar)."));
