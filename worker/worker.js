@@ -446,7 +446,8 @@ async function insight(url, env, cors) {
       "Usá SOLO los datos que te doy; si no alcanzan para explicar un movimiento, decilo. No inventes cifras ni hechos. No recomiendes comprar ni vender. " +
       "Respondé SOLO con un JSON válido: {\"resumen\": \"3 a 5 oraciones: por qué subió o bajó en el último mes y qué está pasando con la empresa\", " +
       "\"aFavor\": [\"hasta 3 puntos positivos, cortos\"], \"enContra\": [\"hasta 3 riesgos o puntos negativos, cortos\"], " +
-      "\"titulares\": [\"los primeros 8 títulos de noticias traducidos al castellano, en el mismo orden\"]}";
+      "\"titulares\": [\"los primeros 8 títulos de noticias TRADUCIDOS al castellano (nunca en inglés), en el mismo orden\"]}. " +
+      "Escribí los números al estilo argentino: coma decimal (3,3%) y US$ para los dólares.";
     for (const model of AI_MODELS) {
       try {
         const r = await env.AI.run(model, { messages: [{ role: "system", content: sys }, { role: "user", content: ctx }], max_tokens: 1100, temperature: 0.3 });
