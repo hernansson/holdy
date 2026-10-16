@@ -228,8 +228,8 @@
   .ins-stack{display:flex; height:10px; border-radius:5px; overflow:hidden; gap:2px; margin:10px 0 8px}
   .ins-stack i,.ins-lg i{background:var(--muted)} .ins-stack i.pos,.ins-lg i.pos{background:var(--pos)} .ins-stack i.neg,.ins-lg i.neg{background:var(--neg)} .ins-stack i.mid,.ins-lg i.mid{background:#d6a400}
   .ins-lg{display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--muted)} .ins-lg span{display:inline-flex; align-items:center; gap:5px} .ins-lg i{width:8px; height:8px; border-radius:50%; display:inline-block}
-  .ins-news{display:grid; gap:3px; padding:10px 0; border-top:1px solid var(--line); color:var(--text); text-decoration:none} .ins-k+.ins-news{border-top:0; padding-top:0}
-  .ins-nt{font-size:14px; line-height:1.4; font-weight:500} .ins-news small{font-size:12px; color:var(--muted)}
+  .ins-news{display:block; padding:7px 0; margin:0; min-height:0; border-top:1px solid var(--line); color:var(--text); text-decoration:none; line-height:1.25} .ins-k+.ins-news{border-top:0; padding-top:0}
+  .ins-nt{display:block; font-size:13.5px; line-height:1.3; font-weight:500} .ins-news small{display:block; font-size:11.5px; line-height:1.3; color:var(--muted); margin-top:1px}
   .ins-foot{font-size:12px; color:var(--muted); text-align:center; margin:8px 10px 0}
   .ins-load{display:grid; justify-items:center; gap:14px; padding:60px 10px; color:var(--muted); font-size:14px}
   .ins-spin{width:28px; height:28px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--brand); animation:ins-r .8s linear infinite} @keyframes ins-r{to{transform:rotate(360deg)}}
@@ -1183,7 +1183,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v183"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v184"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
