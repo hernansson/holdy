@@ -206,7 +206,7 @@
   @media (max-width:699px){ dialog#dlgCob{height:86dvh; overflow:hidden} }
   dialog#dlgCob[open]{display:flex; flex-direction:column}
   .cob-sheet{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding:14px 18px 0; box-sizing:border-box}
-  #cobSeg{display:flex; width:100%; margin:0 0 6px; flex:0 0 auto} #cobSeg button{flex:1}
+  #cobSeg[hidden]{display:none} #cobSeg{display:flex; width:100%; margin:0 0 6px; flex:0 0 auto} #cobSeg button{flex:1}
   #cobBody{flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; margin:0 -18px; padding:0 18px calc(20px + env(safe-area-inset-bottom))}
   .cob-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px} .cob-top h3{margin:0; font-size:18px}
   .cob-top button{border:0; background:var(--chip); border-radius:50%; width:32px; height:32px; min-height:32px; padding:0; font-size:14px; color:var(--muted)}
@@ -803,7 +803,7 @@
 
 <dialog id="dlgCob" class="sheet">
   <div class="cob-sheet">
-    <div class="cob-top"><h3>Cobros</h3><button type="button" id="cobClose" aria-label="Cerrar">✕</button></div>
+    <div class="cob-top"><h3 id="cobTitle">Cupones</h3><button type="button" id="cobClose" aria-label="Cerrar">✕</button></div>
     <div class="seg sm cob-seg" id="cobSeg"></div>
     <div id="cobBody"></div>
   </div>
@@ -1132,7 +1132,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v177"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v178"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1918,7 +1918,8 @@
   }
   function drawCob(){
     var sg=$("cobSeg"); sg.textContent="";
-    [["prox","Próximos"],["hist","Cupones"],["dv","Dividendos"]].forEach(function(o){ var b=el("button",cobView===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(cobView===o[0]) return; cobView=o[0]; drawCob(); $("cobBody").scrollTop=0; }); sg.appendChild(b); });
+    var isD=cobView==="dv"; $("cobTitle").textContent=isD?"Dividendos":"Cupones"; sg.hidden=isD;
+    if(!isD) [["prox","Próximos"],["hist","Cobrados"]].forEach(function(o){ var b=el("button",cobView===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(cobView===o[0]) return; cobView=o[0]; drawCob(); $("cobBody").scrollTop=0; }); sg.appendChild(b); });
     var bx=$("cobBody"); bx.textContent=""; renderCobros(bx);
   }
   function renderCobros(box){
