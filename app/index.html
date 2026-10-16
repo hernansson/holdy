@@ -1094,7 +1094,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v173"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v174"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -4192,6 +4192,13 @@
       var pr=profData.profiles.filter(function(x){return x.id===v;})[0]; if(!pr||pr.readOnly) return;
       var br=ibState.broker;
       if(!confirm("Se van a actualizar las operaciones importadas de "+br+" en “"+pr.name+"”. ¿Seguir?")) return;
+      /* Posiciones cargadas a mano que también vienen en el archivo: se ofrece borrarlas para que no queden repetidas. */
+      var curP=pr.id===profData.active?positions:pr.positions, impT={}; ibState.pos.forEach(function(x){ impT[x.ticker]=1; });
+      var dup=curP.filter(function(x){ return x.broker===br&&!isImp(x,br)&&impT[x.ticker]; });
+      if(dup.length&&confirm("Tenés cargada a mano "+dup.map(function(x){return x.ticker;}).join(", ")+" en "+br+", y también viene en el archivo. ¿La borro para que no quede repetida?")){
+        var dids={}; dup.forEach(function(x){ dids[x.id]=1; });
+        pr.positions=curP.filter(function(x){ return !dids[x.id]; }); if(pr.id===profData.active) positions=pr.positions;
+      }
       pr.positions=pr.positions.filter(function(x){return !isImp(x,br);}).concat(ibState.pos);
       pr.closed=(pr.closed||[]).filter(function(x){return !isImp(x,br);}).concat(ibState.closed);
       /* Dividendos: si el archivo los trae, reemplazan a los de ese broker; si no los trae (IBKR sin Cash Transactions), se dejan los que había. */
