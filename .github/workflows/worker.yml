@@ -1,0 +1,70 @@
+# Publica el Worker de Cloudflare (worker/worker.js) cada vez que cambia.
+# Usa el secreto CLOUDFLARE_API_TOKEN del repositorio. La cuenta, el KV y la fecha de compatibilidad
+# se leen del Worker que ya existe, así se conservan sus conexiones. Las claves guardadas en Cloudflare
+# (FINNHUB_KEY) no se tocan.
+name: Publicar Worker
+
+on:
+  push:
+    branches: [main]
+    paths: ["worker/**", ".github/workflows/worker.yml"]
+  workflow_dispatch:
+
+concurrency: worker-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WORKER: lingering-wind-a188
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Leer la configuración actual del Worker
+        id: cfg
+        run: |
+          set -euo pipefail
+          api() { curl -fsS -H "Authorization: Bearer $CF_TOKEN" "https://api.cloudflare.com/client/v4$1"; }
+          ACC=$(api "/accounts?per_page=50" | jq -r '.result[0].id')
+          echo "Cuenta encontrada: ${ACC:0:6}…"
+          SET=$(api "/accounts/$ACC/workers/scripts/$WORKER/settings")
+          echo "Conexiones actuales del Worker (nombre y tipo):"
+          echo "$SET" | jq -r '.result.bindings[] | "  - \(.name): \(.type)"'
+          KV=$(echo "$SET" | jq -r '[.result.bindings[] | select(.type=="kv_namespace" and .name=="HOLDY_KV") | .namespace_id][0] // empty')
+          if [ -z "$KV" ]; then echo "::error::No encontré el KV HOLDY_KV en el Worker; no publico para no perder datos."; exit 1; fi
+          CD=$(echo "$SET" | jq -r '.result.compatibility_date // empty'); [ -n "$CD" ] || CD=2024-09-23
+          echo "KV HOLDY_KV: ${KV:0:6}…  ·  compatibility_date: $CD"
+          OTHER=$(echo "$SET" | jq -r '[.result.bindings[] | select(.type!="secret_text" and .type!="kv_namespace" and .type!="ai" and .type!="plain_text") | .name] | join(",")')
+          if [ -n "$OTHER" ]; then echo "::error::El Worker tiene conexiones que este archivo no conoce ($OTHER); no publico."; exit 1; fi
+          {
+            echo "name = \"$WORKER\""
+            echo "main = \"worker/worker.js\""
+            echo "account_id = \"$ACC\""
+            echo "compatibility_date = \"$CD\""
+            echo "workers_dev = true"
+            echo "keep_vars = true"
+            echo ""
+            echo "[[kv_namespaces]]"
+            echo "binding = \"HOLDY_KV\""
+            echo "id = \"$KV\""
+            echo ""
+            echo "[ai]"
+            echo "binding = \"AI\""
+          } > wrangler.toml
+          echo "account=$ACC" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ steps.cfg.outputs.account }}
+          command: deploy
+
+      - name: Probar que responde
+        run: |
+          set -u
+          U="https://$WORKER.hernan-ss.workers.dev"
+          sleep 5
+          echo "/quote AAPL:"; curl -sS -H "Origin: https://holdy.pages.dev" "$U/quote?symbol=AAPL" | head -c 300; echo
+          echo "/insight AAPL:"; curl -sS -H "Origin: https://holdy.pages.dev" "$U/insight?symbol=AAPL" | jq -c '{name, px: (.px.last), rec: (.rec.n), news: (.news|length), ai: (.ai.resumen // null | if . then .[0:300] else null end), model: .ai.model}'
