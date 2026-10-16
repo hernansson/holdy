@@ -35,6 +35,7 @@ jobs:
           if [ -z "$KV" ]; then echo "::error::No encontré el KV HOLDY_KV en el Worker; no publico para no perder datos."; exit 1; fi
           CD=$(echo "$SET" | jq -r '.result.compatibility_date // empty'); [ -n "$CD" ] || CD=2024-09-23
           echo "KV HOLDY_KV: ${KV:0:6}…  ·  compatibility_date: $CD"
+          echo "::notice title=Conexiones::$(echo "$SET" | jq -r '[.result.bindings[] | "\(.name):\(.type)"] | join(", ")') · compat $CD"
           OTHER=$(echo "$SET" | jq -r '[.result.bindings[] | select(.type!="secret_text" and .type!="kv_namespace" and .type!="ai" and .type!="plain_text") | .name] | join(",")')
           if [ -n "$OTHER" ]; then echo "::error::El Worker tiene conexiones que este archivo no conoce ($OTHER); no publico."; exit 1; fi
           {
@@ -66,5 +67,9 @@ jobs:
           set -u
           U="https://$WORKER.hernan-ss.workers.dev"
           sleep 5
-          echo "/quote AAPL:"; curl -sS -H "Origin: https://holdy.pages.dev" "$U/quote?symbol=AAPL" | head -c 300; echo
-          echo "/insight AAPL:"; curl -sS -H "Origin: https://holdy.pages.dev" "$U/insight?symbol=AAPL" | jq -c '{name, px: (.px.last), rec: (.rec.n), news: (.news|length), ai: (.ai.resumen // null | if . then .[0:300] else null end), model: .ai.model}'
+          Q=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/quote?symbol=AAPL" | head -c 200)
+          echo "::notice title=quote::$Q"
+          I=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/insight?symbol=AAPL" | jq -c '{name, px: (.px.last), rec: (.rec.n), news: (.news|length), model: .ai.model, ai: (.ai.resumen // null | if . then .[0:400] else null end), tit: (.ai.titulares // [] | .[0:2])}')
+          echo "::notice title=insight::$I"
+          S=$(curl -sS -o /dev/null -w "%{http_code}" "$U/me/data")
+          echo "::notice title=me/data sin sesion (debe ser 401)::$S"
