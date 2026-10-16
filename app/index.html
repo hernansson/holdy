@@ -199,6 +199,23 @@
   .gain-line{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-top:6px}
   .gain-line .gl-lbl{font-size:12px; font-weight:500; color:var(--muted)}
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
+  /* Pestaña Cobros */
+  .cob-hd{padding:4px 2px 12px}
+  .cob-k{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em}
+  .cob-big{font-size:28px; font-weight:800; letter-spacing:-.02em; margin:2px 0 8px; font-variant-numeric:tabular-nums}
+  .cob-ch{display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:var(--muted)}
+  .cob-chip{display:inline-flex; align-items:center; gap:6px} .cob-chip i{width:8px; height:8px; border-radius:50%; background:var(--brand)} .cob-chip.dv i{background:#7c6cf2}
+  .cob-seg{margin:4px 0 10px; display:inline-flex}
+  .cob-sum{font-size:13px; color:var(--muted); margin:2px 2px 6px}
+  .cob-m{display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-top:14px; padding:0 2px 6px; border-bottom:1px solid var(--line)}
+  .cob-r{display:grid; grid-template-columns:42px 1fr auto; gap:10px; align-items:center; padding:10px 2px; border-bottom:1px solid var(--line)}
+  .cob-d{font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .cob-t{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; font-size:15px} .cob-t small{flex-basis:100%; font-size:12px; color:var(--muted)}
+  .cob-tag{font-size:11px; font-weight:700; padding:2px 7px; border-radius:20px; background:color-mix(in srgb,var(--brand) 14%,transparent); color:var(--brand)}
+  .cob-tag.dv{background:color-mix(in srgb,#7c6cf2 16%,transparent); color:#7c6cf2} .cob-tag.vt{background:color-mix(in srgb,var(--warn,#9a6700) 16%,transparent); color:var(--warn,#9a6700)}
+  .cob-a{font-weight:700; font-variant-numeric:tabular-nums; color:var(--pos)}
+  .cob-note{font-size:12px; color:var(--muted); margin-top:12px}
+  .pair-w{grid-column:1/-1}
   /* Calendario de cobros (pestaña Renta fija) */
   .cal{border:1px solid var(--line); border-radius:14px; background:var(--card); padding:12px 14px; margin:4px 0 12px}
   .cal-hd{display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:8px; background:none; border:0; box-shadow:none; padding:0; min-height:0; cursor:pointer; color:var(--text)}
@@ -1090,11 +1107,11 @@
     sortSold:["date","plpct","pl","ticker","days"].indexOf(uiRaw.sortSold)>=0?uiRaw.sortSold:"date",
     hide:!!uiRaw.hide,
     dc:["CCL","MEP","ARS"].indexOf(uiRaw.dc)>=0?uiRaw.dc:"CCL",
-    tab:uiRaw.tab==="fi"?"fi":(uiRaw.tab==="sold"?"sold":"acc")
+    tab:["fi","sold","cob"].indexOf(uiRaw.tab)>=0?uiRaw.tab:"acc"
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v174"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v175"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1341,7 +1358,7 @@
   function fxPart(p){ if(p.ccy!=="USD") return 0; return pCost(p,p.sold?(sellFx(p)||"hoy"):"hoy")-pCost(p); }
   function curPx(p){ var c=currentPrice(p); return (c===null||p.ccy!=="USD")?c:c*valF(p); }
   // Cupones cobrados (en dólares MEP), cada uno con el dólar del día en que se cobró.
-  function fiCpList(p){ if(!p||!p.fi) return []; if(p.fi.cp) return p.fi.cp; var cu=fiCoupons(p); return cu?cu.list:[]; }
+  function fiCpList(p){ if(!p||!p.fi) return []; if(p.fi.cp) return p.fi.cp; if(p.sold) return []; var cu=fiCoupons(p); return cu?cu.list:[]; } /* vendido: solo los cobrados de verdad */
   function cpBase(p){ return p&&p.fi&&p.fi.cc==="C"?"C":"M"; }
   function fiIncomeE(p){ var b=cpBase(p); return fiCpList(p).reduce(function(a,x){ return a+(p.ccy==="USD"?effR(x[1],b,fxOn(x[0],null)):x[1]); },0); }
   function fxSig(f,base){ return Math.abs(f)>Math.max(0.005,Math.abs(base)*0.0005); }
@@ -1397,7 +1414,7 @@
   function sortSet(){ return ui.tab==="sold"?{map:SORTS_SOLD,key:"sortSold",def:"date"}:{map:SORTS,key:"sort",def:"value"}; }
   function syncToolbar(){
     $("toolbar").hidden=!(positions.length||(cur().closed||[]).length);
-    $("btnSort").hidden=false;
+    $("btnSort").hidden=ui.tab==="cob";
     ui.filter="all";
     $("btnHide").setAttribute("aria-pressed",String(ui.hide));
     var eye='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ui.hide?'<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4 9.5 6a14 14 0 0 1-2.6 3.4M6.5 7.6A14 14 0 0 0 2.5 12c1 2 4.5 6 9.5 6 1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>':'<path d="M2.5 12c1-2 4.5-6 9.5-6s8.5 4 9.5 6c-1 2-4.5 6-9.5 6s-8.5-4-9.5-6z"/><circle cx="12" cy="12" r="3"/>')+'</svg>';
@@ -1623,7 +1640,7 @@
       if(costPriced>0){
         var diff=g.value-costPriced, tot=g.value+inc-costPriced;
         /* Arriba, un solo resultado: lo que tenés + lo que ya vendiste. El % es sobre todo lo que pusiste (lo que tenés + lo que costó lo vendido). */
-        var rz0=0, cz0=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ var cc_=pCost(c); rz0+=pProceeds(c)-cc_; cz0+=cc_; } });
+        var rz0=0, cz0=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ var cc_=pCost(c); rz0+=pProceeds(c)-cc_+(c.fi?fiIncomeE(c):0); cz0+=cc_; } });
         var dv0=ccy==="USD"?divSum(vDiv()):0, gt=tot+rz0+dv0, gb=costPriced+cz0;
         var gl=el("div","gain-line "+cls(gt)); gl.appendChild(el("span",null,arrow(gt)+mRs(gt,ccy)));
         gl.appendChild(el("span","gl-pct","("+fmtPct(gb>0?gt/gb:null)+")"));
@@ -1642,25 +1659,25 @@
           var r=el("div","rrow"+(strong?" strong":"")+(mut?" mut":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
           r.appendChild(el("span","rv"+(c?" "+c:""),val)); rc.appendChild(r);
         }
-        var realized=0, nCl=0, rfx=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=pProceeds(c)-pCost(c); rfx+=fxPart(c); nCl++; } });
+        var realized=0, nCl=0, rfx=0, cpC=0; /* cpC: cupones de bonos ya vendidos (van en la fila de cupones) */ vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ realized+=pProceeds(c)-pCost(c); cpC+=(c.fi?fiIncomeE(c):0); rfx+=fxPart(c); nCl++; } });
         var gfx=g.fx||0;
         /* Detalle simple: de dónde sale el resultado, en 3 o 4 filas. Lo demás, en una nota chica. */
         /* Cada fila antes de comisiones; las comisiones van en su propia fila y restan. El total no cambia. */
         var feeO=PS.filter(function(p){ return p.ccy===ccy&&curPx(p)!==null; }).reduce(function(t,p){ return t+pFees(p); },0);
         var feeC=vClosed().filter(function(c){ return c.ccy===ccy&&c.sold; }).reduce(function(t,c){ return t+pFees(c); },0);
         rrow("Inversiones actuales",mRs(diff+feeO,ccy),cls(diff+feeO),false,"pagaste "+mR(costPriced-feeO,ccy)+" · hoy valen "+mR(g.value,ccy),false);
-        if(inc>0) rrow("Cupones cobrados","+"+mR(inc,ccy),"pos");
+        if(inc+cpC>0) rrow("Cupones cobrados","+"+mR(inc+cpC,ccy),"pos");
         if(dv0>0) rrow("Dividendos cobrados","+"+mR(dv0,ccy),"pos");
         if(nCl) rrow("Ventas",mRs(realized+feeC,ccy),cls(realized+feeC),false,"ganancia de lo que vendiste",false);
         if(feeO+feeC>=0.005) rrow("Comisiones",mRs(-(feeO+feeC),ccy),"neg",false,"lo que cobraron los brokers",false);
-        rrow("Total",mRs(tot+realized+dv0,ccy),cls(tot+realized+dv0),true);
+        rrow("Total",mRs(tot+realized+cpC+dv0,ccy),cls(tot+realized+cpC+dv0),true);
         var fxAll=gfx+rfx, foot=[];
         if(cashT>0) foot.push("El número grande suma "+mR(cashT,ccy)+" sin invertir.");
         if(foot.length) rc.appendChild(el("div","rfoot",foot.join(" ")));
         card.appendChild(rc);
         var kp=el("div","kpis");
         function kpi(lbl,val,c,sub){ var k=el("div","kpi"); k.appendChild(el("span","kl",lbl)); k.appendChild(el("span","kv"+(c?" "+c:""),val)); if(sub) k.appendChild(el("span","ks "+(c||""),sub)); kp.appendChild(k); }
-        kpi((nCl||dv0>0)?"Ganancia total":"Resultado",mRs(tot+realized+dv0,ccy),cls(tot+realized+dv0),nCl?"tenés "+mRs(tot,ccy)+" · vendido "+mRs(realized,ccy)+(dv0>0?" · dividendos +"+mR(dv0,ccy):""):fmtPct(tot/costPriced));
+        kpi((nCl||dv0>0)?"Ganancia total":"Resultado",mRs(tot+realized+cpC+dv0,ccy),cls(tot+realized+cpC+dv0),nCl?"tenés "+mRs(tot,ccy)+" · vendido "+mRs(realized+cpC,ccy)+(dv0>0?" · dividendos +"+mR(dv0,ccy):""):fmtPct(tot/costPriced));
         kpi("Hoy",g.dayN?mRs(g.day,ccy):"—",g.dayN?cls(g.day):"",(g.dayN&&g.dayBase>0)?fmtPct(g.day/g.dayBase):"");
         kpi("Capital invertido",mR(costPriced,ccy),"",nCl?"lo que costó lo que tenés":"lo que pusiste");
         if(cashT>0) kpi("Plata sin invertir",mR(cashT,ccy),"","la cargaste vos, ya está sumada");
@@ -1682,9 +1699,10 @@
     t.hidden=!(positions.length||cl); t.textContent="";
     var nF=positions.filter(function(p){return p.fi;}).length, nA=positions.length-nF;
     var defs=[["acc","Acciones",nA],["fi","Renta fija",nF]]; if(cl) defs.push(["sold","Vendidas",cl]);
+    var hasCob=nF>0||vDiv().length>0; if(hasCob) defs.push(["cob","Cobros",""]); else if(ui.tab==="cob") ui.tab="acc";
     defs.forEach(function(x){
       var b=el("button",ui.tab===x[0]?"on":"",x[1]); b.type="button"; b.setAttribute("role","tab"); b.setAttribute("aria-selected",String(ui.tab===x[0]));
-      b.appendChild(el("small",null,String(x[2])));
+      if(x[2]!=="") b.appendChild(el("small",null,String(x[2])));
       b.addEventListener("click",function(){ if(ui.tab===x[0]) return; ui.tab=x[0]; openId=null; save(LS_UI,ui); renderTabs(); renderList(); syncToolbar(); });
       t.appendChild(b);
     });
@@ -1698,7 +1716,7 @@
     var soldEls=[], cl=vClosed().slice();
     function soldDays(c){ var hl=(c.lots&&c.lots.length?c.lots:[{q:c.qty,b:c.buy,d:""}]).filter(function(l){return l.d&&l.q>0&&l.b>0;}); if(!hl.length) return null; var sdn=dayNum(c.sold.d), wc=0, wd=0; hl.forEach(function(l){ var w=l.q*l.b; wc+=w; wd+=w*Math.max(0,sdn-dayNum(l.d)); }); return wd/wc; }
     function soldVal(c){
-      var cost=pCost(c), gain=pProceeds(c)-cost;
+      var cost=pCost(c), gain=pProceeds(c)-cost+(c.fi?fiIncomeE(c):0);
       if(ui.sortSold==="pl") return gain;
       if(ui.sortSold==="plpct") return cost>0?gain/cost:null;
       if(ui.sortSold==="days") return soldDays(c);
@@ -1711,7 +1729,7 @@
     });
     if(openId && !cl.some(function(c){return soldKey(c)===openId;})) openId=null;
     cl.forEach(function(c){
-      var cost=pCost(c), proceeds=pProceeds(c), gain=proceeds-cost, pct=cost>0?gain/cost:null;
+      var cost=pCost(c), proceeds=pProceeds(c), sci=c.fi?fiIncomeE(c):0, gain=proceeds-cost+sci, pct=cost>0?gain/cost:null; /* + cupones cobrados mientras lo tuviste */
       var det=document.createElement("details"); det.className="acc"; det.setAttribute("data-id",soldKey(c));
       if(openId===soldKey(c)) det.open=true;
       var sum=document.createElement("summary");
@@ -1727,6 +1745,7 @@
       function pair(k,v,cc,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(cc?" "+cc:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
       pair("Cantidad",qq(c.qty)); pair("Resultado",mRs(gain,c.ccy),cls(gain));
       var cfe=c.ccy==="USD"?pFees(c):0; if(cfe>=0.005) pair("Comisiones",mm(cfe,c.ccy),"","compra + venta, ya descontadas");
+      if(sci>0) pair("Cupones cobrados","+"+mm(sci,c.ccy),"pos",fiCpList(c).length+" pagos mientras lo tuviste, ya sumados");
       if(c.ccy==="USD"&&!positions.some(function(x){ return x.ticker===c.ticker&&x.broker===c.broker; })){ var sdv=divsOf(c.ticker,[c.broker]); if(sdv.length) pair("Dividendos de "+c.ticker,"+"+mm(divSum(sdv),c.ccy),"pos",sdv.length+(sdv.length===1?" cobro":" cobros")+" mientras la tuviste"); }
       pair("Precio de compra",mm(pBuy(c),c.ccy)); pair("Precio de venta",mm(pSellPx(c),c.ccy));
       var sfx_=fxPart(c); if(fxSig(sfx_,cost)){ pair("Por la acción",mRs(gain-sfx_,c.ccy),cls(gain-sfx_),cost+sfx_>0?fmtPct((gain-sfx_)/(cost+sfx_)):""); pair("Por el dólar",mRs(sfx_,c.ccy),cls(sfx_)); }
@@ -1820,10 +1839,52 @@
     if(calOpen) hd.classList.add("open");
     box.appendChild(cal);
   }
+  // ---------- Pestaña Cobros: cupones (bonos) y dividendos (acciones), cobrados y próximos ----------
+  var cobView="prox";
+  function cobItems(){
+    var hist=[], next=[];
+    vPos().forEach(function(p){
+      if(!p.fi||p.ccy!=="USD") return; var b=cpBase(p);
+      fiCpList(p).forEach(function(x){ hist.push({d:x[0],t:p.ticker,bk:p.broker,k:"Cupón",a:effR(x[1],b,fxOn(x[0],null)),c:b==="C"}); });
+      fiSchedule(p,365).forEach(function(x){ next.push({d:dayStr(x.d),t:p.ticker,bk:p.broker,k:x.k==="cupón"?"Cupón":"Vencimiento",a:effR(x.a,b,null),c:b==="C"}); });
+    });
+    vClosed().forEach(function(c){ if(!c.fi||c.ccy!=="USD") return; var b=cpBase(c); fiCpList(c).forEach(function(x){ hist.push({d:x[0],t:c.ticker,bk:c.broker,k:"Cupón",a:effR(x[1],b,fxOn(x[0],null)),c:b==="C"}); }); });
+    vDiv().forEach(function(x){ hist.push({d:x.d,t:x.t,bk:x.b,k:"Dividendo",a:divE(x),c:x.c==="C"}); });
+    return {hist:hist.sort(function(a,b){ return a.d<b.d?1:-1; }),next:next.sort(function(a,b){ return a.d<b.d?-1:1; })};
+  }
+  function renderCobros(box){
+    var it=cobItems(), yr=todayStr().slice(0,4), MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    var yCp=0, yDv=0; it.hist.forEach(function(x){ if(x.d.slice(0,4)!==yr) return; if(x.k==="Dividendo") yDv+=x.a; else yCp+=x.a; });
+    var M=function(n){ return ui.hide?MASK:mR(n,"USD"); }, M2=function(n){ return ui.hide?MASK:mm(n,"USD"); };
+    var hd=el("div","cob-hd");
+    hd.appendChild(el("div","cob-k","Cobraste en "+yr)); hd.appendChild(el("div","cob-big",M(yCp+yDv)));
+    var ch=el("div","cob-ch"); var c1=el("span","cob-chip cp"); c1.appendChild(el("i")); c1.appendChild(document.createTextNode("Cupones "+M(yCp))); ch.appendChild(c1);
+    var c2=el("span","cob-chip dv"); c2.appendChild(el("i")); c2.appendChild(document.createTextNode("Dividendos "+M(yDv))); ch.appendChild(c2); hd.appendChild(ch);
+    box.appendChild(hd);
+    var sg=el("div","seg sm cob-seg"); [["prox","Próximos"],["hist","Cobrados"]].forEach(function(o){ var b=el("button",cobView===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(cobView===o[0]) return; cobView=o[0]; renderList(); }); sg.appendChild(b); }); box.appendChild(sg);
+    var list=cobView==="prox"?it.next:it.hist;
+    if(cobView==="prox"){ var tn=list.reduce(function(t,x){return t+x.a;},0); box.appendChild(el("div","cob-sum",list.length?"En los próximos 12 meses vas a cobrar ≈ "+M(tn)+" de cupones y vencimientos.":"No hay cupones a cobrar en los próximos 12 meses.")); }
+    else if(!list.length) box.appendChild(el("div","cob-sum","Todavía no hay cobros. Se cargan al importar los archivos de tus brokers."));
+    var lastM="";
+    list.forEach(function(x){
+      var mk=x.d.slice(0,7);
+      if(mk!==lastM){ lastM=mk; var mt=list.filter(function(y){ return y.d.slice(0,7)===mk; }).reduce(function(t,y){return t+y.a;},0);
+        var mh=el("div","cob-m"); mh.appendChild(el("span",null,MES[+x.d.slice(5,7)-1]+(x.d.slice(0,4)!==yr||cobView==="prox"?" "+x.d.slice(0,4):""))); mh.appendChild(el("span",null,M(mt))); box.appendChild(mh); }
+      var r=el("div","cob-r");
+      r.appendChild(el("span","cob-d",x.d.slice(8,10)+"/"+x.d.slice(5,7)));
+      var mid=el("span","cob-t"); mid.appendChild(el("b",null,x.t)); mid.appendChild(el("span","cob-tag "+(x.k==="Dividendo"?"dv":(x.k==="Vencimiento"?"vt":"cp")),x.k));
+      mid.appendChild(el("small",null,bkShort(x.bk)+(x.c?" · cable":""))); r.appendChild(mid);
+      r.appendChild(el("span","cob-a",M2(x.a))); box.appendChild(r);
+    });
+    var nm=vPos().filter(function(p){ return p.fi&&(!(p.fi.c>0)||!p.fi.m); }).map(function(p){return p.ticker;});
+    if(cobView==="prox"){ if(nm.length) box.appendChild(el("div","cob-note","Sin tasa o vencimiento para calcular: "+nm.join(", ")+" (cargalos en Editar)."));
+      box.appendChild(el("div","cob-note","Los dividendos no se conocen de antemano: aparecen en Cobrados cuando los cobrás.")); }
+  }
   function renderList(){
     renderTabs();
     var box=$("list"); box.textContent=""; $("dist").textContent="";
     if(ui.tab==="sold"){ renderSoldList(box); return; }
+    if(ui.tab==="cob"){ renderCobros(box); return; }
     var allN=allPosN(), positions=vPos(); /* con el filtro de broker, solo las de ese broker */
     if(allN&&!positions.length){ box.appendChild(el("div","empty","No tenés posiciones abiertas en "+brokerName(bkOn())+".")); return; }
     if(!positions.length){
@@ -1881,7 +1942,6 @@
     if(openId && !sorted.some(function(p){return posKey(p)===openId;})) openId=null;
     
     var detailEls=[], lastCcy=null, lastFi=false;
-    if(ui.tab==="fi") renderCal(box,positions);
     (function(){
       var th=el("div","thead");
       [["Posición","ticker",""],["Broker","",""],["Cantidad","","r"],["Compra "+(dcCur()==="ARS"?"$":"US$"),"","r"],["Precio "+(dcCur()==="ARS"?"$":"US$"),"","r"],["Hoy","day","r"],["Peso","","r"],["Resultado","pl","r"],["Valor","value","r"]].forEach(function(c){
@@ -1948,7 +2008,7 @@
       pair(nL?"Precio promedio de compra":"Precio de compra",mm(pBuy(p),p.ccy));
       pair(p.fi?(fiIsPar(p)?"Valor a la par":"Precio de mercado"):"Precio actual",cp===null?"—":fmt(cp,p.ccy),"",(p.fi&&fiIsPar(p))?"sin precio de mercado":(p.fi&&fiQuote(p))?"cotización "+fiQuote(p).s+(/C$/.test(fiQuote(p).s)?" (dólar CCL)":" (dólar MEP)"):"");
       if(pl!==null&&p.ccy==="USD"){ var fxp=fxPart(p); if(fxSig(fxp,cost)){ pair("Por la acción",mRs(pl-fxp,p.ccy),cls(pl-fxp),cost+fxp>0?fmtPct((pl-fxp)/(cost+fxp)):""); pair("Por el dólar",mRs(fxp,p.ccy),cls(fxp),"cambió desde que compraste"); } }
-      if(pdv.length){ var lastD=pdv.map(function(x){return x.d;}).sort().pop(); pair("Dividendos cobrados","+"+mm(pdvE,p.ccy),"pos",pdv.length+(pdv.length===1?" cobro":" cobros")+" · último "+lastD.split("-").reverse().slice(0,2).join("/")); }
+      if(pdv.length){ var lastD=pdv.map(function(x){return x.d;}).sort().pop(); pair("Dividendos","+"+mm(pdvE,p.ccy),"pos",pdv.length+(pdv.length===1?" cobro":" cobros")+" · último "+lastD.split("-").reverse().slice(0,2).join("/")); }
       var pfe=p.ccy==="USD"?pFees(p):0; if(pfe>=0.005) pair("Comisiones",mm(pfe,p.ccy),"","de compra, ya incluidas en lo invertido");
       pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
@@ -1962,18 +2022,11 @@
         var fs=el("div","dsec-t","Renta fija"); pg.appendChild(fs); fs.style.gridColumn="1/-1";
         pair("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
         pair("Rendimiento anual est.","≈"+p.fi.r.toFixed(1).replace(".",",")+"%");
-        if(p.fi.cp){
-          var tot=fiIncomeE(p), lc=p.fi.cp[p.fi.cp.length-1];
-          pair("Cupones cobrados",p.fi.cp.length?mm(tot,p.ccy):"Ninguno todavía",p.fi.cp.length?"pos":"",p.fi.cp.length?(p.fi.cp.length+(p.fi.cp.length===1?" pago":" pagos")+(lc?" · último "+lc[0].split("-").reverse().slice(0,2).join("/"):"")):"");
-          var nx=fiNextCoupon(p);
-          pair("Próximo cupón",nx?dayStr(nx.d).split("-").reverse().join("/"):"—","",nx?"≈ "+mm(effR(nx.a,cpBase(p),null),p.ccy):"");
-        } else {
-          var cu=fiCoupons(p);
-          if(cu){
-            pair("Cupones cobrados",mm(fiIncomeE(p),p.ccy),"pos",cu.paid+(cu.paid===1?" pago":" pagos")+" · estimado");
-            pair("Próximo cupón",cu.next?dayStr(cu.next).split("-").reverse().join("/"):"Ya pagó todos","",cu.next?"≈ "+mm(effR(cu.per,cpBase(p),null),p.ccy):"");
-          } else pair("Cupones","Importá el Excel de Balanz o cargá cupón y vencimiento en Editar");
-        }
+        /* Cupones en una sola línea: lo cobrado y el próximo. El detalle completo está en la pestaña Cobros. */
+        var cpl=fiCpList(p), nxs=fiSchedule(p,3660).filter(function(x){return x.k==="cupón";}).sort(function(a,b){return a.d-b.d;})[0];
+        var cpTxt=(cpl.length?"cobrado "+mm(fiIncomeE(p),p.ccy)+" ("+cpl.length+(cpl.length===1?" pago":" pagos")+")":"todavía ninguno")+(nxs?" · próximo "+dayStr(nxs.d).split("-").reverse().slice(0,2).join("/")+" ≈ "+mm(effR(nxs.a,cpBase(p),null),p.ccy):"");
+        var cpw=el("div","pair pair-w"); cpw.appendChild(el("span","k","Cupones")); cpw.appendChild(el("span","v"+(cpl.length?" pos":""),cpTxt)); pg.appendChild(cpw);
+        if(!(p.fi.c>0)||!p.fi.m) cpw.appendChild(el("small",null,"Cargá la tasa y el vencimiento en Editar para ver los próximos."));
       }
       g.appendChild(pg);
       body.appendChild(g);
@@ -2633,6 +2686,8 @@
     var tn=dayNum(todayStr());
     positions.forEach(function(p){
       if(!p.fi) return;
+      /* Lo importado de un broker ya trae los cupones que cobraste de verdad: no se pregunta por cupones calculados. */
+      if(/^Importado de /.test(p.note||"")) return;
       var pd=p.fi.pd||[], cu=fiCoupons(p), lastCp=p.fi.cp&&p.fi.cp.length?p.fi.cp.map(function(x){return x[0];}).sort().pop():"";
       ((cu&&cu.list)||[]).forEach(function(c){
         var n=dayNum(c[0]);
@@ -3871,7 +3926,7 @@
         var pbb=usdM(r["precio compra"],r["moneda compra"],r.operacioncompradolarccl,r.operacioncompradolarmep), psb=usdM(r.precioventa,r["moneda venta"],r.operacionventadolarccl,r.operacionventadolarmep);
         if(!(qb>0)||!dsb||!dbb) return; if(pbb===null||psb===null){ out.zero++; return; }
         var gsb=split(r,qb);
-        out.fixedSold.push({tk:String(r.ticker).toUpperCase().trim(),q:qb,db:dbb,pb:pbb,ds:dsb,ps:psb,xb:fx2(r.operacioncompradolarccl,r.operacioncompradolarmep),xs:fx2(r.operacionventadolarccl,r.operacionventadolarmep),
+        out.fixedSold.push({tk:String(r.ticker).toUpperCase().trim(),desc:String(r.descripcion||""),q:qb,db:dbb,pb:pbb,ds:dsb,ps:psb,xb:fx2(r.operacioncompradolarccl,r.operacioncompradolarmep),xs:fx2(r.operacionventadolarccl,r.operacionventadolarmep),
           fb:fee(gsb[0],r["moneda compra"],r.operacioncompradolaroficial,r.operacioncompradolarccl,r.operacioncompradolarmep,true),fs:fee(gsb[1],r["moneda venta"],r.operacionventadolaroficial,r.operacionventadolarccl,r.operacionventadolarmep,true)}); return;
       }
       if(tp2!=="cedears"){ skip(r.tipo==="Fondos"?"fondos":r.tipo); return; }
@@ -3938,8 +3993,18 @@
         c.fi={r:Math.round(Math.max(-90,Math.min(150,rr))*100)/100,m:""};
       }
     });
+    /* Cupones de bonos que ya vendiste del todo: van con la venta (una sola vez por bono). Monto exacto = nominales que tenías × tasa. */
+    var fcl=Object.keys(fclosed).map(function(k){ return fclosed[k]; }), openFx={}, doneCp={}; fixed.forEach(function(x){ openFx[x.tk]=1; });
+    fcl.forEach(function(c){
+      if(openFx[c.tk]||doneCp[c.tk]) return; var mine=(P.coupons||[]).filter(function(x){return x.tk===c.tk;}); if(!mine.length) return; doneCp[c.tk]=1;
+      var all=fcl.filter(function(z){return z.tk===c.tk;}), terms=fiTerms((P.fixedSold.filter(function(z){return z.tk===c.tk;})[0]||{}).desc||""), nn=/BONO TESORO/i.test(String((P.fixedSold.filter(function(z){return z.tk===c.tk;})[0]||{}).desc||""))?12:2;
+      c.fi.cp=mine.map(function(x){ var a=x.a;
+        if(terms.c>0){ var nom=0; all.forEach(function(z){ if(z.sold.d>=x.d) z.lots.forEach(function(l){ if(l.d<x.d) nom+=l.q; }); }); var th=nom*terms.c/100/nn; if(th>0) a=Math.round(th*100)/100; }
+        return [x.d,a]; }).sort(function(a,b){return a[0]<b[0]?-1:1;});
+      if(mine.every(function(x){return x.c==="C";})) c.fi.cc="C";
+    });
     return {open:Object.keys(open).map(function(tk){ return {tk:tk,lots:open[tk]}; }),closed:Object.keys(closed).map(function(k){ return closed[k]; }),
-      fixed:fixed,fixedClosed:Object.keys(fclosed).map(function(k){ return fclosed[k]; }),noHist:Object.keys(noHist),ok:ok};
+      fixed:fixed,fixedClosed:fcl,noHist:Object.keys(noHist),ok:ok};
   }
   // </balanz-core>
   // <iol-core>
