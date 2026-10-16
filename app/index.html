@@ -794,6 +794,9 @@
         <input id="sellPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
       </label>
     </div>
+    <label id="sellCcyWrap" hidden>Vendiste en
+      <select id="sellCcy"><option value="C">Dólar cable (CCL)</option><option value="M">Dólar MEP</option><option value="P">Pesos</option></select>
+    </label>
     <label id="sellFxWrap" hidden><span id="sellFxLbl">Dólar CCL del día de la venta</span>
       <input id="sellFx" type="text" inputmode="decimal" autocomplete="off" placeholder="1450">
     </label>
@@ -2410,12 +2413,11 @@
     if(!cm&&isCedPos(p)&&CED_SUG[p.ticker]){ cm={r:CED_SUG[p.ticker],pes:false,mode:"C",est:true}; }
     sellCed=cm; sellPos=p;
     var cp=currentPrice(p);
-    $("sellFx").value=""; $("sellFxWrap").hidden=!(cm&&cm.pes); $("sellFxLbl").textContent="Dólar CCL del día de la venta";
+    $("sellFx").value=""; $("sellFxLbl").textContent="Dólar CCL del día de la venta";
+    $("sellCcyWrap").hidden=!cm; sellCp=cp;
     if(cm){
       var nC=Math.round(p.qty*cm.r*10000)/10000;
-      $("sellPxLbl").textContent="Precio de venta de 1 CEDEAR ("+(cm.pes?"en pesos":(cm.mode==="M"?"en US$ MEP":"en US$ CCL"))+")";
-      var fM=(cedInfo&&cedInfo.f>0)?cedInfo.f:1;
-      $("sellPrice").value=(cp!==null&&!cm.pes)?(Math.round(cp*(cm.mode==="M"?fM:1)/cm.r*10000)/10000):"";
+      $("sellCcy").value=cm.pes?"P":(cm.mode==="M"?"M":"C"); sellCcySync(true);
       sellInfo="Tenés "+nC+" CEDEAR"+(nC===1?"":"s")+(cm.est?" (1 acción = "+cm.r+" CEDEARs, según el listado; confirmalo en tu broker)":"")+". Poné el precio de uno solo, no el total.";
     } else {
       $("sellPxLbl").textContent="Precio de venta por acción";
@@ -2425,17 +2427,27 @@
     sellTotal();
     dlgSell.showModal();
   }
-  var sellCed=null, sellPos=null, sellInfo="";
+  var sellCed=null, sellPos=null, sellInfo="", sellCp=null;
+  /* Moneda en la que vendiste el CEDEAR (la elegís vos): cable, MEP o pesos. */
+  function sellCcySync(prefill){
+    if(!sellCed) return;
+    var m=$("sellCcy").value; sellCed.pes=m==="P"; sellCed.mode=m==="P"?"P":m;
+    $("sellFxWrap").hidden=m!=="P";
+    $("sellPxLbl").textContent="Precio de venta de 1 CEDEAR ("+(m==="P"?"en pesos":(m==="M"?"en US$ MEP":"en US$ cable"))+")";
+    if(prefill){ var fM=(cedInfo&&cedInfo.f>0)?cedInfo.f:1; $("sellPrice").value=(sellCp!==null&&m!=="P")?(Math.round(sellCp*(m==="M"?fM:1)/sellCed.r*10000)/10000):""; }
+    sellTotal();
+  }
   function sellTotal(){
     var pr_=pnum($("sellPrice").value), t=sellInfo;
     if(sellPos&&pr_>0){
       var n=sellCed?sellPos.qty*sellCed.r:sellPos.qty, tot=n*pr_, fx=pnum($("sellFx").value);
       if(sellCed&&sellCed.pes) t+=fx>0?" Total: ≈ US$ "+(tot/fx).toLocaleString("es-AR",{maximumFractionDigits:2})+" ($ "+tot.toLocaleString("es-AR",{maximumFractionDigits:0})+").":" Total: $ "+tot.toLocaleString("es-AR",{maximumFractionDigits:0})+".";
-      else t+=" Total que cobrás: US$ "+tot.toLocaleString("es-AR",{maximumFractionDigits:2})+(sellCed&&sellCed.mode==="M"?" (MEP)":(sellCed?" (CCL)":""))+".";
+      else t+=" Total que cobrás: US$ "+tot.toLocaleString("es-AR",{maximumFractionDigits:2})+(sellCed&&sellCed.mode==="M"?" (MEP)":(sellCed?" (cable)":""))+".";
     }
     $("sellTot").textContent=t;
   }
   $("sellPrice").addEventListener("input",sellTotal); $("sellFx").addEventListener("input",sellTotal);
+  $("sellCcy").addEventListener("change",function(){ sellCcySync(false); });
   $("sellCancel").addEventListener("click",function(){ dlgSell.close(); });
   $("sellJustDelete").addEventListener("click",function(){
     var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p) return;
@@ -2451,7 +2463,7 @@
     var sx=null;
     if(sellCed){
       if(sellCed.pes){ var sfx=pnum($("sellFx").value); if(!(sfx>0)){ alert("Poné el dólar CCL del día de la venta para pasar el precio a dólares."); return; } sp=sp/sfx; sx=fxClean([sfx,0]); }
-      else if(sellCed.mode==="M"){ var sr=fxOn(d,null); if(sr) sp=sp*sr.m/sr.c; else if(cedInfo&&cedInfo.f>0) sp=sp/cedInfo.f; }
+      else if(sellCed.mode==="M"){ var sr=fxOn(d,null); if(sr) sp=sp*sr.m/sr.c; else if(cedInfo&&cedInfo.f>0) sp=sp/cedInfo.f; } /* MEP → cable con el dólar de ese día */
       sp=Math.round(sp*sellCed.r*1e6)/1e6;
     }
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
