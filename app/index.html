@@ -3741,7 +3741,10 @@
   // Pasa de "CEDEARs" a acciones reales: cantidad/ratio y precio*ratio, con el ratio deducido del precio real de esa fecha.
   function balanzBuild(P,hist){
     function closeOn(tk,iso){ var h=hist[tk]; if(!h||!h.pts||!h.pts.length) return null; var v=null; h.pts.forEach(function(r){ if(r[0]<=iso) v=r[1]; }); return v||h.pts[0][1]; }
-    function ratio(tk,iso,p){ var c=closeOn(tk,iso); return c?snapRatio(c/p):null; }
+    /* Relación CEDEAR/acción: la del listado (CED_SUG) si el precio de ese día da parecido (±15%); si da muy distinto
+       (hubo un cambio de relación, como SPY de 20 a 60), se deduce del precio. Así 49,4 no se redondea a 50 cuando COST es 48. */
+    function ratio(tk,iso,p){ var c=closeOn(tk,iso); if(!c) return null; var raw=c/p, k=CED_SUG[tk];
+      if(k>0&&Math.abs(raw/k-1)<=0.15) return k; return snapRatio(raw); }
     var open={}, closed={}, noHist={}, ok=0;
     P.open.forEach(function(x){
       var r=ratio(x.tk,x.d,x.p); if(!r){ noHist[x.tk]=1; return; }
