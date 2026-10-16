@@ -380,7 +380,7 @@ async function insight(url, env, cors) {
   if (!/^[A-Z0-9.\-]{1,12}$/.test(symbol)) return json({ error: "bad_symbol" }, 400, cors);
   if (!env.FINNHUB_KEY) return json({ error: "not_configured" }, 500, cors);
   const day = new Date().toISOString().slice(0, 10);
-  const key = "ins:" + symbol + ":" + day;
+  const key = "ins3:" + symbol + ":" + day;
   const mem = insMem.get(key);
   if (mem) return json(mem, 200, cors, "HIT");
   if (env.HOLDY_KV) {
@@ -455,6 +455,17 @@ async function insight(url, env, cors) {
         const ai = parseAi(txt);
         if (ai) { out.ai = { ...ai, model: model.split("/").pop() }; break; }
       } catch (e) { /* probamos el siguiente modelo */ }
+    }
+    // Si los títulos volvieron sin traducir, se piden aparte (una línea por título).
+    const heads = out.news.slice(0, 8).map((x) => x.t);
+    if (out.ai && heads.length && (!out.ai.titulares || out.ai.titulares.length < heads.length || out.ai.titulares.some((t, i) => t.trim().toLowerCase() === heads[i].trim().toLowerCase()))) {
+      try {
+        const r = await env.AI.run(AI_MODELS[0], { messages: [
+          { role: "system", content: "Traducí al castellano rioplatense cada título de noticia financiera. Devolvé SOLO las traducciones, una por línea, en el mismo orden, sin numerar ni agregar nada." },
+          { role: "user", content: heads.join("\n") } ], max_tokens: 600, temperature: 0.1 });
+        const lines = String((r && r.response) || "").split("\n").map((l) => l.replace(/^\s*(\d+[.)-]|[-•*])\s*/, "").trim()).filter(Boolean);
+        out.ai.titulares = lines.length === heads.length ? lines.map((l) => l.slice(0, 240)) : [];
+      } catch (e) { out.ai.titulares = []; }
     }
   }
   insMem.set(key, out);
