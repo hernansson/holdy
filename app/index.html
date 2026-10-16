@@ -1027,17 +1027,19 @@
       if(!l) return;
       var q=+(l.q!==undefined?l.q:l[0]), b=+(l.b!==undefined?l.b:l[1]), d=String((l.d!==undefined?l.d:l[2])||"");
       var lx=fxClean(l.x!==undefined?l.x:(Array.isArray(l)?[l[3],l[4]]:null));
-      if(isFinite(q)&&isFinite(b)&&q>0&&b>0){ var lo={q:q,b:b,d:/^\d{4}-\d{2}-\d{2}$/.test(d)?d:""}; if(lx) lo.x=lx; lots.push(lo); }
+      var lf=+(l.f!==undefined?l.f:(Array.isArray(l)?l[5]:0)); /* comisión de esa compra, en la moneda base (US$) */
+      if(isFinite(q)&&isFinite(b)&&q>0&&b>0){ var lo={q:q,b:b,d:/^\d{4}-\d{2}-\d{2}$/.test(d)?d:""}; if(lx) lo.x=lx; if(isFinite(lf)&&lf>0&&lf<1e7) lo.f=Math.round(lf*100)/100; lots.push(lo); }
     });
     if(lots.length){
       var tq=0,tc=0; lots.forEach(function(l){ tq+=l.q; tc+=l.q*l.b; });
       qty=tq; buy=tc/tq;
-      if(lots.length<2 && !lots[0].d && !lots[0].x) lots=[];
+      if(lots.length<2 && !lots[0].d && !lots[0].x && !lots[0].f) lots=[];
     }
     var so=null;
     if(p.sold){ var sd=String(p.sold.d!==undefined?p.sold.d:p.sold[0]||""), sp=+(p.sold.p!==undefined?p.sold.p:p.sold[1]);
       var sx=fxClean(p.sold.x!==undefined?p.sold.x:(Array.isArray(p.sold)?[p.sold[2],p.sold[3]]:null));
-      if(/^\d{4}-\d{2}-\d{2}$/.test(sd)&&isFinite(sp)&&sp>0){ so={d:sd,p:sp}; if(sx) so.x=sx; } }
+      var sf=+(p.sold.f!==undefined?p.sold.f:(Array.isArray(p.sold)?p.sold[4]:0));
+      if(/^\d{4}-\d{2}-\d{2}$/.test(sd)&&isFinite(sp)&&sp>0){ so={d:sd,p:sp}; if(sx) so.x=sx; if(isFinite(sf)&&sf>0&&sf<1e7) so.f=Math.round(sf*100)/100; } }
     if(!isFinite(qty)||!isFinite(buy)||!(qty>0)||!(buy>0)) return null;
     var fi=null;
     if(p.fi){ var fr=+(p.fi.r!==undefined?p.fi.r:p.fi[0]), fm=String((p.fi.m!==undefined?p.fi.m:p.fi[1])||"");
@@ -1315,13 +1317,21 @@
   function pCost(p,at){
     if(p.ccy!=="USD") return p.qty*p.buy;
     if(p.parts) return p.parts.reduce(function(a,x){ return a+pCost(x,at); },0);
-    var base=pBase(p); return lotsOrOne(p).reduce(function(a,l){ return a+effR(l.q*l.b,base,at==="hoy"?null:(at||fxOn(l.d,l.x))); },0);
+    var base=pBase(p); return lotsOrOne(p).reduce(function(a,l){ return a+effR(l.q*l.b+(l.f||0),base,at==="hoy"?null:(at||fxOn(l.d,l.x))); },0); /* + comisión de compra */
   }
-  function pBuy(p){ return p.qty>0?pCost(p)/p.qty:p.buy; }
+  /* Precio de compra promedio como lo muestra el broker (sin comisiones) */
+  function pBuy(p){ if(!(p.qty>0)) return p.buy; if(p.ccy!=="USD") return p.buy;
+    if(p.parts) return p.parts.reduce(function(a,x){ return a+pBuy(x)*x.qty; },0)/p.qty;
+    var base=pBase(p); return lotsOrOne(p).reduce(function(a,l){ return a+effR(l.q*l.b,base,fxOn(l.d,l.x)); },0)/p.qty; }
   function lotPx(p,l){ return p.ccy==="USD"?effR(l.b,pBase(p),fxOn(l.d,l.x)):l.b; }
   // Lo que cobraste al vender, con el dólar del día de la venta.
   function sellFx(c){ return fxOn(c.sold.d,c.sold.x); }
-  function pProceeds(c){ return c.ccy==="USD"?effR(c.qty*c.sold.p,pBase(c),sellFx(c)):c.qty*c.sold.p; }
+  function pSellPx(c){ return c.ccy==="USD"?effR(c.sold.p,pBase(c),sellFx(c)):c.sold.p; } /* precio de venta como el broker, sin comisión */
+  function pProceeds(c){ var n=c.qty*c.sold.p-(c.sold.f||0); return c.ccy==="USD"?effR(n,pBase(c),sellFx(c)):n; } /* − comisión de venta */
+  // Comisiones pagadas (compra + venta), en unidades de pantalla.
+  function pFees(p){ if(p.parts) return p.parts.reduce(function(a,x){ return a+pFees(x); },0);
+    var base=pBase(p), t=lotsOrOne(p).reduce(function(a,l){ return a+(l.f?effR(l.f,base,fxOn(l.d,l.x)):0); },0);
+    if(p.sold&&p.sold.f) t+=effR(p.sold.f,base,sellFx(p)); return t; }
   // Parte de la ganancia que viene del dólar: el costo pasado con el dólar de hoy (o del día de la venta) menos el costo con el dólar de cada compra.
   function fxPart(p){ if(p.ccy!=="USD") return 0; return pCost(p,p.sold?(sellFx(p)||"hoy"):"hoy")-pCost(p); }
   function curPx(p){ var c=currentPrice(p); return (c===null||p.ccy!=="USD")?c:c*valF(p); }
@@ -1638,6 +1648,8 @@
         var fxAll=gfx+rfx, foot=[];
         if(fxSig(fxAll,costPriced)) foot.push("De eso, "+mRs(fxAll,ccy)+" es por el dólar (cambió desde que compraste).");
         if(cashT>0) foot.push("El número grande suma "+mR(cashT,ccy)+" sin invertir.");
+        var feeT=PS.concat(vClosed()).filter(function(p){return p.ccy===ccy;}).reduce(function(t,p){ return t+pFees(p); },0);
+        if(feeT>=0.5) foot.push("Ya descuenta "+mR(feeT,ccy)+" de comisiones.");
         if(foot.length) rc.appendChild(el("div","rfoot",foot.join(" ")));
         card.appendChild(rc);
         var kp=el("div","kpis");
@@ -1708,8 +1720,9 @@
       var pg=el("div","pgrid");
       function pair(k,v,cc,sub){ var d=el("div","pair"); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(cc?" "+cc:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
       pair("Cantidad",qq(c.qty)); pair("Resultado",mRs(gain,c.ccy),cls(gain));
+      var cfe=c.ccy==="USD"?pFees(c):0; if(cfe>=0.005) pair("Comisiones",mm(cfe,c.ccy),"","compra + venta, ya descontadas");
       if(c.ccy==="USD"&&!positions.some(function(x){ return x.ticker===c.ticker&&x.broker===c.broker; })){ var sdv=divsOf(c.ticker,[c.broker]); if(sdv.length) pair("Dividendos de "+c.ticker,"+"+mm(divSum(sdv),c.ccy),"pos",sdv.length+(sdv.length===1?" cobro":" cobros")+" mientras la tuviste"); }
-      pair("Precio de compra",mm(pBuy(c),c.ccy)); pair("Precio de venta",mm(c.qty>0?proceeds/c.qty:c.sold.p,c.ccy));
+      pair("Precio de compra",mm(pBuy(c),c.ccy)); pair("Precio de venta",mm(pSellPx(c),c.ccy));
       var sfx_=fxPart(c); if(fxSig(sfx_,cost)){ pair("Por la acción",mRs(gain-sfx_,c.ccy),cls(gain-sfx_),cost+sfx_>0?fmtPct((gain-sfx_)/(cost+sfx_)):""); pair("Por el dólar",mRs(sfx_,c.ccy),cls(sfx_)); }
       pair("Fecha de venta",c.sold.d.split("-").reverse().join("/")); pair("Broker",brokerName(c.broker));
       var hl=(c.lots&&c.lots.length?c.lots:[{q:c.qty,b:c.buy,d:""}]).filter(function(l){return l.d&&l.q>0&&l.b>0;}), sdn=dayNum(c.sold.d);
@@ -1835,7 +1848,7 @@
         if(p.fi||p.source==="manual"||!g||g.length<2){ out.push(p); return; }
         if(done[k]) return; done[k]=1;
         var lots=[], tq=0, tc=0, br={};
-        g.forEach(function(x){ tq+=x.qty; tc+=x.qty*x.buy; br[x.broker]=1; (x.lots&&x.lots.length?x.lots:[{q:x.qty,b:x.buy,d:""}]).forEach(function(l){ var o={q:l.q,b:l.b,d:l.d||""}; if(l.x) o.x=l.x; lots.push(o); }); });
+        g.forEach(function(x){ tq+=x.qty; tc+=x.qty*x.buy; br[x.broker]=1; (x.lots&&x.lots.length?x.lots:[{q:x.qty,b:x.buy,d:""}]).forEach(function(l){ var o={q:l.q,b:l.b,d:l.d||""}; if(l.x) o.x=l.x; if(l.f) o.f=l.f; lots.push(o); }); });
         lots.sort(function(a,b){ return a.d<b.d?-1:(a.d>b.d?1:0); });
         out.push(Object.assign({},g[0],{id:"g:"+k,qty:tq,buy:tc/tq,lots:lots.length>1?lots:[],broker:Object.keys(br).join(" + "),parts:g}));
       });
@@ -1930,6 +1943,7 @@
       pair(p.fi?(fiIsPar(p)?"Valor a la par":"Precio de mercado"):"Precio actual",cp===null?"—":fmt(cp,p.ccy),"",(p.fi&&fiIsPar(p))?"sin precio de mercado":(p.fi&&fiQuote(p))?"cotización "+fiQuote(p).s+(/C$/.test(fiQuote(p).s)?" (dólar CCL)":" (dólar MEP)"):"");
       if(pl!==null&&p.ccy==="USD"){ var fxp=fxPart(p); if(fxSig(fxp,cost)){ pair("Por la acción",mRs(pl-fxp,p.ccy),cls(pl-fxp),cost+fxp>0?fmtPct((pl-fxp)/(cost+fxp)):""); pair("Por el dólar",mRs(fxp,p.ccy),cls(fxp),"cambió desde que compraste"); } }
       if(pdv.length){ var lastD=pdv.map(function(x){return x.d;}).sort().pop(); pair("Dividendos cobrados","+"+mm(pdvE,p.ccy),"pos",pdv.length+(pdv.length===1?" cobro":" cobros")+" · último "+lastD.split("-").reverse().slice(0,2).join("/")); }
+      var pfe=p.ccy==="USD"?pFees(p):0; if(pfe>=0.005) pair("Comisiones",mm(pfe,p.ccy),"","de compra, ya incluidas en lo invertido");
       pair("Peso en la cartera",weight===null?"—":(weight*100).toFixed(1).replace(".",",")+"%");
       if(dpct!==null) pair("Var. diaria",fmtPct(dpct),cls(dpct));
       if(!p.parts) pair("Broker",brokerName(p.broker));
@@ -2196,14 +2210,14 @@
     var dl=document.createElement("label"); dl.appendChild(document.createTextNode("Fecha de compra (opcional)"));
     var id=document.createElement("input"); id.className="ld"; id.type="text"; dateField(id,l.d||"",true); dl.appendChild(id); r.appendChild(dl);
     r.addEventListener("input",refreshLots);
-    if(l.x) r._orig={q:+l.q,b:+l.b,d:l.d||"",x:l.x};
+    if(l.x||l.f) r._orig={q:+l.q,b:+l.b,d:l.d||"",x:l.x,f:l.f};
     lotsBox.appendChild(r);
   }
   function readLots(){
     return [].slice.call(lotsBox.querySelectorAll(".lotrow")).map(function(r){
       var o={q:pnum(r.querySelector(".lq").value), b:pnum(r.querySelector(".lb").value), fx:pnum(r.querySelector(".lfx").value), fx2:pnum(r.querySelector(".lfx2").value), d:r.querySelector(".ld").dataset.iso||""};
       /* Si no tocaste el precio ni la fecha, se conserva el dólar de ese día que vino al importar. */
-      if(r._orig&&Math.abs(o.b-r._orig.b)<1e-9*Math.max(1,o.b)&&o.d===r._orig.d) o.x=r._orig.x;
+      if(r._orig&&Math.abs(o.b-r._orig.b)<1e-9*Math.max(1,o.b)&&o.d===r._orig.d){ if(r._orig.x) o.x=r._orig.x; if(r._orig.f&&Math.abs(o.q-r._orig.q)<1e-9*Math.max(1,o.q)) o.f=r._orig.f; }
       return o;
     });
   }
@@ -2437,7 +2451,7 @@
       else fetchQuote(ticker).then(function(q){ chk(q.price); }).catch(function(){ chk(0); });
       return;
     }
-    var keepLots=(lots.length>1||!!lots[0].d||!!lots[0].x)?lots.map(function(l){ var o={q:l.q,b:l.b,d:l.d}; if(l.x) o.x=l.x; return o; }):[];
+    var keepLots=(lots.length>1||!!lots[0].d||!!lots[0].x||!!lots[0].f)?lots.map(function(l){ var o={q:l.q,b:l.b,d:l.d}; if(l.x) o.x=l.x; if(l.f) o.f=l.f; return o; }):[];
     if(source==="manual" && !(manual>0)){ alert("Cargá el precio actual manual."); return; }
     var data={
       broker:$("fBroker").value, ccy:$("fCcy").value, ticker:ticker, qty:qty, buy:buy, lots:keepLots,
@@ -2695,7 +2709,7 @@
       var co_=pCost(c), pr_=pProceeds(c), pct=co_>0?(pr_-co_)/co_:null;
       var row=el("div","soldrow");
       var l=el("div"); l.appendChild(el("div","v",c.ticker));
-      l.appendChild(el("div","k",qq(c.qty)+" × "+mm(pBuy(c),c.ccy)+" → "+mm(c.qty>0?pr_/c.qty:c.sold.p,c.ccy)+" · "+c.sold.d.split("-").reverse().join("/")));
+      l.appendChild(el("div","k",qq(c.qty)+" × "+mm(pBuy(c),c.ccy)+" → "+mm(pSellPx(c),c.ccy)+" · "+c.sold.d.split("-").reverse().join("/")));
       row.appendChild(l);
       row.appendChild(el("div","v "+cls(pct),arrow(pct)+fmtPct(pct)));
       if(!isRO()){
@@ -3198,7 +3212,8 @@
     return p.then(function(u){ return JSON.parse(new TextDecoder().decode(u)); });
   }
   function lotsT(p){
-    var L=(p.lots&&p.lots.length)?p.lots.map(function(l){return l.x?[l.q,l.b,l.d||"",l.x[0],l.x[1]]:[l.q,l.b,l.d||""];}):0, S=p.sold?(p.sold.x?[p.sold.d,p.sold.p,p.sold.x[0],p.sold.x[1]]:[p.sold.d,p.sold.p]):0;
+    var L=(p.lots&&p.lots.length)?p.lots.map(function(l){ return l.f?[l.q,l.b,l.d||"",l.x?l.x[0]:0,l.x?l.x[1]:0,l.f]:(l.x?[l.q,l.b,l.d||"",l.x[0],l.x[1]]:[l.q,l.b,l.d||""]); }):0,
+      S=p.sold?(p.sold.f?[p.sold.d,p.sold.p,p.sold.x?p.sold.x[0]:0,p.sold.x?p.sold.x[1]:0,p.sold.f]:(p.sold.x?[p.sold.d,p.sold.p,p.sold.x[0],p.sold.x[1]]:[p.sold.d,p.sold.p])):0;
     var F=p.fi?[p.fi.r,p.fi.m||"",p.fi.c||0].concat((p.fi.cp||p.fi.n||p.fi.pd||p.fi.cc)?[p.fi.cp||0,p.fi.n||0]:[]).concat((p.fi.pd||p.fi.cc)?[p.fi.pd||0]:[]).concat(p.fi.cc?[p.fi.cc]:[]):0;
     return F?[L,S,F]:(S?[L,S]:(L?[L]:[]));
   }
@@ -3588,7 +3603,7 @@
     var C;
     var g=function(){ for(var a=0;a<arguments.length;a++) if(arguments[a] in ix) return ix[arguments[a]]; return -1; };
     if(hi>=0){
-      C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail")};
+      C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail"),fee:g("ibcommission","commission"),feeCcy:g("ibcommissioncurrency")};
       if(C.sym<0||C.qty<0||C.px<0||(C.date<0&&C.dt<0)){ out.error="columnas"; return out; }
     } else if(rows[0].length>=72 && /^(BUY|SELL)$/.test(rows[0][54]||"")){
       C={asset:5,ccy:3,sym:7,date:30,dt:28,qty:35,px:36,side:54,lvl:71}; hi=-1;
@@ -3599,7 +3614,7 @@
       /* Un Flex Query con varias secciones (Trades, Transfers…) trae un encabezado por sección: solo se leen las de Trades. */
       if(hi>=0){ var nmk=w.map(norm); if(nmk.indexOf("symbol")>=0&&(nmk.indexOf("quantity")>=0||nmk.indexOf("tradeprice")>=0||nmk.indexOf("amount")>=0||nmk.indexOf("clientaccountid")>=0)){
         skipSec=!(nmk.indexOf("tradeprice")>=0||nmk.indexOf("tprice")>=0);
-        if(!skipSec){ ix={}; nmk.forEach(function(kk,j){ if(!(kk in ix)) ix[kk]=j; }); C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail")}; }
+        if(!skipSec){ ix={}; nmk.forEach(function(kk,j){ if(!(kk in ix)) ix[kk]=j; }); C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail"),fee:g("ibcommission","commission"),feeCcy:g("ibcommissioncurrency")}; }
         continue; } }
       if(skipSec) continue;
       if(w.length<8) continue;
@@ -3615,7 +3630,8 @@
       var ccy=C.ccy>=0?String(w[C.ccy]).toUpperCase():"USD";
       if(ccy!=="USD"){ out.nonUsd++; continue; }
       var dk=w.join("\u0001"); if(out._seen&&out._seen[dk]) continue; (out._seen||(out._seen={}))[dk]=1; /* el mismo renglón en dos archivos que se pisan */
-      out.trades.push({sym:sym,d:d,q:Math.abs(qty),p:px,s:side==="SELL"?"s":"b"});
+      var fee=C.fee>=0?Math.abs(parseFloat(w[C.fee])):0; if(!isFinite(fee)||(C.feeCcy>=0&&w[C.feeCcy]&&String(w[C.feeCcy]).toUpperCase()!=="USD")) fee=0;
+      out.trades.push({sym:sym,d:d,q:Math.abs(qty),p:px,s:side==="SELL"?"s":"b",f:fee});
     }
     out.divs=ibkrDivs(rows);
     return out;
@@ -3628,11 +3644,13 @@
       var nm=w.map(norm);
       if(nm.indexOf("symbol")>=0&&(nm.indexOf("clientaccountid")>=0||nm.indexOf("currencyprimary")>=0||nm.indexOf("type")>=0)){
         var it=nm.indexOf("type"), ia=nm.indexOf("amount");
-        if(it>=0&&ia>=0){ any=true; C={t:it,a:ia,s:nm.indexOf("symbol"),c:nm.indexOf("currencyprimary"),d:["date/time","settledate","reportdate","date"].map(function(k){return nm.indexOf(k);}).filter(function(i){return i>=0;})[0]}; }
+        if(it>=0&&ia>=0){ any=true; C={t:it,a:ia,s:nm.indexOf("symbol"),c:nm.indexOf("currencyprimary"),l:nm.indexOf("levelofdetail"),acc:nm.indexOf("clientaccountid"),d:["date/time","settledate","reportdate","date"].map(function(k){return nm.indexOf(k);}).filter(function(i){return i>=0;})[0]}; }
         else C=null;
         return;
       }
       if(!C) return;
+      if(C.l>=0&&w[C.l]&&String(w[C.l]).toUpperCase()!=="DETAIL") return; /* IBKR repite cada movimiento como SUMMARY */
+      if(C.acc>=0&&String(w[C.acc]||"").trim()==="-") return;
       var ty=String(w[C.t]||""); if(!/dividend|withholding|in lieu/i.test(ty)) return;
       if(C.c>=0&&String(w[C.c]||"").toUpperCase()!=="USD") return;
       var sym=String(w[C.s]||"").trim().toUpperCase().replace(/\s+/g,"-"), a=parseFloat(w[C.a]), d=ibDate(C.d!==undefined?w[C.d]:"");
@@ -3647,28 +3665,29 @@
     var agg={}, order=[];
     trades.forEach(function(t){
       var k=t.sym+"|"+t.d+"|"+t.s;
-      if(!agg[k]){ agg[k]={sym:t.sym,d:t.d,s:t.s,q:0,c:0}; order.push(k); }
-      agg[k].q+=t.q; agg[k].c+=t.q*t.p;
+      if(!agg[k]){ agg[k]={sym:t.sym,d:t.d,s:t.s,q:0,c:0,f:0}; order.push(k); }
+      agg[k].q+=t.q; agg[k].c+=t.q*t.p; agg[k].f+=t.f||0;
     });
-    var list=order.map(function(k){ var a=agg[k]; return {sym:a.sym,d:a.d,s:a.s,q:a.q,p:a.c/a.q}; });
+    var list=order.map(function(k){ var a=agg[k]; return {sym:a.sym,d:a.d,s:a.s,q:a.q,p:a.c/a.q,f:a.f}; });
     list.sort(function(a,b){ return a.d<b.d?-1:a.d>b.d?1:(a.s===b.s?0:(a.s==="b"?-1:1)); });
     var by={}, orphan=0;
     list.forEach(function(t){
       var st=by[t.sym]||(by[t.sym]={q:[],closed:{}});
-      if(t.s==="b"){ st.q.push({q:t.q,b:Math.round(t.p*10000)/10000,d:t.d}); return; }
-      var rem=t.q;
+      if(t.s==="b"){ st.q.push({q:t.q,b:Math.round(t.p*10000)/10000,d:t.d,f:t.f||0}); return; }
+      var rem=t.q, key=t.d+"|"+t.p, cg=st.closed[key]||(st.closed[key]={d:t.d,p:Math.round(t.p*10000)/10000,lots:[],f:0});
+      cg.f+=(t.f||0); /* comisión de la venta */
       while(rem>1e-9 && st.q.length){
-        var l=st.q[0], take=Math.min(rem,l.q), key=t.d+"|"+t.p;
-        (st.closed[key]||(st.closed[key]={d:t.d,p:Math.round(t.p*10000)/10000,lots:[]})).lots.push({q:Math.round(take*1e6)/1e6,b:l.b,d:l.d});
-        l.q-=take; rem-=take; if(l.q<=1e-9) st.q.shift();
+        var l=st.q[0], take=Math.min(rem,l.q), lf=l.f?l.f*take/l.q:0; /* la comisión de compra se reparte según lo que se vende */
+        cg.lots.push({q:Math.round(take*1e6)/1e6,b:l.b,d:l.d,f:Math.round(lf*100)/100});
+        l.f=(l.f||0)-lf; l.q-=take; rem-=take; if(l.q<=1e-9) st.q.shift();
       }
       if(rem>1e-9) orphan++;
     });
     var open=[], closed=[], dmin="9999", dmax="";
     Object.keys(by).forEach(function(sym){
       var st=by[sym];
-      if(st.q.length) open.push({tk:sym,lots:st.q.map(function(l){ return {q:Math.round(l.q*1e6)/1e6,b:l.b,d:l.d}; })});
-      Object.keys(st.closed).forEach(function(k){ var c=st.closed[k]; closed.push({tk:sym,lots:c.lots,sold:{d:c.d,p:c.p}}); });
+      if(st.q.length) open.push({tk:sym,lots:st.q.map(function(l){ return {q:Math.round(l.q*1e6)/1e6,b:l.b,d:l.d,f:Math.round((l.f||0)*100)/100}; })});
+      Object.keys(st.closed).forEach(function(k){ var c=st.closed[k]; if(!c.lots.length) return; closed.push({tk:sym,lots:c.lots,sold:{d:c.d,p:c.p,f:Math.round(c.f*100)/100}}); });
     });
     list.forEach(function(t){ if(t.d<dmin) dmin=t.d; if(t.d>dmax) dmax=t.d; });
     return {open:open,closed:closed,orphan:orphan,dmin:dmin,dmax:dmax,fills:list.length};
@@ -3791,6 +3810,23 @@
       return price;
     }
     function fx2(c,m){ return fxClean([+c,+m]); }
+    /* Gastos (comisión + derechos + IVA): Balanz los informa en pesos. Si la operación fue en dólares, los pasa al oficial; se vuelven a dólares
+       y se llevan a la moneda base (CEDEARs en CCL, bonos en MEP) como el precio. Si fue en pesos, se pasan con el CCL/MEP de ese día. */
+    function fee(g,cur,of,ccl,mep,bond){
+      g=+g; of=+of; ccl=+ccl; mep=+mep; if(!(g>0)) return 0; var c=String(cur||""), u;
+      if(/peso/i.test(c)) u=bond?(mep>0?g/mep:0):(ccl>0?g/ccl:0);
+      else { if(!(of>0)) return 0; u=g/of;
+        if(/cable|ccl|7000/i.test(c)) u=bond?((ccl>0&&mep>0)?u*ccl/mep:u):u;
+        else u=bond?u:((mep>0&&ccl>0)?u*mep/ccl:u); }
+      return Math.round(u*100)/100;
+    }
+    /* En una venta, "Gastos" trae la compra y la venta juntas: se reparte según el monto en pesos de cada una. */
+    function split(r,q,pb,ps){
+      var g=+r.gastos; if(!(g>0)) return [0,0];
+      var ob=+r.operacioncompradolaroficial, os=+r.operacionventadolaroficial;
+      var mb=q*(+r["precio compra"])*(/peso/i.test(String(r["moneda compra"]||""))?1:(ob||1)), ms=q*(+r.precioventa)*(/peso/i.test(String(r["moneda venta"]||""))?1:(os||1));
+      var sb=(mb+ms)>0?mb/(mb+ms):0.5; return [g*sb,g*(1-sb)];
+    }
     var fin=table(sheet(/finales/)), rea=table(sheet(/realizado/));
     if(!fin.length&&!rea.length){ out.error="hojas"; return out; }
     fin.forEach(function(r){
@@ -3800,13 +3836,13 @@
         var qf=+r.cantidad, df=xlDate(r.fecha), pf=usdM(r["precio compra"],r.moneda,r.dolarccl,r.dolarmep);
         if(/step\s*up|amortiz/i.test(String(r.descripcion||""))){ skip("bonos que amortizan"); return; }
         if(!(qf>0)||!df) return; if(pf===null){ out.zero++; return; }
-        out.fixed.push({tk:String(r.ticker).toUpperCase().trim(),q:qf,d:df,p:pf,x:fx2(r.dolarccl,r.dolarmep),desc:String(r.descripcion||"")}); return;
+        out.fixed.push({tk:String(r.ticker).toUpperCase().trim(),q:qf,d:df,p:pf,x:fx2(r.dolarccl,r.dolarmep),f:fee(r.gastos,r.moneda,r.dolaroficial,r.dolarccl,r.dolarmep,true),desc:String(r.descripcion||"")}); return;
       }
       if(tp!=="cedears"){ skip(r.tipo==="Fondos"?"fondos":r.tipo); return; }
       var q=+r.cantidad, d=xlDate(r.fecha), p=usdC(r["precio compra"],r.moneda,r.dolarccl,r.dolarmep);
       if(!(q>0)||!d) return;
       if(p===null){ out.zero++; return; }
-      out.open.push({tk:String(r.ticker).toUpperCase().trim(),q:q,d:d,p:p,x:fx2(r.dolarccl,r.dolarmep)});
+      out.open.push({tk:String(r.ticker).toUpperCase().trim(),q:q,d:d,p:p,x:fx2(r.dolarccl,r.dolarmep),f:fee(r.gastos,r.moneda,r.dolaroficial,r.dolarccl,r.dolarmep,false)});
     });
     rea.forEach(function(r){
       /* Dividendos de CEDEARs: vienen netos, en dólares ("C.V. 7000" = cable). Si vinieran en pesos, se pasan con el CCL de ese día. */
@@ -3828,14 +3864,18 @@
         var qb=+r.cantidad, dsb=xlDate(r.fecha), dbb=xlDate(r.fechacompra);
         var pbb=usdM(r["precio compra"],r["moneda compra"],r.operacioncompradolarccl,r.operacioncompradolarmep), psb=usdM(r.precioventa,r["moneda venta"],r.operacionventadolarccl,r.operacionventadolarmep);
         if(!(qb>0)||!dsb||!dbb) return; if(pbb===null||psb===null){ out.zero++; return; }
-        out.fixedSold.push({tk:String(r.ticker).toUpperCase().trim(),q:qb,db:dbb,pb:pbb,ds:dsb,ps:psb,xb:fx2(r.operacioncompradolarccl,r.operacioncompradolarmep),xs:fx2(r.operacionventadolarccl,r.operacionventadolarmep)}); return;
+        var gsb=split(r,qb);
+        out.fixedSold.push({tk:String(r.ticker).toUpperCase().trim(),q:qb,db:dbb,pb:pbb,ds:dsb,ps:psb,xb:fx2(r.operacioncompradolarccl,r.operacioncompradolarmep),xs:fx2(r.operacionventadolarccl,r.operacionventadolarmep),
+          fb:fee(gsb[0],r["moneda compra"],r.operacioncompradolaroficial,r.operacioncompradolarccl,r.operacioncompradolarmep,true),fs:fee(gsb[1],r["moneda venta"],r.operacionventadolaroficial,r.operacionventadolarccl,r.operacionventadolarmep,true)}); return;
       }
       if(tp2!=="cedears"){ skip(r.tipo==="Fondos"?"fondos":r.tipo); return; }
       var q=+r.cantidad, ds=xlDate(r.fecha), db=xlDate(r.fechacompra);
       var pb=usdC(r["precio compra"],r["moneda compra"],r.operacioncompradolarccl,r.operacioncompradolarmep), ps=usdC(r.precioventa,r["moneda venta"],r.operacionventadolarccl,r.operacionventadolarmep);
       if(!(q>0)||!ds||!db) return;
       if(pb===null||ps===null){ out.zero++; return; }
-      out.sold.push({tk:String(r.ticker).toUpperCase().trim(),q:q,db:db,pb:pb,ds:ds,ps:ps,xb:fx2(r.operacioncompradolarccl,r.operacioncompradolarmep),xs:fx2(r.operacionventadolarccl,r.operacionventadolarmep)});
+      var gs=split(r,q);
+      out.sold.push({tk:String(r.ticker).toUpperCase().trim(),q:q,db:db,pb:pb,ds:ds,ps:ps,xb:fx2(r.operacioncompradolarccl,r.operacioncompradolarmep),xs:fx2(r.operacionventadolarccl,r.operacionventadolarmep),
+        fb:fee(gs[0],r["moneda compra"],r.operacioncompradolaroficial,r.operacioncompradolarccl,r.operacioncompradolarmep,false),fs:fee(gs[1],r["moneda venta"],r.operacionventadolaroficial,r.operacionventadolarccl,r.operacionventadolarmep,false)});
     });
     return out;
   }
@@ -3849,18 +3889,18 @@
     var open={}, closed={}, noHist={}, ok=0;
     P.open.forEach(function(x){
       var r=ratio(x.tk,x.d,x.p); if(!r){ noHist[x.tk]=1; return; }
-      var lo={q:x.q/r,b:Math.round(x.p*r*10000)/10000,d:x.d}; if(x.x) lo.x=x.x; (open[x.tk]||(open[x.tk]=[])).push(lo); ok++;
+      var lo={q:x.q/r,b:Math.round(x.p*r*10000)/10000,d:x.d}; if(x.x) lo.x=x.x; if(x.f) lo.f=x.f; (open[x.tk]||(open[x.tk]=[])).push(lo); ok++;
     });
     P.sold.forEach(function(x){
       var rb=ratio(x.tk,x.db,x.pb), rs=ratio(x.tk,x.ds,x.ps); if(!rb||!rs){ noHist[x.tk]=1; return; }
       var key=x.tk+"|"+x.ds+"|"+x.ps, c=closed[key]||(closed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*rs*10000)/10000},lots:[]});
-      if(x.xs) c.sold.x=x.xs;
-      var lo={q:x.q/rb,b:Math.round(x.pb*rb*10000)/10000,d:x.db}; if(x.xb) lo.x=x.xb; c.lots.push(lo); ok++;
+      if(x.xs) c.sold.x=x.xs; if(x.fs) c.sold.f=Math.round(((c.sold.f||0)+x.fs)*100)/100;
+      var lo={q:x.q/rb,b:Math.round(x.pb*rb*10000)/10000,d:x.db}; if(x.xb) lo.x=x.xb; if(x.fb) lo.f=x.fb; c.lots.push(lo); ok++;
     });
     var fx={};
     (P.fixed||[]).forEach(function(x){
       var f=fx[x.tk]||(fx[x.tk]={tk:x.tk,lots:[],w:0,wr:0,terms:fiTerms(x.desc),desc:x.desc,noY:0});
-      var lo={q:x.q,b:Math.round(x.p*1e6)/1e6,d:x.d}; if(x.x) lo.x=x.x; f.lots.push(lo);
+      var lo={q:x.q,b:Math.round(x.p*1e6)/1e6,d:x.d}; if(x.x) lo.x=x.x; if(x.f) lo.f=x.f; f.lots.push(lo);
       var y=fiYield(f.terms,x.p,x.d); if(y===null) f.noY++; else { f.w+=x.q*x.p; f.wr+=x.q*x.p*y; }
     });
     // Cupones cobrados: las fechas salen del Excel; el monto es el exacto (nominal × cupón ÷ pagos por año). Si no se sabe la tasa, el del Excel.
@@ -3885,8 +3925,8 @@
     var fclosed={};
     (P.fixedSold||[]).forEach(function(x){
       var key=x.tk+"|"+x.ds+"|"+x.ps, c=fclosed[key]||(fclosed[key]={tk:x.tk,sold:{d:x.ds,p:Math.round(x.ps*1e6)/1e6},lots:[]});
-      if(x.xs) c.sold.x=x.xs;
-      var lo={q:x.q,b:Math.round(x.pb*1e6)/1e6,d:x.db}; if(x.xb) lo.x=x.xb; c.lots.push(lo);
+      if(x.xs) c.sold.x=x.xs; if(x.fs) c.sold.f=Math.round(((c.sold.f||0)+x.fs)*100)/100;
+      var lo={q:x.q,b:Math.round(x.pb*1e6)/1e6,d:x.db}; if(x.xb) lo.x=x.xb; if(x.fb) lo.f=x.fb; c.lots.push(lo);
       if(!c.fi){
         var dd=dayNum(x.ds)-dayNum(x.db), rr=(dd>=3&&x.pb>0&&x.ps>0)?(Math.pow(x.ps/x.pb,365/dd)-1)*100:0;
         c.fi={r:Math.round(Math.max(-90,Math.min(150,rr))*100)/100,m:""};
