@@ -202,6 +202,14 @@
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   /* Pestaña Cobros */
   .cob-hd{padding:4px 2px 12px}
+  dialog#dlgSrch{height:min(70vh,640px)} @media (max-width:699px){ dialog#dlgSrch{height:88dvh} } dialog#dlgSrch[open]{display:flex; flex-direction:column}
+  #srchIn{width:100%; box-sizing:border-box; font-size:16px; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--sh-card); color:var(--text); margin:2px 0 8px}
+  #srchList{flex:1 1 auto; overflow-y:auto; margin:0 -18px; padding:0 18px calc(20px + env(safe-area-inset-bottom))}
+  .srch-k{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:10px 2px 6px}
+  .srch-r{display:grid; grid-template-columns:auto 1fr auto 14px; align-items:center; gap:10px; width:100%; text-align:left; background:var(--sh-card); border:0; border-radius:12px; padding:11px 14px; margin:0 0 6px; color:var(--text); box-shadow:none; min-height:0; font-weight:400}
+  .srch-r b{font-size:15px; font-weight:700} .srch-r span{font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .srch-r i{font-style:normal; font-size:11px; font-weight:700; padding:2px 7px; border-radius:20px; background:var(--sh-bg); color:var(--muted)} .srch-r:not(:has(i)){grid-template-columns:auto 1fr 14px}
+  .srch-r .go{color:var(--muted); font-size:18px; overflow:visible}
   #insBody{flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; margin:0 -18px; padding:2px 18px calc(24px + env(safe-area-inset-bottom))}
   .ins-sub{font-size:12.5px; color:var(--muted); margin-top:2px}
   .ins-btn{display:flex; align-items:center; gap:10px; width:100%; margin-top:14px; padding:12px 14px; border-radius:14px; border:1px solid color-mix(in srgb,var(--brand) 35%,var(--line)); background:color-mix(in srgb,var(--brand) 9%,transparent); color:var(--text); font-weight:600; font-size:14.5px; text-align:left; box-shadow:none; min-height:46px}
@@ -235,12 +243,12 @@
   .ins-spin{width:28px; height:28px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--brand); animation:ins-r .8s linear infinite} @keyframes ins-r{to{transform:rotate(360deg)}}
   .ins-err{padding:40px 10px; color:var(--muted); font-size:14px; text-align:center; line-height:1.5}
   /* Hoja de cobros: fondo propio, distinto de la pantalla (en modo oscuro, más claro que el fondo de la app). */
-  dialog#dlgCob,dialog#dlgIns{--sh-bg:var(--bg); --sh-card:var(--card); height:min(80vh,720px); overflow:hidden; background:var(--sh-bg); box-shadow:0 -10px 40px rgba(0,0,0,.35); border-top:1px solid var(--line)}
-  @media (prefers-color-scheme: dark){ dialog#dlgCob,dialog#dlgIns{--sh-bg:#1a1f26; --sh-card:#242a33; border-top-color:#2c333d} }
-  dialog#dlgIns::backdrop,dialog#dlgCob::backdrop{background:rgba(0,0,0,.72)}
+  dialog#dlgCob,dialog#dlgIns,dialog#dlgSrch{--sh-bg:var(--bg); --sh-card:var(--card); height:min(80vh,720px); overflow:hidden; background:var(--sh-bg); box-shadow:0 -10px 40px rgba(0,0,0,.35); border-top:1px solid var(--line)}
+  @media (prefers-color-scheme: dark){ dialog#dlgCob,dialog#dlgIns,dialog#dlgSrch{--sh-bg:#1a1f26; --sh-card:#242a33; border-top-color:#2c333d} }
+  dialog#dlgSrch::backdrop,dialog#dlgIns::backdrop,dialog#dlgCob::backdrop{background:rgba(0,0,0,.72)}
   #dlgCob .cob-hd{background:var(--sh-card); border-radius:14px; padding:14px 16px; margin:4px 0 4px}
   #dlgCob .cob-m{border-bottom:0; margin-top:16px; padding:0 4px 6px}
-  #dlgCob .cob-top button,#dlgIns .cob-top button{background:var(--sh-card)}
+  #dlgCob .cob-top button,#dlgIns .cob-top button,#dlgSrch .cob-top button{background:var(--sh-card)}
   #dlgCob .cob-g{background:var(--sh-card); border-radius:14px; padding:0 14px}
   #dlgCob .cob-g .cob-r:last-child{border-bottom:0}
   #dlgCob #cobSeg{background:color-mix(in srgb,var(--text) 8%,transparent)}
@@ -697,6 +705,7 @@
 <header>
   <h1>Holdy</h1>
   <button type="button" id="profSel" aria-haspopup="dialog" aria-label="Cambiar de perfil"></button>
+  <button type="button" id="btnSearch" class="burger" aria-label="Buscar una acción"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
   <button type="button" id="btnHide" class="burger eye" aria-pressed="false"></button>
   <button id="btnMenu" class="burger" aria-label="Menú" aria-haspopup="dialog"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </header>
@@ -844,6 +853,14 @@
 </dialog>
 
 <!-- comparación: pantalla propia (ver #cmpView más abajo) -->
+
+<dialog id="dlgSrch" class="sheet">
+  <div class="cob-sheet">
+    <div class="cob-top"><h3>Buscar</h3><button type="button" id="srchClose" aria-label="Cerrar">✕</button></div>
+    <input type="search" id="srchIn" placeholder="Empresa o ticker (ej. Nvidia, KO, SPY)" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search">
+    <div id="srchList"></div>
+  </div>
+</dialog>
 
 <dialog id="dlgIns" class="sheet">
   <div class="cob-sheet">
@@ -1183,7 +1200,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v186"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v187"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -2814,6 +2831,29 @@
   // ---------- Editar cupones cobrados de un bono ----------
   $("cobClose").addEventListener("click",function(){ $("dlgCob").close(); });
   $("insClose").addEventListener("click",function(){ $("dlgIns").close(); });
+  // ---------- Buscar cualquier acción o ETF y abrir "¿Qué pasó con X?" ----------
+  var srchT=null, srchSeq=0;
+  function srchMine(){ var seen={}, out=[]; positions.forEach(function(p){ if(insOk(p)&&!seen[p.ticker]){ seen[p.ticker]=1; out.push({s:p.ticker,n:"En tu cartera",mine:1}); } }); return out; }
+  function srchShow(list,title){ var bx=$("srchList"); bx.textContent=""; if(title) bx.appendChild(el("div","srch-k",title));
+    list.forEach(function(x){ var b=el("button","srch-r"); b.type="button"; b.appendChild(el("b",null,x.s)); var nm=el("span",null,x.n||""); b.appendChild(nm); if(x.t) b.appendChild(el("i",null,x.t)); b.appendChild(el("span","go","›"));
+      b.addEventListener("click",function(){ srchOpen(x.s); }); bx.appendChild(b); }); }
+  function srchOpen(sym){ sym=String(sym||"").toUpperCase().trim(); if(!/^[A-Z][A-Z0-9.\-]{0,11}$/.test(sym)) return;
+    var mine=positions.filter(function(p){ return p.ticker===sym&&insOk(p); })[0];
+    $("dlgSrch").close(); openIns(mine||{ticker:sym,ccy:"USD",qty:0,buy:0,lots:[]}); }
+  function srchRun(){ var q=$("srchIn").value.trim(), my=++srchSeq;
+    if(!q){ var m=srchMine(); srchShow(m,m.length?"Tus acciones":""); return; }
+    $("srchList").textContent=""; $("srchList").appendChild(el("div","srch-k","Buscando…"));
+    fetch(PROXY_URL+"/search?q="+encodeURIComponent(q)).then(function(r){ if(r.status===404) throw new Error("old"); return r.json(); }).then(function(j){ if(my!==srchSeq) return;
+      var res=(j&&j.result)||[]; if(!res.length){ $("srchList").textContent=""; $("srchList").appendChild(el("div","srch-k","No encontré nada con “"+q+"”. Probá con el ticker exacto (ej. KO) y tocá Enter.")); return; }
+      srchShow(res,"Resultados"); })
+      .catch(function(e){ if(my!==srchSeq) return; $("srchList").textContent=""; $("srchList").appendChild(el("div","srch-k",e&&e.message==="old"?"El servidor todavía no tiene la búsqueda. Escribí el ticker exacto y tocá Enter.":"No pude buscar ahora. Escribí el ticker exacto y tocá Enter.")); }); }
+  $("btnSearch").addEventListener("click",function(){ $("srchIn").value=""; srchRun(); $("dlgSrch").showModal(); setTimeout(function(){ $("srchIn").focus(); },50); });
+  $("srchIn").addEventListener("input",function(){ clearTimeout(srchT); srchT=setTimeout(srchRun,280); });
+  $("srchIn").addEventListener("keydown",function(e){ if(e.key!=="Enter") return; e.preventDefault(); var f=$("srchList").querySelector(".srch-r b"); var q=$("srchIn").value.trim().toUpperCase();
+    var ex=[].some.call($("srchList").querySelectorAll(".srch-r b"),function(b){ return b.textContent===q; });
+    srchOpen(ex?q:(f?f.textContent:q)); });
+  $("srchClose").addEventListener("click",function(){ $("dlgSrch").close(); });
+  $("dlgSrch").addEventListener("click",function(e){ if(e.target===this) this.close(); });
   $("dlgIns").addEventListener("click",function(e){ if(e.target===this) this.close(); });
   $("dlgCob").addEventListener("click",function(e){ if(e.target===this) this.close(); });
   var dlgCup=$("dlgCup"), cupPos=null, cupRows=[];

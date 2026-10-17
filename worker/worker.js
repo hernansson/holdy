@@ -49,6 +49,7 @@ export default {
     if (url.pathname === "/history") return history(url, cors);
     if (url.pathname === "/fx") return fxHistory(cors);
     if (url.pathname === "/insight") return insight(url, env, cors);
+    if (url.pathname === "/search") return searchSym(url, env, cors);
     if (url.pathname !== "/quote") return json({ error: "not_found" }, 404, cors);
 
     const symbol = (url.searchParams.get("symbol") || "").toUpperCase();
@@ -505,4 +506,33 @@ function parseAi(txt) {
     titulares: Array.isArray(o.titulares) ? o.titulares.slice(0, 8).map((x) => String(x).slice(0, 240)) : [] };
   const plain = String(txt).replace(/[{}"]/g, "").trim();
   return plain.length > 40 ? { resumen: plain.slice(0, 1500), aFavor: [], enContra: [] } : null;
+}
+
+// ---------- /search?q=nvidia: buscar acciones y ETFs de EE.UU. por nombre o ticker (Finnhub) ----------
+const srchMem = new Map();
+async function searchSym(url, env, cors) {
+  const q = (url.searchParams.get("q") || "").trim().slice(0, 40);
+  if (q.length < 1) return json({ result: [] }, 200, cors);
+  if (!env.FINNHUB_KEY) return json({ error: "not_configured" }, 500, cors);
+  const k = q.toLowerCase();
+  const hit = srchMem.get(k);
+  if (hit && Date.now() - hit.at < 6 * 3600 * 1000) return json(hit.data, 200, cors, "HIT");
+  let j = null;
+  try {
+    const r = await fetch("https://finnhub.io/api/v1/search?q=" + encodeURIComponent(q) + "&exchange=US&token=" + encodeURIComponent(env.FINNHUB_KEY));
+    if (r.status === 429) return json({ error: "rate_limited" }, 429, cors);
+    j = r.ok ? await r.json() : null;
+  } catch (e) { j = null; }
+  if (!j) return json({ error: "upstream" }, 502, cors);
+  const okType = /^(common stock|adr|etp|etf|reit|)$/i;
+  const qu = q.toUpperCase();
+  const res = (Array.isArray(j.result) ? j.result : [])
+    .filter((x) => x && x.symbol && /^[A-Z][A-Z0-9\-]{0,9}$/.test(x.symbol) && okType.test(String(x.type || "")))
+    .map((x) => ({ s: x.symbol, n: String(x.description || "").slice(0, 80), t: /etp|etf/i.test(String(x.type || "")) ? "ETF" : "" }))
+    .sort((a, b) => (b.s === qu) - (a.s === qu) || a.s.length - b.s.length)
+    .slice(0, 10);
+  const data = { result: res };
+  srchMem.set(k, { at: Date.now(), data });
+  if (srchMem.size > 500) srchMem.delete(srchMem.keys().next().value);
+  return json(data, 200, cors, "MISS");
 }
