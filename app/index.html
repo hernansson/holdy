@@ -1233,7 +1233,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v190"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v191"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -2877,7 +2877,7 @@
     $("ibOff").hidden=!con; $("ibGo").textContent=con?"Actualizar ahora":"Conectar y traer";
     $("ibTok").placeholder=con?"••••••••••••"+ibSrv.tail:"Pegá el token de IBKR";
     $("ibQid").placeholder=con&&ibSrv.query?"•••"+String(ibSrv.query).slice(-3):"Ej. 1234567";
-    var sel=$("ibPid"); sel.textContent=""; var want=ibHint||(ibSrv&&ibSrv.pid)||ibA.pid||profData.active;
+    var sel=$("ibPid"); sel.textContent=""; sel.parentNode.hidden=!!ibHint; /* desde un perfil: se carga en ese */ var want=ibHint||(ibSrv&&ibSrv.pid)||ibA.pid||profData.active;
     profData.profiles.filter(function(p){return !p.readOnly;}).forEach(function(p){ var o=document.createElement("option"); o.value=p.id; o.textContent=p.name; if(p.id===want) o.selected=true; sel.appendChild(o); });
   }
   var ibHint="";
@@ -3809,7 +3809,9 @@
   });
   $("peUse").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); setActive(id); });
   $("peShare").addEventListener("click",function(){ if(pvProf) showShare(pvProf); });
-  $("peIbAuto").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); openIb(id); });
+  /* Se abre encima de Perfiles; al cerrarla se vuelve al perfil, con el estado actualizado. */
+  $("peIbAuto").addEventListener("click",function(){ if(!pvProf) return; openIb(pvProf.id); });
+  $("dlgIb").addEventListener("close",function(){ if(dlgProf.open&&pvProf) openProfEdit(pvProf); });
   $("peImport").addEventListener("click",function(){ if(!pvProf) return; ibTargetId=pvProf.id; ibReset(); pvShow("imp"); });
   $("pnImport").addEventListener("click",function(){ ibTargetId="new"; ibReset(); pvShow("imp"); });
   $("peDel").addEventListener("click",function(){
