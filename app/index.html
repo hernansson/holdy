@@ -1183,7 +1183,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v185"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v186"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -3641,7 +3641,7 @@
       var n=(pr.id===profData.active?positions:pr.positions).length;
       var b=el("button","pcard"); b.type="button";
       var pn=el("div","pn"); pn.appendChild(el("b",null,pr.name));
-      pn.appendChild(el("span",null,n+(n===1?" posición":" posiciones")+(pr.owner?" · de "+pr.owner:"")+(!pr.readOnly&&pr.sync?" · compartido con código "+fmtCode(pr.sync.code):"")));
+      pn.appendChild(el("span",null,n+(n===1?" posición":" posiciones")+(pr.owner?" · de "+pr.owner:"")+(!pr.readOnly&&pr.sync?" · compartido":"")));
       b.appendChild(pn);
       if(pr.id===profData.active) b.appendChild(el("span","chip","en uso"));
       if(pr.readOnly) b.appendChild(el("span","chip","solo lectura"));
