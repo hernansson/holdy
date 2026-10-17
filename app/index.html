@@ -718,7 +718,6 @@
     <button type="button" class="dr-item" id="btnRefresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span>Actualizar precios</span></button>
     <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
     <button type="button" class="dr-item" id="btnCash"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Plata sin invertir</span></button>
-    <button type="button" class="dr-item" id="btnIbAuto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.7L20 8.6"/><path d="M20 4v4.6h-4.6"/><path d="M20 12a8 8 0 0 1-13.7 5.7L4 15.4"/><path d="M4 20v-4.6h4.6"/></svg><span>IBKR automático</span></button>
     <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Administrar perfiles</span></button>
     <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Cuenta y respaldo</span></button>
     <div class="dr-sep"></div>
@@ -987,6 +986,7 @@
       <div class="pacts">
         <button type="button" id="peUse" class="primary">Usar este perfil</button>
         <button type="button" id="peImport">Importar operaciones de IBKR, Balanz o IOL</button>
+        <button type="button" id="peIbAuto" hidden>IBKR automático</button>
         <button type="button" id="peShare">Compartir con un amigo</button>
         <button type="button" id="peDel" class="danger">Eliminar perfil</button>
       </div>
@@ -1220,7 +1220,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v188"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v189"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -2864,10 +2864,11 @@
     $("ibOff").hidden=!con; $("ibGo").textContent=con?"Actualizar ahora":"Conectar y traer";
     $("ibTok").placeholder=con?"Dejalo vacío para seguir usando el mismo":"Pegá el token de IBKR";
     if(con&&!$("ibQid").value) $("ibQid").value=ibSrv.query;
-    var sel=$("ibPid"); sel.textContent=""; var want=(ibSrv&&ibSrv.pid)||ibA.pid||profData.active;
+    var sel=$("ibPid"); sel.textContent=""; var want=ibHint||(ibSrv&&ibSrv.pid)||ibA.pid||profData.active;
     profData.profiles.filter(function(p){return !p.readOnly;}).forEach(function(p){ var o=document.createElement("option"); o.value=p.id; o.textContent=p.name; if(p.id===want) o.selected=true; sel.appendChild(o); });
   }
-  function openIb(){
+  var ibHint="";
+  function openIb(pid){ ibHint=pid||"";
     if(!auth){ alert("Para conectar IBKR tenés que entrar con tu cuenta de Google (menú → Cuenta y respaldo)."); return; }
     $("ibTok").value=""; $("ibQid").value=""; ibSrv=null; ibRenderDlg("Revisando…"); $("dlgIb").showModal();
     api("GET","/me/ibkr").then(function(r){ if(r.status===404) throw new Error("old"); return r.json(); }).then(function(j){ ibSrv=j; if(!j.connected){ ibA.on=0; ibSaveLocal(); } else { ibA.on=1; ibSaveLocal(); } ibRenderDlg(); })
@@ -2891,7 +2892,7 @@
       .catch(function(e){ ibA.err=e&&e.message||"Error"; ibSaveLocal(); if(silent) showBanner("IBKR automático: "+ibA.err,false); throw e; })
       .then(function(x){ ibBusy=false; return x; },function(e){ ibBusy=false; throw e; });
   }
-  $("btnIbAuto").addEventListener("click",function(){ openIb(); });
+
   $("ibCancel").addEventListener("click",function(){ $("dlgIb").close(); });
   $("ibGo").addEventListener("click",function(){
     var tok=$("ibTok").value.replace(/\s+/g,""), q=$("ibQid").value.replace(/\s+/g,""), pid=$("ibPid").value, con=!!(ibSrv&&ibSrv.connected);
@@ -3452,7 +3453,7 @@
   dlgMenu.addEventListener("click",function(e){ if(e.target===dlgMenu) dlgMenu.close(); });
   $("btnMenu").addEventListener("click",function(){ renderProfile(); dlgMenu.showModal(); });
   $("menuClose").addEventListener("click",function(){ dlgMenu.close(); });
-  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash","btnIbAuto"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
+  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
   $("btnCmp").addEventListener("click",openCmp);
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
@@ -3780,6 +3781,8 @@
     $("peInfo").hidden=!pr.readOnly;
     $("peUse").hidden=pr.id===profData.active;
     $("peImport").hidden=!!pr.readOnly; $("peShare").hidden=!!pr.readOnly;
+    var hasIb=(pr.id===profData.active?positions:pr.positions).concat(pr.closed||[]).some(function(x){ return x.broker==="IBKR"; });
+    $("peIbAuto").hidden=!!pr.readOnly||!hasIb; $("peIbAuto").textContent="IBKR automático"+(ibA.on&&ibA.pid===pr.id?" · conectado":"");
     $("peDel").hidden=profData.profiles.length<2;
     pvShow("edit",pr);
   }
@@ -3790,6 +3793,7 @@
   });
   $("peUse").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); setActive(id); });
   $("peShare").addEventListener("click",function(){ if(pvProf) showShare(pvProf); });
+  $("peIbAuto").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); openIb(id); });
   $("peImport").addEventListener("click",function(){ if(!pvProf) return; ibTargetId=pvProf.id; ibReset(); pvShow("imp"); });
   $("pnImport").addEventListener("click",function(){ ibTargetId="new"; ibReset(); pvShow("imp"); });
   $("peDel").addEventListener("click",function(){
