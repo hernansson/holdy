@@ -202,6 +202,13 @@
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   /* Pestaña Cobros */
   .cob-hd{padding:4px 2px 12px}
+  .pe-list{display:grid; gap:6px} .pe-k{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:8px 4px 0} .pe-k[hidden]{display:none}
+  .pe-grp{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden}
+  .pe-r{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; border:0; border-radius:0; box-shadow:none; padding:12px 14px; min-height:0; color:var(--text); font-weight:600; font-size:15px}
+  .pe-r[hidden]{display:none} .pe-grp .pe-r + .pe-r:not([hidden]){border-top:1px solid var(--line)}
+  .pe-t{display:grid; gap:2px; flex:1; min-width:0} .pe-t small{font-size:12.5px; font-weight:400; color:var(--muted)} .pe-r .go{color:var(--muted); font-size:20px}
+  .pe-grp:not(:has(.pe-r:not([hidden]))){display:none}
+  .pe-del{background:transparent; border:0; box-shadow:none; color:var(--neg); font-weight:600; font-size:14px; justify-self:center; margin-top:8px; min-height:36px}
   .ib-st{font-size:14px; line-height:1.45; padding:10px 12px; border-radius:12px; background:var(--chip)} .ib-st:empty{display:none} .ib-st.ok{background:color-mix(in srgb,var(--pos) 12%,transparent)} .ib-st.err{background:color-mix(in srgb,var(--neg) 12%,transparent)}
   dialog#dlgSrch{height:min(70vh,640px)} @media (max-width:699px){ dialog#dlgSrch{height:88dvh} } dialog#dlgSrch[open]{display:flex; flex-direction:column}
   #srchIn{width:100%; box-sizing:border-box; font-size:16px; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--sh-card); color:var(--text); margin:2px 0 8px}
@@ -983,13 +990,19 @@
         <div class="inrow"><input id="peName" maxlength="40" aria-label="Nombre del perfil"><button type="button" id="peSave">Guardar</button></div>
       </label>
       <div class="help" id="peInfo"></div>
-      <div class="pacts">
-        <button type="button" id="peUse" class="primary">Usar este perfil</button>
-        <button type="button" id="peImport">Importar operaciones de IBKR, Balanz o IOL</button>
-        <button type="button" id="peIbAuto" hidden>IBKR automático</button>
-        <button type="button" id="peShare">Compartir con un amigo</button>
-        <button type="button" id="peDel" class="danger">Eliminar perfil</button>
+      <button type="button" id="peUse" class="primary">Usar este perfil</button>
+      <div class="pe-list">
+        <div class="pe-k">Tus operaciones</div>
+        <div class="pe-grp">
+          <button type="button" class="pe-r" id="peImport"><span class="pe-t">Importar archivo<small>Excel de Balanz o CSV de IBKR / IOL</small></span><span class="go">›</span></button>
+          <button type="button" class="pe-r" id="peIbAuto" hidden><span class="pe-t">IBKR automático<small id="peIbSub">Se actualiza solo una vez por día</small></span><span class="go">›</span></button>
+        </div>
+        <div class="pe-k">Compartir</div>
+        <div class="pe-grp">
+          <button type="button" class="pe-r" id="peShare"><span class="pe-t">Compartir con un amigo<small id="peShSub">Ve tu cartera en solo lectura</small></span><span class="go">›</span></button>
+        </div>
       </div>
+    <button type="button" id="peDel" class="pe-del">Eliminar perfil</button>
     <div class="sharebox" id="shareBox" hidden>
       <strong id="shareTitle"></strong>
       <div id="codeWrap" hidden>
@@ -1220,7 +1233,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v189"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v190"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -2854,23 +2867,23 @@
   // ---------- IBKR automático: el Worker pide el reporte Flex a IBKR y se importa como un archivo ----------
   var LS_IB="cartera.ibkr.v1", ibA=load(LS_IB,null)||{}, ibBusy=false, ibSrv=null;
   function ibSaveLocal(){ save(LS_IB,ibA); }
-  function ibWhen(t){ return t?new Date(t).toLocaleString("es-AR",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}):""; }
+  function ibWhen(t){ return t?new Date(t).toLocaleString("es-AR",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}):""; }
   function ibRenderDlg(note,cls){
     var st=$("ibAutoSt"), con=!!(ibSrv&&ibSrv.connected);
     st.className="ib-st"+(cls?" "+cls:"");
-    st.textContent=note||(con?("Conectado (token …"+ibSrv.tail+", Flex Query "+ibSrv.query+")."+(ibA.last?" Última actualización: "+ibWhen(ibA.last)+".":"")+(ibSrv.err?" ⚠ "+ibSrv.err:"")):"");
+    st.textContent=note||(con?("Conectado (token ••••"+ibSrv.tail+", Flex Query •••"+String(ibSrv.query||"").slice(-3)+")."+(ibA.last?" Última actualización: "+ibWhen(ibA.last)+".":"")+(ibSrv.err?" ⚠ "+ibSrv.err:"")+" Para cambiar el token o la query, pegá los nuevos; si los dejás vacíos, se usan los mismos."):"");
     if(!note&&con) st.className="ib-st "+(ibSrv.err?"err":"ok");
     $("ibAutoForm").querySelector(".help").hidden=con;
     $("ibOff").hidden=!con; $("ibGo").textContent=con?"Actualizar ahora":"Conectar y traer";
-    $("ibTok").placeholder=con?"Dejalo vacío para seguir usando el mismo":"Pegá el token de IBKR";
-    if(con&&!$("ibQid").value) $("ibQid").value=ibSrv.query;
+    $("ibTok").placeholder=con?"••••••••••••"+ibSrv.tail:"Pegá el token de IBKR";
+    $("ibQid").placeholder=con&&ibSrv.query?"•••"+String(ibSrv.query).slice(-3):"Ej. 1234567";
     var sel=$("ibPid"); sel.textContent=""; var want=ibHint||(ibSrv&&ibSrv.pid)||ibA.pid||profData.active;
     profData.profiles.filter(function(p){return !p.readOnly;}).forEach(function(p){ var o=document.createElement("option"); o.value=p.id; o.textContent=p.name; if(p.id===want) o.selected=true; sel.appendChild(o); });
   }
   var ibHint="";
   function openIb(pid){ ibHint=pid||"";
     if(!auth){ alert("Para conectar IBKR tenés que entrar con tu cuenta de Google (menú → Cuenta y respaldo)."); return; }
-    $("ibTok").value=""; $("ibQid").value=""; ibSrv=null; ibRenderDlg("Revisando…"); $("dlgIb").showModal();
+    $("ibTok").value=""; $("ibQid").value=""; ibSrv=null; ibRenderDlg("Revisando…"); $("dlgIb").showModal(); if(document.activeElement) document.activeElement.blur();
     api("GET","/me/ibkr").then(function(r){ if(r.status===404) throw new Error("old"); return r.json(); }).then(function(j){ ibSrv=j; if(!j.connected){ ibA.on=0; ibSaveLocal(); } else { ibA.on=1; ibSaveLocal(); } ibRenderDlg(); })
       .catch(function(e){ ibRenderDlg(e&&e.message==="old"?"El servidor todavía no tiene esta función. Esperá unos minutos y volvé a abrir.":"No pude consultar el estado. Revisá tu conexión.","err"); });
   }
@@ -2895,7 +2908,7 @@
 
   $("ibCancel").addEventListener("click",function(){ $("dlgIb").close(); });
   $("ibGo").addEventListener("click",function(){
-    var tok=$("ibTok").value.replace(/\s+/g,""), q=$("ibQid").value.replace(/\s+/g,""), pid=$("ibPid").value, con=!!(ibSrv&&ibSrv.connected);
+    var tok=$("ibTok").value.replace(/\s+/g,""), con=!!(ibSrv&&ibSrv.connected), q=$("ibQid").value.replace(/\s+/g,"")||(con?String(ibSrv.query||""):""), pid=$("ibPid").value;
     if(!con&&!/^[A-Za-z0-9]{10,64}$/.test(tok)){ ibRenderDlg("Pegá el token completo del Flex Web Service.","err"); return; }
     if(tok&&!/^[A-Za-z0-9]{10,64}$/.test(tok)){ ibRenderDlg("Ese token no parece válido.","err"); return; }
     if(!/^\d{3,12}$/.test(q)){ ibRenderDlg("El número de Flex Query son solo dígitos (lo ves en la lista de Flex Queries de IBKR).","err"); return; }
@@ -3782,7 +3795,10 @@
     $("peUse").hidden=pr.id===profData.active;
     $("peImport").hidden=!!pr.readOnly; $("peShare").hidden=!!pr.readOnly;
     var hasIb=(pr.id===profData.active?positions:pr.positions).concat(pr.closed||[]).some(function(x){ return x.broker==="IBKR"; });
-    $("peIbAuto").hidden=!!pr.readOnly||!hasIb; $("peIbAuto").textContent="IBKR automático"+(ibA.on&&ibA.pid===pr.id?" · conectado":"");
+    $("peIbAuto").hidden=!!pr.readOnly||!hasIb;
+    $("peIbSub").textContent=ibA.on&&ibA.pid===pr.id?("Conectado"+(ibA.last?" · actualizado "+ibWhen(ibA.last):"")+(ibA.err?" · ⚠ revisar":"")):"Traé tus operaciones y tu efectivo solos, cada día";
+    $("peShSub").textContent=pr.sync?"Compartido · tocá para ver el código o dejar de compartir":"Ve tu cartera en solo lectura y se actualiza sola";
+    document.querySelectorAll("#pvEdit .pe-k").forEach(function(k){ k.hidden=!!pr.readOnly; });
     $("peDel").hidden=profData.profiles.length<2;
     pvShow("edit",pr);
   }
