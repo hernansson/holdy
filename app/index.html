@@ -202,6 +202,7 @@
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   /* Pestaña Cobros */
   .cob-hd{padding:4px 2px 12px}
+  .ib-st{font-size:14px; line-height:1.45; padding:10px 12px; border-radius:12px; background:var(--chip)} .ib-st:empty{display:none} .ib-st.ok{background:color-mix(in srgb,var(--pos) 12%,transparent)} .ib-st.err{background:color-mix(in srgb,var(--neg) 12%,transparent)}
   dialog#dlgSrch{height:min(70vh,640px)} @media (max-width:699px){ dialog#dlgSrch{height:88dvh} } dialog#dlgSrch[open]{display:flex; flex-direction:column}
   #srchIn{width:100%; box-sizing:border-box; font-size:16px; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--sh-card); color:var(--text); margin:2px 0 8px}
   #srchList{flex:1 1 auto; overflow-y:auto; margin:0 -18px; padding:0 18px calc(20px + env(safe-area-inset-bottom))}
@@ -717,6 +718,7 @@
     <button type="button" class="dr-item" id="btnRefresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span>Actualizar precios</span></button>
     <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
     <button type="button" class="dr-item" id="btnCash"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Plata sin invertir</span></button>
+    <button type="button" class="dr-item" id="btnIbAuto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.7L20 8.6"/><path d="M20 4v4.6h-4.6"/><path d="M20 12a8 8 0 0 1-13.7 5.7L4 15.4"/><path d="M4 20v-4.6h4.6"/></svg><span>IBKR automático</span></button>
     <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Administrar perfiles</span></button>
     <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Cuenta y respaldo</span></button>
     <div class="dr-sep"></div>
@@ -853,6 +855,24 @@
 </dialog>
 
 <!-- comparación: pantalla propia (ver #cmpView más abajo) -->
+
+<dialog id="dlgIb" class="sheet">
+  <form method="dialog" id="formIb">
+    <h3>IBKR automático</h3>
+    <div class="ib-st" id="ibAutoSt"></div>
+    <div id="ibAutoForm">
+      <div class="help" style="font-size:13.5px;color:var(--muted);line-height:1.45">Holdy trae solo tus operaciones, dividendos y efectivo de Interactive Brokers una vez por día. Necesita el <b>token del Flex Web Service</b> (IBKR → Settings → Account Settings → Flex Web Service) y el <b>número de tu Flex Query</b> (en formato CSV, con Trades, Cash Transactions y Cash Report). El token solo sirve para leer reportes: no permite operar ni mover plata.</div>
+      <label>Token<input id="ibTok" autocomplete="off" spellcheck="false" inputmode="numeric" placeholder="Pegá el token de IBKR"></label>
+      <label>Número de Flex Query (Query ID)<input id="ibQid" autocomplete="off" inputmode="numeric" placeholder="Ej. 1234567"></label>
+    </div>
+    <label>Cargar en el perfil<select id="ibPid"></select></label>
+    <div class="btns">
+      <button type="button" id="ibOff" class="danger" hidden>Desconectar</button>
+      <button type="button" id="ibCancel">Cerrar</button>
+      <button type="button" id="ibGo" class="primary">Conectar y traer</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="dlgSrch" class="sheet">
   <div class="cob-sheet">
@@ -1200,7 +1220,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v187"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v188"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -2831,6 +2851,69 @@
   // ---------- Editar cupones cobrados de un bono ----------
   $("cobClose").addEventListener("click",function(){ $("dlgCob").close(); });
   $("insClose").addEventListener("click",function(){ $("dlgIns").close(); });
+  // ---------- IBKR automático: el Worker pide el reporte Flex a IBKR y se importa como un archivo ----------
+  var LS_IB="cartera.ibkr.v1", ibA=load(LS_IB,null)||{}, ibBusy=false, ibSrv=null;
+  function ibSaveLocal(){ save(LS_IB,ibA); }
+  function ibWhen(t){ return t?new Date(t).toLocaleString("es-AR",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}):""; }
+  function ibRenderDlg(note,cls){
+    var st=$("ibAutoSt"), con=!!(ibSrv&&ibSrv.connected);
+    st.className="ib-st"+(cls?" "+cls:"");
+    st.textContent=note||(con?("Conectado (token …"+ibSrv.tail+", Flex Query "+ibSrv.query+")."+(ibA.last?" Última actualización: "+ibWhen(ibA.last)+".":"")+(ibSrv.err?" ⚠ "+ibSrv.err:"")):"");
+    if(!note&&con) st.className="ib-st "+(ibSrv.err?"err":"ok");
+    $("ibAutoForm").querySelector(".help").hidden=con;
+    $("ibOff").hidden=!con; $("ibGo").textContent=con?"Actualizar ahora":"Conectar y traer";
+    $("ibTok").placeholder=con?"Dejalo vacío para seguir usando el mismo":"Pegá el token de IBKR";
+    if(con&&!$("ibQid").value) $("ibQid").value=ibSrv.query;
+    var sel=$("ibPid"); sel.textContent=""; var want=(ibSrv&&ibSrv.pid)||ibA.pid||profData.active;
+    profData.profiles.filter(function(p){return !p.readOnly;}).forEach(function(p){ var o=document.createElement("option"); o.value=p.id; o.textContent=p.name; if(p.id===want) o.selected=true; sel.appendChild(o); });
+  }
+  function openIb(){
+    if(!auth){ alert("Para conectar IBKR tenés que entrar con tu cuenta de Google (menú → Cuenta y respaldo)."); return; }
+    $("ibTok").value=""; $("ibQid").value=""; ibSrv=null; ibRenderDlg("Revisando…"); $("dlgIb").showModal();
+    api("GET","/me/ibkr").then(function(r){ if(r.status===404) throw new Error("old"); return r.json(); }).then(function(j){ ibSrv=j; if(!j.connected){ ibA.on=0; ibSaveLocal(); } else { ibA.on=1; ibSaveLocal(); } ibRenderDlg(); })
+      .catch(function(e){ ibRenderDlg(e&&e.message==="old"?"El servidor todavía no tiene esta función. Esperá unos minutos y volvé a abrir.":"No pude consultar el estado. Revisá tu conexión.","err"); });
+  }
+  /* Trae el reporte y lo aplica al perfil elegido. silent: al abrir la app, sin preguntas. */
+  function ibSync(silent,force){
+    if(ibBusy||!auth) return Promise.resolve();
+    ibBusy=true;
+    return api("POST","/me/ibkr/sync"+(force?"?force=1":"")).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j&&j.msg)||"No pude traer el reporte de IBKR."); return j; }); })
+      .then(function(j){
+        var R=ibkrState(j.csv||""); if(R.err) throw new Error("El reporte de IBKR llegó pero: "+R.err);
+        var pid=(ibSrv&&ibSrv.pid)||ibA.pid||profData.active, pr=profData.profiles.filter(function(p){return p.id===pid&&!p.readOnly;})[0]||cur();
+        cur().positions=positions;
+        ibApplyTo(pr,R.st);
+        save(LS_PROF,profData); render(); refresh(true);
+        try{ queuePush(pr); }catch(e){}
+        ibA.last=j.at||Date.now(); ibA.err=""; ibA.on=1; ibA.pid=pr.id; ibSaveLocal();
+        return {msg:R.msg,pr:pr};
+      })
+      .catch(function(e){ ibA.err=e&&e.message||"Error"; ibSaveLocal(); if(silent) showBanner("IBKR automático: "+ibA.err,false); throw e; })
+      .then(function(x){ ibBusy=false; return x; },function(e){ ibBusy=false; throw e; });
+  }
+  $("btnIbAuto").addEventListener("click",function(){ openIb(); });
+  $("ibCancel").addEventListener("click",function(){ $("dlgIb").close(); });
+  $("ibGo").addEventListener("click",function(){
+    var tok=$("ibTok").value.replace(/\s+/g,""), q=$("ibQid").value.replace(/\s+/g,""), pid=$("ibPid").value, con=!!(ibSrv&&ibSrv.connected);
+    if(!con&&!/^[A-Za-z0-9]{10,64}$/.test(tok)){ ibRenderDlg("Pegá el token completo del Flex Web Service.","err"); return; }
+    if(tok&&!/^[A-Za-z0-9]{10,64}$/.test(tok)){ ibRenderDlg("Ese token no parece válido.","err"); return; }
+    if(!/^\d{3,12}$/.test(q)){ ibRenderDlg("El número de Flex Query son solo dígitos (lo ves en la lista de Flex Queries de IBKR).","err"); return; }
+    var changed=tok||!con||q!==ibSrv.query||pid!==(ibSrv.pid||"");
+    $("ibGo").disabled=true; ibRenderDlg("Pidiendo el reporte a IBKR… puede tardar unos segundos.");
+    (changed?api("PUT","/me/ibkr",{token:tok,query:q,pid:pid}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j&&j.error==="bad_token"?"Ese token no parece válido.":"No pude guardar los datos."); }); }):Promise.resolve())
+      .then(function(){ ibSrv={connected:true,query:q,pid:pid,tail:tok?tok.slice(-4):(ibSrv&&ibSrv.tail)||"",err:""}; ibA.pid=pid; ibA.on=1; ibSaveLocal(); return ibSync(false,!changed); })
+      .then(function(x){ $("ibTok").value=""; ibRenderDlg("Listo: "+(x?x.msg:"")+" Se cargó en “"+(x?x.pr.name:"")+"”. De ahora en más se actualiza sola una vez por día.","ok"); })
+      .catch(function(e){ if(ibSrv) ibSrv.err=e&&e.message; ibRenderDlg("⚠ "+(e&&e.message||"No se pudo."),"err"); })
+      .then(function(){ $("ibGo").disabled=false; });
+  });
+  $("ibOff").addEventListener("click",function(){
+    if(!confirm("¿Desconectar IBKR? Lo que ya se importó queda en tu cartera; solo deja de actualizarse solo.")) return;
+    api("DELETE","/me/ibkr").then(function(){ ibSrv={connected:false}; ibA={}; ibSaveLocal(); $("ibQid").value=""; ibRenderDlg("Desconectado."); });
+  });
+  /* Al abrir la app: si está conectado y pasaron más de 12 horas, se actualiza solo. */
+  var ibTry=0;
+  function ibAuto(){ if(!auth||!ibA.on||!navigator.onLine) return; if(Date.now()-(ibA.last||0)<12*3600*1000||Date.now()-ibTry<3600*1000) return; ibTry=Date.now(); ibSync(true).catch(function(){}); }
+
   // ---------- Buscar cualquier acción o ETF y abrir "¿Qué pasó con X?" ----------
   var srchT=null, srchSeq=0;
   function srchMine(){ var seen={}, out=[]; positions.forEach(function(p){ if(insOk(p)&&!seen[p.ticker]){ seen[p.ticker]=1; out.push({s:p.ticker,n:"En tu cartera",mine:1}); } }); return out; }
@@ -3369,7 +3452,7 @@
   dlgMenu.addEventListener("click",function(e){ if(e.target===dlgMenu) dlgMenu.close(); });
   $("btnMenu").addEventListener("click",function(){ renderProfile(); dlgMenu.showModal(); });
   $("menuClose").addEventListener("click",function(){ dlgMenu.close(); });
-  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
+  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash","btnIbAuto"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
   $("btnCmp").addEventListener("click",openCmp);
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
@@ -3904,7 +3987,7 @@
     for(var k=hi+1;k<rows.length;k++){
       var w=rows[k];
       /* Un Flex Query con varias secciones (Trades, Transfers…) trae un encabezado por sección: solo se leen las de Trades. */
-      if(hi>=0){ var nmk=w.map(norm); if(nmk.indexOf("symbol")>=0&&(nmk.indexOf("quantity")>=0||nmk.indexOf("tradeprice")>=0||nmk.indexOf("amount")>=0||nmk.indexOf("clientaccountid")>=0)){
+      if(hi>=0){ var nmk=w.map(norm); if((nmk.indexOf("symbol")>=0&&(nmk.indexOf("quantity")>=0||nmk.indexOf("tradeprice")>=0||nmk.indexOf("amount")>=0||nmk.indexOf("clientaccountid")>=0))||(nmk.indexOf("clientaccountid")>=0&&nmk.indexOf("currencyprimary")>=0)){
         skipSec=!(nmk.indexOf("tradeprice")>=0||nmk.indexOf("tprice")>=0);
         if(!skipSec){ ix={}; nmk.forEach(function(kk,j){ if(!(kk in ix)) ix[kk]=j; }); C={asset:g("assetclass"),ccy:g("currencyprimary","currency"),sym:g("symbol"),date:g("tradedate"),dt:g("datetime","date/time"),qty:g("quantity"),px:g("tradeprice","tprice"),side:g("buy/sell"),lvl:g("levelofdetail"),fee:g("ibcommission","commission"),feeCcy:g("ibcommissioncurrency")}; }
         continue; } }
@@ -3926,7 +4009,25 @@
       out.trades.push({sym:sym,d:d,q:Math.abs(qty),p:px,s:side==="SELL"?"s":"b",f:fee});
     }
     out.divs=ibkrDivs(rows);
+    out.cash=ibkrCash(rows);
     return out;
+  }
+  // Sección "Cash Report" del Flex Query: efectivo al cierre (incluye lo no liquidado). null si el archivo no la trae.
+  function ibkrCash(rows){
+    function norm(s){ return String(s).toLowerCase().replace(/[^a-z\/]/g,""); }
+    var C=null, best=null;
+    rows.forEach(function(w){
+      var nm=w.map(norm);
+      if(nm.indexOf("clientaccountid")>=0||nm.indexOf("currencyprimary")>=0){
+        var ie=nm.indexOf("endingcash"); C=ie>=0?{e:ie,c:nm.indexOf("currencyprimary"),d:["todate","reportdate","date"].map(function(k){return nm.indexOf(k);}).filter(function(i){return i>=0;})[0],acc:nm.indexOf("clientaccountid")}:null; return; }
+      if(!C) return;
+      if(C.acc>=0&&String(w[C.acc]||"").trim()==="-") return;
+      var cu=C.c>=0?String(w[C.c]||"").toUpperCase():"USD", a=parseFloat(w[C.e]);
+      if(!isFinite(a)) return;
+      var rank=cu==="BASE_SUMMARY"?2:(cu==="USD"?1:0); if(!rank) return;
+      if(!best||rank>best.r) best={r:rank,a:Math.round(a*100)/100,d:ibDate(C.d!==undefined?w[C.d]:"")||""};
+    });
+    return best?{a:best.a,d:best.d}:null;
   }
   // Sección "Cash Transactions" del Flex Query: dividendos (y su retención) en USD, netos por acción y fecha. null si el archivo no la trae.
   function ibkrDivs(rows){
@@ -4328,19 +4429,16 @@
 
   var ibState=null;
   function ibMsg(t){ var m=$("ibMsg"); m.textContent=t||""; m.hidden=!t; }
-  function ibRead(text){
-    $("ibAct").hidden=true; ibState=null;
+  /* Arma lo que se importa de un CSV de IBKR: {st:{pos,closed,broker,divs,cash}, msg} o {err}. */
+  function ibkrState(text){
     var P=ibkrParse(text);
-    if(P.error){
-      ibMsg(P.error==="vacio"?"El archivo está vacío.":P.error==="columnas"?"Al archivo le faltan columnas (hacen falta Symbol, Quantity, TradePrice y la fecha). Revisá que el Flex Query tenga todos los campos de Trades.":"No reconozco este formato. Tiene que ser el CSV de un Flex Query con la sección Trades.");
-      return;
-    }
-    if(!P.trades.length){ ibMsg("No encontré compras ni ventas de acciones en USD en ese archivo."+(P.nonUsd?" ("+P.nonUsd+" en otra moneda quedaron afuera.)":"")); return; }
+    if(P.error) return {err:P.error==="vacio"?"El archivo está vacío.":P.error==="columnas"?"Al archivo le faltan columnas (hacen falta Symbol, Quantity, TradePrice y la fecha). Revisá que el Flex Query tenga todos los campos de Trades.":"No reconozco este formato. Tiene que ser el CSV de un Flex Query con la sección Trades."};
+    if(!P.trades.length) return {err:"No encontré compras ni ventas de acciones en USD"+(P.nonUsd?" ("+P.nonUsd+" en otra moneda quedaron afuera).":".")};
     var B=ibkrBuild(P.trades), pos=[], closed=[];
     B.open.forEach(function(x){ var c=cleanPos({broker:"IBKR",ccy:"USD",ticker:x.tk,lots:x.lots,source:"auto",note:"Importado de IBKR"},false); if(c) pos.push(c); });
     B.closed.forEach(function(x){ var c=cleanPos({broker:"IBKR",ccy:"USD",ticker:x.tk,lots:x.lots,sold:x.sold,source:"auto",note:"Importado de IBKR"},false); if(c&&c.sold) closed.push(c); });
-    if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."); return; }
-    ibState={pos:pos,closed:closed,broker:"IBKR",divs:P.divs};
+    if(!pos.length&&!closed.length) return {err:"No pude armar posiciones con esas operaciones."};
+    var st={pos:pos,closed:closed,broker:"IBKR",divs:P.divs,cash:P.cash};
     var tks={}; pos.concat(closed).forEach(function(c){ tks[c.ticker]=1; });
     function fd(s){ return s.split("-").reverse().join("/"); }
     var msg="Encontré "+B.fills+" operaciones de "+Object.keys(tks).length+" acciones, entre el "+fd(B.dmin)+" y el "+fd(B.dmax)+": "+pos.length+" posiciones abiertas y "+closed.length+" ventas.";
@@ -4348,7 +4446,24 @@
     if(P.divs) msg+=" Dividendos: "+P.divs.length+" cobros (US$ "+P.divs.reduce(function(a,x){return a+x.a;},0).toLocaleString("es-AR",{maximumFractionDigits:2})+" netos).";
     else msg+=" Este archivo no trae dividendos (agregá la sección Cash Transactions al Flex Query para importarlos).";
     if(B.orphan) msg+=" "+B.orphan+" venta(s) no tienen compra previa en el archivo (quizás compraste antes del rango) y se ignoraron.";
-    ibMsg(msg); ibShowAct();
+    if(P.cash) msg+=" Efectivo en IBKR: US$ "+P.cash.a.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})+(P.cash.d?" al "+P.cash.d.split("-").reverse().join("/"):"")+" (se carga en Plata sin invertir).";
+    return {st:st,msg:msg,tks:tks};
+  }
+  function ibRead(text){
+    $("ibAct").hidden=true; ibState=null;
+    var R=ibkrState(text); if(R.err){ ibMsg(R.err); return; }
+    ibState=R.st; ibMsg(R.msg); ibShowAct();
+  }
+  /* Aplica lo importado a un perfil: reemplaza lo importado de ese broker; lo cargado a mano no se toca. */
+  function ibApplyTo(pr,st){
+    var br=st.broker;
+    var curP=pr.id===profData.active?positions:pr.positions;
+    pr.positions=curP.filter(function(x){return !isImp(x,br);}).concat(st.pos);
+    pr.closed=(pr.closed||[]).filter(function(x){return !isImp(x,br);}).concat(st.closed);
+    if(st.divs) pr.div=(pr.div||[]).filter(function(x){return x.b!==br;}).concat(st.divs.map(function(x){ return {b:br,t:x.t,d:x.d,a:x.a,c:x.c}; }));
+    if(st.cash){ pr.bal=(pr.bal||[]).filter(function(x){return x.b!==br;}); if(st.cash.a>0){ var o={b:br,a:st.cash.a}; if(st.cash.d) o.d=st.cash.d; pr.bal.push(o); } }
+    pr.mod=Date.now();
+    if(pr.id===profData.active) positions=pr.positions;
   }
   function ibFinish(pos,closed,extra,broker,divs){
     if(!pos.length&&!closed.length){ ibMsg("No pude armar posiciones con esas operaciones."+(extra||"")); return; }
@@ -4501,6 +4616,7 @@
       if(profData.profiles.length>=20){ ibMsg("Llegaste al máximo de 20 perfiles."); return; }
       var n=cleanName($("ibName").value)||ibState.broker;
       var np={id:rid(),name:n,positions:ibState.pos,closed:ibState.closed,readOnly:false,mod:Date.now(),div:(ibState.divs||[]).map(function(x){ return {b:ibState.broker,t:x.t,d:x.d,a:x.a,c:x.c}; })};
+      if(ibState.cash&&ibState.cash.a>0){ np.bal=[{b:ibState.broker,a:ibState.cash.a}]; if(ibState.cash.d) np.bal[0].d=ibState.cash.d; }
       profData.profiles.push(np); profData.active=np.id;
     } else {
       var pr=profData.profiles.filter(function(x){return x.id===v;})[0]; if(!pr||pr.readOnly) return;
@@ -4513,11 +4629,8 @@
         var dids={}; dup.forEach(function(x){ dids[x.id]=1; });
         pr.positions=curP.filter(function(x){ return !dids[x.id]; }); if(pr.id===profData.active) positions=pr.positions;
       }
-      pr.positions=pr.positions.filter(function(x){return !isImp(x,br);}).concat(ibState.pos);
-      pr.closed=(pr.closed||[]).filter(function(x){return !isImp(x,br);}).concat(ibState.closed);
-      /* Dividendos: si el archivo los trae, reemplazan a los de ese broker; si no los trae (IBKR sin Cash Transactions), se dejan los que había. */
-      if(ibState.divs) pr.div=(pr.div||[]).filter(function(x){return x.b!==br;}).concat(ibState.divs.map(function(x){ return {b:br,t:x.t,d:x.d,a:x.a,c:x.c}; }));
-      pr.mod=Date.now(); profData.active=pr.id;
+      /* Dividendos y efectivo: si el archivo los trae, reemplazan a los de ese broker; si no, se dejan los que había. */
+      ibApplyTo(pr,ibState); profData.active=pr.id;
     }
     positions=cur().positions; openId=null; ibState=null;
     save(LS_PROF,profData); ibReset();
@@ -4649,7 +4762,7 @@
         });
       });
     }
-    return step().then(function(){ setCloudStatus("Sincronizado ✓ "+new Date().toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})); render(); })
+    return step().then(function(){ setCloudStatus("Sincronizado ✓ "+new Date().toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})); render(); setTimeout(ibAuto,500); })
       .catch(function(e){
         if(e&&e.message==="expired"){ auth=null; try{ localStorage.removeItem(LS_AUTH); }catch(x){} setCloudStatus("Tu sesión venció. Entrá de nuevo con Google."); }
         else setCloudStatus("No se pudo sincronizar. Se reintenta solo.");
