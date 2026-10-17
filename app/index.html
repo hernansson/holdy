@@ -1183,7 +1183,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v184"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v185"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1544,7 +1544,8 @@
       if(c.syncCode) info=(c.syncGone?"Dejó de compartirse; se ve la última versión.":"Se actualiza sola"+(c.syncChecked?" · revisado "+timeAgo(c.syncChecked):"")+(c.sharedAt?" · último cambio de la cartera: "+new Date(c.sharedAt).toLocaleString("es-AR",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}):""));
     } else if(c.sync){
       var sm=syncMsg[c.id];
-      info="Compartido con código "+fmtCode(c.sync.code)+(sm?(sm.ok?" · sincronizado ✓":" · ⚠ "+sm.err):(c.syncDirty?" · pendiente de sincronizar":""));
+      /* El código se ve en Perfiles; arriba solo se avisa si falló la sincronización. */
+      if(sm&&!sm.ok) info="⚠ No se pudo actualizar la cartera compartida: "+sm.err;
     }
     $("profInfo").textContent=info;
     $("profbar").hidden=!(c.readOnly||info);
@@ -3640,11 +3641,10 @@
       var n=(pr.id===profData.active?positions:pr.positions).length;
       var b=el("button","pcard"); b.type="button";
       var pn=el("div","pn"); pn.appendChild(el("b",null,pr.name));
-      pn.appendChild(el("span",null,n+(n===1?" posición":" posiciones")+(pr.owner?" · de "+pr.owner:"")));
+      pn.appendChild(el("span",null,n+(n===1?" posición":" posiciones")+(pr.owner?" · de "+pr.owner:"")+(!pr.readOnly&&pr.sync?" · compartido con código "+fmtCode(pr.sync.code):"")));
       b.appendChild(pn);
       if(pr.id===profData.active) b.appendChild(el("span","chip","en uso"));
       if(pr.readOnly) b.appendChild(el("span","chip","solo lectura"));
-      else if(pr.sync) b.appendChild(el("span","chip","compartido"));
       b.appendChild(el("span","go","›"));
       b.addEventListener("click",function(){ openProfEdit(pr); });
       box.appendChild(b);
