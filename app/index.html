@@ -1390,10 +1390,10 @@
   })();
   function pctLock(){ try{ var c=profData&&cur(); return !!(c&&c.readOnly&&c.view&&c.view.p); }catch(e){ return false; } }
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v213"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v214"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   /* Versión que ve el usuario (semántica, a mano): mayor.funciones.arreglos. Función nueva → sube el del medio; arreglo → el último.
      APP_VER (holdy-vNNN) es solo el número interno del caché y sube en cada publicación. */
-  var APP_SEMVER="1.19.1";
+  var APP_SEMVER="1.19.2";
   try{ document.getElementById("drVer").textContent="Versión "+APP_SEMVER; }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
