@@ -2888,8 +2888,9 @@
   var ibHint="";
   function openIb(pid){ ibHint=pid||"";
     if(!auth){ alert("Para conectar IBKR tenés que entrar con tu cuenta de Google (menú → Cuenta y respaldo)."); return; }
-    $("ibTok").value=""; $("ibQid").value=""; ibSrv=null; ibRenderDlg("Revisando…"); $("dlgIb").showModal(); if(document.activeElement) document.activeElement.blur();
-    api("GET","/me/ibkr").then(function(r){ if(r.status===404) throw new Error("old"); return r.json(); }).then(function(j){ ibSrv=j; if(!j.connected){ ibA.on=0; ibSaveLocal(); } else { ibA.on=1; ibSaveLocal(); } ibRenderDlg(); })
+    /* Se abre ya con el último estado guardado (sin parpadeo) y se confirma con el servidor por detrás. */
+    $("ibTok").value=""; $("ibQid").value=""; ibSrv=ibA.srv||null; ibRenderDlg(); $("dlgIb").showModal(); if(document.activeElement) document.activeElement.blur();
+    api("GET","/me/ibkr").then(function(r){ if(r.status===404) throw new Error("old"); return r.json(); }).then(function(j){ if(ibCtl) return; var same=JSON.stringify(j)===JSON.stringify(ibSrv); ibSrv=j; ibA.on=j.connected?1:0; ibA.srv=j.connected?j:null; ibSaveLocal(); if(!same) ibRenderDlg(); })
       .catch(function(e){ ibRenderDlg(e&&e.message==="old"?"El servidor todavía no tiene esta función. Esperá unos minutos y volvé a abrir.":"No pude consultar el estado. Revisá tu conexión.","err"); });
   }
   /* Trae el reporte y lo aplica al perfil elegido. silent: al abrir la app, sin preguntas. */
@@ -2942,7 +2943,7 @@
     ibCtl=new AbortController(); var sig=ibCtl.signal;
     ibRenderDlg("Pidiendo el reporte a IBKR… puede tardar hasta medio minuto.","busy"); ibLoading(true);
     (changed?api("PUT","/me/ibkr",{token:tok,query:q,pid:pid},sig).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j&&j.error==="bad_token"?"Ese token no parece válido.":"No pude guardar los datos."); }); }):Promise.resolve())
-      .then(function(){ ibSrv={connected:true,query:q,pid:pid,tail:tok?tok.slice(-4):(ibSrv&&ibSrv.tail)||"",err:""}; ibA.pid=pid; ibA.on=1; ibSaveLocal(); return ibSync(false,!changed,sig); })
+      .then(function(){ ibSrv={connected:true,query:q,pid:pid,tail:tok?tok.slice(-4):(ibSrv&&ibSrv.tail)||"",err:""}; ibA.pid=pid; ibA.on=1; ibA.srv=ibSrv; ibSaveLocal(); return ibSync(false,!changed,sig); })
       .then(function(x){ $("ibTok").value=""; ibRenderDlg("Listo: "+(x?x.msg:"")+" Se cargó en “"+(x?x.pr.name:"")+"”. De ahora en más se actualiza sola una vez por día.","ok"); })
       .catch(function(e){ var m=e&&(e.name==="AbortError"?"cancelado":e.message);
         if(m==="cancelado"){ ibRenderDlg("Cancelado. No se cambió nada en tu cartera."); return; }
