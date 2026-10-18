@@ -202,6 +202,25 @@
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   /* Pestaña Cobros */
   .cob-hd{padding:4px 2px 12px}
+  #simView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #simView[hidden]{display:none}
+  #simForm,#simOut{display:grid; gap:6px} #simOut{gap:10px}
+  .sim-r{cursor:default} .sim-in{display:flex; align-items:center; gap:6px; background:var(--chip); border-radius:10px; padding:0 10px; flex:0 0 auto}
+  .sim-in i{font-style:normal; color:var(--muted); font-size:13px} .sim-in input{border:0; background:transparent; width:96px; text-align:right; font-size:16px; font-weight:600; padding:9px 0; color:var(--text); min-height:0; box-shadow:none; outline:none}
+  .sim-a{display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:transparent; border:0; border-radius:0; box-shadow:none; padding:12px 14px; color:var(--text); font-weight:600; font-size:15px; min-height:0}
+  .sim-as .sim-a + .sim-a{border-top:1px solid var(--line)} .sim-a .pe-t small{font-weight:400; line-height:1.35}
+  .sim-dot{flex:0 0 20px; height:20px; border-radius:50%; border:2px solid var(--line)} .sim-a.on .sim-dot{border:6px solid var(--brand)}
+  .sim-c{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; display:grid; gap:8px} .sim-c .pe-k{margin:0}
+  .sim-big{font-size:30px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+  .sim-3{display:grid; grid-template-columns:repeat(3,1fr); gap:6px} .sim-3 div{background:var(--chip); border-radius:10px; padding:8px 10px; display:grid; gap:2px} .sim-3 small{font-size:11.5px; color:var(--muted)} .sim-3 b{font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .sim-n,.sim-foot{font-size:12.5px; color:var(--muted); line-height:1.45}
+  .sim-o{display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--line)} .sim-o:first-of-type{border-top:0} .sim-o > div:first-child{flex:1; display:grid; gap:2px} .sim-o small{font-size:12.5px; color:var(--muted); line-height:1.35} .sim-o b{font-size:15px}
+  .sim-amt{font-size:19px; font-weight:800; color:var(--pos); white-space:nowrap; font-variant-numeric:tabular-nums}
+  .sim-g{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--muted)} .sim-g .sim-in input{width:120px}
+  .sim-res{display:flex; align-items:center; gap:12px; font-size:14px; line-height:1.4} .sim-res:empty{display:none}
+  .sim-pct{font-size:30px; font-weight:800; flex:0 0 auto} .sim-pct.g{color:var(--pos)} .sim-pct.m{color:#d6a400} .sim-pct.r{color:var(--neg)}
+  .sim-ch{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px} .sim-svg{width:100%; height:170px; display:block}
+  .sim-ax{display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); margin-top:4px} .sim-lg{font-size:11.5px; color:var(--muted); margin-top:6px}
+  .sim-warn{font-size:14px; color:var(--neg); padding:10px}
   #rptView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #rptView[hidden]{display:none}
   .rpt-cfg{display:grid; gap:6px} .rpt-act{display:grid} .rpt-act button{min-height:46px; font-size:15px} .rpt-st{font-size:12.5px; color:var(--muted); text-align:center}
   #rptPaper{background:#e9ecef; border-radius:14px; padding:12px; overflow-x:auto} #rptPaper:empty{display:none}
@@ -776,6 +795,7 @@
     <div class="dr-user" id="menuUser"></div>
     <button type="button" class="dr-item" id="btnRefresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span>Actualizar precios</span></button>
     <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
+    <button type="button" class="dr-item" id="btnSim"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg><span>Proyección</span></button>
     <button type="button" class="dr-item" id="btnRpt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Reportes</span></button>
     <button type="button" class="dr-item" id="btnCash"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Plata sin invertir</span></button>
     <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Administrar perfiles</span></button>
@@ -785,6 +805,12 @@
     <div class="dr-ver" id="drVer"></div>
   </div>
 </dialog>
+
+<section id="simView" hidden>
+  <div class="cmphdr"><button type="button" id="simBack" aria-label="Volver">←</button><h2>Proyección</h2></div>
+  <div id="simForm"></div>
+  <div id="simOut"></div>
+</section>
 
 <section id="rptView" hidden>
   <div class="cmphdr"><button type="button" id="rptBack" aria-label="Volver">←</button><h2>Reportes</h2></div>
@@ -2144,6 +2170,113 @@
     bx.appendChild(el("div","ins-foot","Esto es información para entender qué pasó, no una recomendación de compra o venta."));
   }
 
+  // ---------- Proyección: cuánto tendrías al retirarte y cuánto podrías gastar por mes ----------
+  /* Rendimientos REALES (ya sin inflación de EE.UU.) en dólares, de largo plazo; σ = volatilidad anual.
+     S&P 500 1926–2024 ≈ 6,9% real anual compuesto. SPY: dividendos (~1,3%) con 30% de retención → −0,4%; VUAA (Irlanda): 15% → −0,2% y comisión 0,07%. */
+  var SIM_ASSETS={
+    spy:{n:"S&P 500 · SPY",r:0.065,v:0.17,h:"Las 500 empresas más grandes de EE.UU. Al cobrar los dividendos te retienen 30%."},
+    vuaa:{n:"S&P 500 · VUAA",r:0.067,v:0.17,h:"El mismo índice, pero el fondo reinvierte los dividendos y solo le retienen 15%: rinde un poco más."},
+    mod:{n:"Moderada · 60/40",r:0.048,v:0.10,h:"60% acciones del S&P 500 y 40% bonos del Tesoro de EE.UU. Sube menos, pero cae bastante menos en las crisis."},
+    cons:{n:"Conservadora · bonos",r:0.02,v:0.06,h:"Bonos del Tesoro de EE.UU. Muy estable; apenas le gana a la inflación."}
+  };
+  var LS_SIM="cartera.sim.v1", simIn=Object.assign({cap:null,ap:0,age:35,ret:60,end:85,a:"vuaa",gasto:0},load(LS_SIM,{})||{});
+  function simCapNow(){ var t=0; vPos().forEach(function(p){ var cp=curPx(p); if(cp!==null) t+=p.qty*cp; }); return Math.round((t+vBalTotal())*dcF()); }
+  /* Generador de números al azar con semilla fija: los resultados no cambian cada vez que abrís la pantalla. */
+  function simRng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  function simPaths(N,years,asset){ var rnd=simRng(12345), mu=Math.log(1+asset.r), sg=asset.v, out=[];
+    for(var i=0;i<N;i++){ var row=new Float64Array(years); for(var y=0;y<years;y++){ var u1=rnd()||1e-9, u2=rnd(); var z=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2); row[y]=Math.exp(mu+sg*z)-1; /* la mediana crece a la tasa compuesta histórica */ } out.push(row); }
+    return out; }
+  /* Corre un escenario: aporta hasta el retiro y después retira "gasto" por mes. Devuelve el valor de cada año y si se terminó. */
+  function simRun(R,cap,ap,yAcc,yTot,gasto){ var v=cap, vals=new Float64Array(yTot+1), out=-1; vals[0]=v;
+    for(var y=0;y<yTot;y++){ var r=R[y];
+      if(y<yAcc) v=v*(1+r)+ap*12*(1+r/2);
+      else { v=v*(1+r)-gasto*12*(1+r/2); if(v<=0&&out<0){ out=y+1; v=0; } }
+      if(v<0) v=0; vals[y+1]=v; }
+    return {vals:vals,out:out}; }
+  function simPct(arr,p){ var a=Array.prototype.slice.call(arr).sort(function(x,y){return x-y;}); var i=(a.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return a[lo]+(a[hi]-a[lo])*(i-lo); }
+  /* Gasto máximo por mes que alcanza durante "years" años de retiro en el "ok" de los escenarios (bisección). */
+  function simMaxSpend(paths,capAtRet,yAcc,years,ok){
+    var lo=0, hi=Math.max(1,simPct(capAtRet,0.9))/12;
+    for(var it=0;it<40;it++){ var mid=(lo+hi)/2, good=0;
+      for(var i=0;i<paths.length;i++){ var v=capAtRet[i], fail=false; for(var y=yAcc;y<yAcc+years;y++){ var r=paths[i][y]; v=v*(1+r)-mid*12*(1+r/2); if(v<=0){ fail=true; break; } } if(!fail) good++; }
+      if(good/paths.length>=ok) lo=mid; else hi=mid; }
+    return lo; }
+  function openSim(){ setScr(simView); try{ history.pushState({scr:1},""); }catch(e){} if(simIn.cap===null) simIn.cap=simCapNow(); simForm(); simCalc(); }
+  $("btnSim").addEventListener("click",openSim);
+  $("simBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
+  function simForm(){
+    var box=$("simForm"); box.textContent=""; var cy=dcCur()==="ARS"?"$":"US$";
+    box.appendChild(el("div","pe-k","Tus datos"));
+    var g=el("div","pe-grp vw-g"); box.appendChild(g);
+    function num(label,key,sub,pre){ var r=el("label","vw-r sim-r"); var t=el("span","pe-t",label); if(sub) t.appendChild(el("small",null,sub)); r.appendChild(t);
+      var w=el("span","sim-in"); if(pre) w.appendChild(el("i",null,pre)); var i=document.createElement("input"); i.inputMode="decimal"; i.value=simIn[key]===null?"":Math.round(simIn[key]).toLocaleString("es-AR"); w.appendChild(i); r.appendChild(w);
+      var tm=null; i.addEventListener("input",function(){ clearTimeout(tm); tm=setTimeout(function(){ var v=pnum(i.value.replace(/\./g,"")); if(isFinite(v)&&v>=0){ simIn[key]=v; save(LS_SIM,simIn); simCalc(); } },350); });
+      i.addEventListener("blur",function(){ i.value=Math.round(simIn[key]||0).toLocaleString("es-AR"); }); g.appendChild(r); return i; }
+    num("Con cuánto arrancás","cap","Tu cartera hoy: "+cy+" "+simCapNow().toLocaleString("es-AR"),cy);
+    num("Cuánto sumás por mes","ap","Hasta que te retirás",cy);
+    num("Tu edad","age",null,null); num("Te retirás a los","ret",null,null); num("Que alcance hasta los","end",null,null);
+    box.appendChild(el("div","pe-k","En qué invertís"));
+    var g2=el("div","pe-grp vw-g sim-as"); box.appendChild(g2);
+    Object.keys(SIM_ASSETS).forEach(function(k){ var A=SIM_ASSETS[k], b=el("button","sim-a"+(simIn.a===k?" on":"")); b.type="button";
+      var t=el("span","pe-t",A.n); t.appendChild(el("small",null,"≈ "+(A.r*100).toFixed(1).replace(".",",")+"% anual sobre la inflación · "+A.h)); b.appendChild(t); b.appendChild(el("i","sim-dot"));
+      b.addEventListener("click",function(){ simIn.a=k; save(LS_SIM,simIn); [].forEach.call(g2.children,function(z){ z.classList.remove("on"); }); b.classList.add("on"); simCalc(); }); g2.appendChild(b); });
+  }
+  var simT=null;
+  function simCalc(){ clearTimeout(simT); simT=setTimeout(simCalcNow,30); }
+  function simCalcNow(){
+    var out=$("simOut"); out.textContent=""; var cy=dcCur()==="ARS"?"$":"US$";
+    var age=Math.round(simIn.age), ret=Math.round(simIn.ret), end=Math.round(simIn.end), cap=+simIn.cap||0, ap=+simIn.ap||0, A=SIM_ASSETS[simIn.a]||SIM_ASSETS.vuaa;
+    if(!(age>=15&&age<=90)||!(ret>age&&ret<=95)||!(end>ret&&end<=110)){ out.appendChild(el("div","sim-warn","Revisá las edades: tu edad < edad de retiro < hasta qué edad.")); return; }
+    var yAcc=ret-age, yRet=end-ret, yTot=Math.max(yAcc+yRet,yAcc+60), N=2000, paths=simPaths(N,yTot,A);
+    var capRet=new Float64Array(N); for(var i=0;i<N;i++){ var v=cap; for(var y=0;y<yAcc;y++){ var r=paths[i][y]; v=v*(1+r)+ap*12*(1+r/2); } capRet[i]=v; }
+    var p10=simPct(capRet,0.1), p50=simPct(capRet,0.5), p90=simPct(capRet,0.9);
+    var M=function(n){ return cy+" "+Math.round(n).toLocaleString("es-AR"); };
+    function card(title,cls){ var c=el("div","sim-c"+(cls?" "+cls:"")); if(title) c.appendChild(el("div","pe-k",title)); out.appendChild(c); return c; }
+    var c1=card("A los "+ret+" años tendrías");
+    c1.appendChild(el("div","sim-big",M(p50)));
+    var tr=el("div","sim-3"); [["Si le va mal",p10],["Normal",p50],["Si le va bien",p90]].forEach(function(x){ var d=el("div"); d.appendChild(el("small",null,x[0])); d.appendChild(el("b",null,M(x[1]))); tr.appendChild(d); }); c1.appendChild(tr);
+    c1.appendChild(el("div","sim-n","Pusiste "+M(cap+ap*12*yAcc)+" en total ("+M(cap)+" hoy + "+M(ap)+" por mes durante "+yAcc+" años). Todo en dólares de hoy."));
+    /* Gastos: "infinita" = alcanza 60 años en 9 de cada 10 escenarios; "hasta X" = alcanza hasta esa edad en 9 de cada 10. */
+    /* Los gastos se calculan arrancando el retiro con lo del caso normal; el riesgo que se mide es el del mercado durante el retiro. */
+    var capN=new Float64Array(N).fill(p50);
+    var inf=simMaxSpend(paths,capN,yAcc,60,0.9), toEnd=simMaxSpend(paths,capN,yAcc,yRet,0.9), toEnd50=simMaxSpend(paths,capN,yAcc,yRet,0.5);
+    var c2=card("¿Cuánto podrías gastar por mes desde los "+ret+"?");
+    c2.appendChild(el("div","sim-n","Con los "+M(p50)+" del caso normal."));
+    function opt(t,amt,sub){ var r=el("div","sim-o"); var a=el("div"); a.appendChild(el("b",null,t)); a.appendChild(el("small",null,sub)); r.appendChild(a); r.appendChild(el("div","sim-amt",M(amt))); c2.appendChild(r); }
+    opt("Plata infinita",inf,"Vivís de lo que rinde: no se termina nunca (en 9 de cada 10 escenarios).");
+    opt("Hasta los "+end,toEnd,"La usás toda hasta esa edad, con margen por si al mercado le va mal.");
+    opt("Hasta los "+end+", si le va normal",toEnd50,"Más gasto, pero en la mitad de los escenarios se termina antes.");
+    /* Mi gasto */
+    var c3=card("Si quisieras gastar");
+    var row=el("label","sim-g"); var w=el("span","sim-in"); w.appendChild(el("i",null,cy)); var gi=document.createElement("input"); gi.inputMode="decimal"; gi.placeholder="Ej. 3.000"; gi.value=simIn.gasto?Math.round(simIn.gasto).toLocaleString("es-AR"):""; w.appendChild(gi); row.appendChild(w); row.appendChild(el("span",null,"por mes")); c3.appendChild(row);
+    var res=el("div","sim-res"); c3.appendChild(res);
+    var chartBox=el("div","sim-ch"); out.appendChild(chartBox);
+    function mine(){ var g=+simIn.gasto||0; res.textContent="";
+      var useG=g>0?g:toEnd, runs=[], outs=[], okEnd=0;
+      for(var i=0;i<N;i++){ var x=simRun(paths[i],cap,ap,yAcc,yAcc+yRet,useG); runs.push(x.vals);
+        var v=p50, o=-1; for(var y=yAcc;y<yAcc+yRet;y++){ var r=paths[i][y]; v=v*(1+r)-useG*12*(1+r/2); if(v<=0){ o=y+1; break; } } if(o<0) okEnd++; else outs.push(age+o); }
+      if(g>0){ var pc=Math.round(okEnd/N*100), oc=outs.sort(function(a,b){return a-b;});
+        res.appendChild(el("div","sim-pct "+(pc>=85?"g":(pc>=60?"m":"r")),pc+"%"));
+        res.appendChild(el("div",null,(pc>=99?"Te alcanza hasta los "+end+" en prácticamente todos los escenarios":"de los escenarios te alcanza hasta los "+end+(oc.length?". Si le va mal, se termina alrededor de los "+Math.round(simPct(oc,0.25)):""))+" (arrancando el retiro con "+M(p50)+")."));
+      }
+      simChart(chartBox,runs,age,ret,end,cy,g>0?"Con "+M(g)+" por mes desde los "+ret:"Gastando "+M(toEnd)+" por mes desde los "+ret+" (hasta los "+end+")"); }
+    var tg=null; gi.addEventListener("input",function(){ clearTimeout(tg); tg=setTimeout(function(){ var v=pnum(gi.value.replace(/\./g,"")); simIn.gasto=isFinite(v)&&v>0?v:0; save(LS_SIM,simIn); mine(); },350); });
+    mine();
+    out.appendChild(el("div","sim-foot","Cómo se calcula: se simulan 2.000 futuros posibles con años buenos y malos, usando el rendimiento y la volatilidad históricos de cada inversión ("+A.n+": "+(A.r*100).toFixed(1).replace(".",",")+"% anual por encima de la inflación, ±"+Math.round(A.v*100)+"% por año). Todo en dólares de hoy: ya está descontada la inflación de EE.UU. No incluye impuestos ni comisiones. Es una simulación con supuestos, no una promesa ni una recomendación."));
+  }
+  function simChart(box,runs,age,ret,end,cy,title){
+    box.textContent=""; box.appendChild(el("div","pe-k",title));
+    var Y=runs[0].length, p10=[], p50=[], p90=[];
+    for(var y=0;y<Y;y++){ var col=runs.map(function(r){ return r[y]; }); p10.push(simPct(col,0.1)); p50.push(simPct(col,0.5)); p90.push(simPct(col,0.9)); }
+    var W=340,H=170, mx=Math.max.apply(null,p90)||1, X=function(i){ return (i/(Y-1)*W).toFixed(1); }, Yp=function(v){ return (H-4-(v/mx)*(H-14)).toFixed(1); };
+    var band=p90.map(function(v,i){ return (i?"L":"M")+X(i)+" "+Yp(v); }).join("")+p10.slice().reverse().map(function(v,i){ return "L"+X(Y-1-i)+" "+Yp(v); }).join("")+"Z";
+    var med=p50.map(function(v,i){ return (i?"L":"M")+X(i)+" "+Yp(v); }).join(""), xr=X(ret-age);
+    var ns='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" class="sim-svg"><path d="'+band+'" fill="var(--brand)" opacity=".15"/><line x1="'+xr+'" x2="'+xr+'" y1="0" y2="'+H+'" stroke="var(--muted)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/><path d="'+med+'" fill="none" stroke="var(--brand)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>';
+    var w=el("div","sim-cw"); w.innerHTML=ns; box.appendChild(w);
+    var ax=el("div","sim-ax"); [age,ret,end].forEach(function(a){ ax.appendChild(el("span",null,a+" años")); }); box.appendChild(ax);
+    var lg=el("div","sim-lg"); lg.appendChild(el("span",null,"Línea: caso normal · Franja: entre el caso malo y el bueno · Pico: "+cy+" "+Math.round(Math.max.apply(null,p50)).toLocaleString("es-AR")+" (normal)")); box.appendChild(lg);
+  }
+
   // ---------- Reportes: resumen del mes en una hoja A4 para guardar como PDF ----------
   var LS_RPT="cartera.rpt.v1", rptCfg=(function(){ var r=load(LS_RPT,{})||{}, s=r.s||{};
     return {per:r.per==="prev"?"prev":"cur",s:{res:s.res!==0?1:0,evo:s.evo!==0?1:0,mov:s.mov!==0?1:0,dist:s.dist!==0?1:0,cob:s.cob!==0?1:0,ops:s.ops!==0?1:0}}; })();
@@ -3496,7 +3629,7 @@
   var cmpView=$("cmpView"), cmpRun=0, cmpOpen=false, cmpData=null, cmpRange="all";
   var MES3=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
   var dlgProf=$("dlgProf"), dlgSet=$("dlgSet");
-  var rptView=$("rptView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView];
+  var rptView=$("rptView"), simView=$("simView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView,simView];
   function setScr(el){
     var prev=SCREENS.filter(function(x){ return !x.hidden; })[0]||null;
     SCREENS.forEach(function(x){ x.hidden=x!==el; x.classList.remove("enter","leave"); });
@@ -3757,7 +3890,7 @@
   dlgMenu.addEventListener("click",function(e){ if(e.target===dlgMenu) dlgMenu.close(); });
   $("btnMenu").addEventListener("click",function(){ renderProfile(); dlgMenu.showModal(); });
   $("menuClose").addEventListener("click",function(){ dlgMenu.close(); });
-  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash","btnRpt"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
+  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash","btnRpt","btnSim"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
   $("btnCmp").addEventListener("click",openCmp);
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
