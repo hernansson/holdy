@@ -76,7 +76,8 @@ Plan gratuito de KV: unas 1.000 escrituras por día; Holdy agrupa los cambios pa
 
 ## Cómo publicar un cambio (para cuando toques el código)
 1. Editá `app/index.html` (la app entera está en ese archivo).
-2. Subí la versión visible en `var APP_SEMVER="1.9.3"` (buscalo en el archivo):
+2. Corré `node tools/version.js patch` (o `minor` / `major`), igual que `npm version`: hace solo los pasos 2 y 3. A mano sería:
+   subí la versión visible en `var APP_SEMVER="1.9.3"` (buscalo en el archivo):
    - arreglo o retoque chico → el último número (1.9.3 → 1.9.4);
    - función nueva → el del medio y el último vuelve a 0 (1.9.3 → 1.10.0);
    - cambio enorme → el primero (1.9.3 → 2.0.0).
