@@ -227,7 +227,10 @@
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
   .sim-bar::before{content:""; position:absolute; left:-17px; right:-17px; top:-9px; height:9px; background:var(--bg)}
   .sim-q{padding:12px 16px 0} .sim-sum{align-items:center} .sim-sum .pe-t{font-size:14.5px} .sim-edit{flex:0 0 auto; font-size:13px; font-weight:700; color:var(--brand); background:var(--chip); border-radius:999px; padding:7px 12px}
-  #dlgSimA.sim-live{max-height:60dvh} #simABody{grid-auto-rows:max-content} .sim-adj{display:grid; gap:2px; padding:6px 14px 10px} .sim-sl{display:grid; gap:2px; padding:8px 0} .sim-slt{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:14px; font-weight:600; padding-top:4px}
+  #dlgSimA.sim-live{max-height:60dvh} .sim-tl{padding:8px 0 4px} .sim-tlt{position:relative; height:6px; margin:40px 16px 22px; border-radius:3px; background:var(--line); touch-action:none}
+  .sim-tls{position:absolute; top:0; height:100%; border-radius:3px} .sim-tls.a{background:var(--brand)} .sim-tls.b{background:var(--brand); opacity:.35}
+  .sim-tlk{position:absolute; top:50%; transform:translate(-50%,-50%); width:38px; height:38px; min-height:0; padding:0; border-radius:50%; background:var(--card); border:2px solid var(--brand); box-shadow:0 2px 8px rgba(0,0,0,.2); color:var(--text); touch-action:none; z-index:1}
+  .sim-tlk.on{z-index:2} .sim-tlk b{font-size:14px; font-weight:800} .sim-tlk small{position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%); font-size:11px; color:var(--muted); font-weight:600; white-space:nowrap} #simABody{grid-auto-rows:max-content} .sim-adj{display:grid; gap:2px; padding:6px 14px 10px} .sim-sl{display:grid; gap:2px; padding:8px 0} .sim-slt{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:14px; font-weight:600; padding-top:4px}
   .sim-sl .sim-in input{width:96px} .sim-sl input[type=range]{width:100%; accent-color:var(--brand); margin:6px 0 0; min-height:0; padding:0; box-shadow:none; background:transparent; border:0}
   .sim-sg{padding:6px 0} .sim-eq{font-size:12.5px; color:var(--muted); padding:0 2px 4px} .sim-chips{display:flex; flex-wrap:wrap; gap:8px; padding:8px 0} .sim-chip{min-height:0; padding:8px 14px; border-radius:999px; font-size:14px; font-weight:600; background:var(--chip); color:var(--text); border:1px solid transparent; box-shadow:none} .sim-chip.on{border-color:var(--brand); color:var(--brand)}
   .sim-adj .sim-hint{padding:0 0 6px} .sim-amt2{display:grid; text-align:right; gap:1px} .sim-amt2 b{font-size:18px; font-weight:800; color:var(--brand); white-space:nowrap} .sim-amt2 small{font-size:11.5px; white-space:nowrap} .sim-hint{padding:0 16px 12px; font-size:12px; color:var(--muted)} #dlgSimA.sim-live::backdrop{background:rgba(0,0,0,.12)} .sim-bar[hidden]{display:none} .sim-bar div{display:grid; gap:1px} .sim-bar div.r{text-align:right} .sim-bar small{font-size:11.5px; color:var(--muted)} .sim-bar b{white-space:nowrap; font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.15} .sim-bar div:first-child b{color:var(--brand)} .sim-bar div.r b{font-size:18px}
@@ -2400,6 +2403,33 @@
   function simPctTxt(v){ return "≈ "+v.toLocaleString("es-AR",{maximumFractionDigits:1})+"% por año"; }
   /* Hoja "Ajustar": barras para deslizar; el resultado de arriba (fijo) cambia en el momento. Solo se rearma cuando cambia la estructura. */
   var simRaf=0; function simLive(){ simSave(); if(simRaf) return; simRaf=requestAnimationFrame(function(){ simRaf=0; simCalcNow(); simSumUpd(); }); }
+  /* Una sola barra con tres perillas: hoy, retiro y hasta. El número va adentro de cada perilla. */
+  function simAgeBar(parent){ var MIN=18, MAX=100, keys=["age","ret","end"], names=["Hoy","Retiro","Hasta"];
+    var w=el("div","sim-tl"), top=el("div","sim-slt"); top.appendChild(el("span",null,"Tus edades")); w.appendChild(top);
+    var tr=el("div","sim-tlt"), s1=el("i","sim-tls a"), s2=el("i","sim-tls b"); tr.appendChild(s1); tr.appendChild(s2); w.appendChild(tr);
+    var th=keys.map(function(k,ix){ var b=el("button","sim-tlk"); b.type="button"; b.setAttribute("aria-label",names[ix]); var lb=el("small",null,names[ix]), n=el("b"); b.appendChild(lb); b.appendChild(n); tr.appendChild(b); return b; });
+    var txt=el("div","sim-eq"); w.appendChild(txt);
+    var pos=function(v){ return (v-MIN)/(MAX-MIN)*100; };
+    function draw(){ var v=keys.map(function(k){ return Math.round(+simIn[k]); });
+      /* Si las edades están cerca, las perillas se separan un poco para que no se pisen. */
+      var W=tr.clientWidth||300, gap=42, p=v.map(function(x){ return pos(x)/100*W; });
+      p[1]=Math.max(p[1],p[0]+gap); p[2]=Math.max(p[2],p[1]+gap); if(p[2]>W){ p[2]=W; p[1]=Math.min(p[1],p[2]-gap); p[0]=Math.min(p[0],p[1]-gap); }
+      th.forEach(function(b,ix){ b.style.left=p[ix]+"px"; b.lastChild.textContent=v[ix]; });
+      s1.style.left=p[0]+"px"; s1.style.width=(p[1]-p[0])+"px"; s2.style.left=p[1]+"px"; s2.style.width=(p[2]-p[1])+"px";
+      var yr=function(n){ return n+(n===1?" año":" años"); };
+      txt.textContent="Invertís "+yr(v[1]-v[0])+" · Vivís de lo juntado "+yr(v[2]-v[1]); }
+    function setV(ix,v){ v=Math.max(MIN,Math.min(MAX,Math.round(v)));
+      var lo=ix>0?Math.round(simIn[keys[ix-1]])+1:MIN, hi=ix<2?Math.round(simIn[keys[ix+1]])-1:MAX; v=Math.max(lo,Math.min(hi,v));
+      if(v!==Math.round(simIn[keys[ix]])){ simIn[keys[ix]]=v; draw(); simLive(); } }
+    var val=function(e){ var r=tr.getBoundingClientRect(); return MIN+(e.clientX-r.left)/r.width*(MAX-MIN); };
+    var act=-1;
+    th.forEach(function(b,ix){ b.addEventListener("pointerdown",function(e){ act=ix; th.forEach(function(x){ x.classList.remove("on"); }); b.classList.add("on"); try{ b.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+      b.addEventListener("pointermove",function(e){ if(act===ix) setV(ix,val(e)); });
+      b.addEventListener("pointerup",function(){ act=-1; }); b.addEventListener("pointercancel",function(){ act=-1; });
+      b.addEventListener("keydown",function(e){ if(e.key==="ArrowRight"||e.key==="ArrowUp"){ setV(ix,+simIn[keys[ix]]+1); e.preventDefault(); } if(e.key==="ArrowLeft"||e.key==="ArrowDown"){ setV(ix,+simIn[keys[ix]]-1); e.preventDefault(); } }); });
+    /* Tocar la barra mueve la perilla más cercana. */
+    tr.addEventListener("pointerdown",function(e){ if(e.target.closest(".sim-tlk")) return; var v=val(e), best=0, d=1e9; keys.forEach(function(k,ix){ var dd=Math.abs(+simIn[k]-v); if(dd<d){ d=dd; best=ix; } }); setV(best,v); });
+    parent.appendChild(w); draw(); requestAnimationFrame(draw); }
   function simOpenA(){
     var box=$("simABody"), d=$("dlgSimA"), st=box.scrollTop; box.textContent=""; d.querySelector("h3").textContent="Ajustar"; d.classList.add("sim-live");
     function seg(parent,opts,key){ var r=el("div","sim-sg"), sg=el("div","seg sm vw-seg");
@@ -2424,8 +2454,7 @@
         seg(g,[["end","Hasta los "+Math.round(simIn.end)],["inf","Para siempre"]],"livePlan"); }
     } else sl(g,"Ponés por mes","ap",0,20000,50,1);
     sl(g,"Arrancás con","cap",0,Math.max(1000000,Math.ceil((+simIn.cap||0)*2/100000)*100000),1000,1);
-    var ages=function(){ if(simIn.ret<=simIn.age) simIn.ret=simIn.age+1; if(simIn.end<=simIn.ret) simIn.end=simIn.ret+1; };
-    sl(g,"Tu edad","age",18,80,1,0,ages); sl(g,"Te retirás a los","ret",19,85,1,0,ages); sl(g,"Hasta los","end",50,110,1,0,ages);
+    simAgeBar(g);
     /* En qué invertís: botones chicos. */
     var gi=el("div","pe-grp vw-g sim-adj"); box.appendChild(gi); gi.appendChild(el("div","sim-slt",null)).appendChild(el("span",null,"Invertís en"));
     var ch=el("div","sim-chips"); gi.appendChild(ch);
