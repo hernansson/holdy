@@ -2477,8 +2477,8 @@
     var c2=card("¿Cuánto podrías gastar por mes desde los "+ret+"?");
     c2.appendChild(el("div","sim-n","En dólares de hoy.")); if(simIn.mode==="need"&&simIn.goal==="live") c2.hidden=true;
     function opt(t,amt,sub){ var r=el("div","sim-o"); var a=el("div"); a.appendChild(el("b",null,t)); a.appendChild(el("small",null,sub)); r.appendChild(a); r.appendChild(el("div","sim-amt",M(amt))); c2.appendChild(r); }
-    opt("Para siempre",p50*sInf,"Vivís de lo que rinde y no se termina nunca");
-    opt("Hasta los "+end,p50*sEnd,"La vas gastando hasta que se termina");
+    opt("Para siempre",p50*sInf,"Vivís de lo que rinde: a los "+end+" seguís teniendo "+M(p50)+" de hoy");
+    opt("Hasta los "+end,p50*sEnd,"Lo que queda sigue rindiendo; a los "+end+" llega a cero");
     var toEnd=p50*sEnd;
     var c3=card("Si quisieras gastar"); if(simIn.mode==="need") c3.hidden=true;
     var row=el("label","sim-g"); var w=el("span","sim-in"); w.appendChild(el("i",null,cy)); var gi=document.createElement("input"); gi.inputMode="decimal"; gi.placeholder="Ej. 3.000"; gi.value=simIn.gasto?Math.round(simIn.gasto).toLocaleString("es-AR"):""; w.appendChild(gi); row.appendChild(w); row.appendChild(el("span",null,"por mes, de hoy")); c3.appendChild(row);
