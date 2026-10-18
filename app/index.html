@@ -235,7 +235,7 @@
   .sim-sl .sim-in input{width:96px} .sim-sl input[type=range]{width:100%; accent-color:var(--brand); margin:6px 0 0; min-height:0; padding:0; box-shadow:none; background:transparent; border:0}
   .sim-sg{padding:6px 0} .sim-eq{font-size:12.5px; color:var(--muted); padding:0 2px 4px} .sim-chips{display:flex; flex-wrap:wrap; gap:8px; padding:8px 0} .sim-chip{min-height:0; padding:8px 14px; border-radius:999px; font-size:14px; font-weight:600; background:var(--chip); color:var(--text); border:1px solid transparent; box-shadow:none} .sim-chip.on{border-color:var(--brand); color:var(--brand)}
   .sim-adj .sim-hint{padding:0 0 6px} .sim-amt2{display:grid; text-align:right; gap:1px} .sim-amt2 b{font-size:18px; font-weight:800; color:var(--brand); white-space:nowrap} .sim-amt2 small{font-size:11.5px; white-space:nowrap} .sim-hint{padding:0 16px 12px; font-size:12px; color:var(--muted)} #dlgSimA.sim-live::backdrop{background:rgba(0,0,0,.12)} .sim-bar[hidden]{display:none} .sim-bar div{display:grid; gap:1px} .sim-bar div.r{text-align:right} .sim-bar small{font-size:11.5px; color:var(--muted)} .sim-bar b{white-space:nowrap; font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.15} .sim-bar div:first-child b{color:var(--brand)} .sim-bar div.r b{font-size:18px}
-  .sim-sup summary{font-size:14px; font-weight:600; color:var(--muted); padding:10px 4px; cursor:pointer} .sim-ok{min-height:46px; margin-top:6px}
+  .sim-sup summary{font-size:14px; font-weight:600; color:var(--muted); padding:10px 4px; cursor:pointer} .sim-ok{min-height:46px; flex:0 0 auto; margin:8px 0 calc(14px + env(safe-area-inset-bottom))} #dlgSimA.sim-live #simABody{padding-bottom:8px}
   #rptCfg .pe-grp .pe-r{border-top:1px solid var(--line)} #rptCfg .pe-grp .pe-r:first-child{border-top:0}
   #simABody .sim-a{padding:10px 14px} #simABody .pe-t small{font-size:12px}
   .sim-ages{display:grid !important; grid-template-columns:repeat(3,1fr); gap:8px} .sim-age{display:grid; gap:4px; font-size:12px; color:var(--muted); margin:0}
@@ -2471,7 +2471,9 @@
           if(o[1]==="nom"){ simIn.r=((1+v/100)/(1+(+simIn.inf||0)/100)-1)*100; } else if(o[1]==="inf"){ var nom=simNom(+simIn.r); simIn.inf=v; simIn.r=((1+nom/100)/(1+v/100)-1)*100; } else simIn[o[1]]=v;
           simLive(); };
         ["input","keyup","change","compositionend","blur"].forEach(function(ev){ i.addEventListener(ev,apply); }); }); }
-    var ok=el("button","primary sim-ok","Listo"); ok.type="button"; ok.addEventListener("click",function(){ d.close(); }); box.appendChild(ok);
+    /* "Listo" fijo abajo, fuera de la parte que se desliza. */
+    var old=d.querySelector(".sim-ok"); if(old) old.remove();
+    var ok=el("button","primary sim-ok","Listo"); ok.type="button"; ok.addEventListener("click",function(){ d.close(); }); box.parentNode.appendChild(ok);
     if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); } else box.scrollTop=st;
   }
   $("simAClose").addEventListener("click",function(){ $("dlgSimA").close(); });
@@ -2586,7 +2588,7 @@
       [["Desde","from",P0.from],["Hasta","to",P0.to]].forEach(function(x){ var l=el("label"); l.appendChild(el("small",null,x[0])); var i=document.createElement("input"); i.type="date"; i.value=x[2]; i.max=todayStr();
         i.addEventListener("change",function(){ if(/^\d{4}-\d{2}-\d{2}$/.test(i.value)){ rptCfg[x[1]]=i.value; save(LS_RPT,rptCfg); rptRenderCfg(); rptBuild(); } }); l.appendChild(i); r.appendChild(l); });
       rr.appendChild(r); box.appendChild(rr); }
-    var d=$("dlgSimA"); d.classList.remove("sim-live"); if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
+    var d=$("dlgSimA"); d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove(); if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
   }
   function openRpt(){ setScr(rptView); try{ history.pushState({scr:1},""); }catch(e){} rptRenderCfg(); rptBuild(); }
   $("btnRpt").addEventListener("click",openRpt);
