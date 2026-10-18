@@ -2138,7 +2138,7 @@
 
   // ---------- Reportes: resumen del mes en una hoja A4 para guardar como PDF ----------
   var LS_RPT="cartera.rpt.v1", rptCfg=(function(){ var r=load(LS_RPT,{})||{}, s=r.s||{};
-    return {per:r.per==="prev"?"prev":"cur",s:{res:s.res!==0?1:0,evo:s.evo!==0?1:0,mov:s.mov!==0?1:0,pos:s.pos!==0?1:0,dist:s.dist!==0?1:0,cob:s.cob!==0?1:0,ops:s.ops!==0?1:0}}; })();
+    return {per:r.per==="prev"?"prev":"cur",s:{res:s.res!==0?1:0,evo:s.evo!==0?1:0,mov:s.mov!==0?1:0,dist:s.dist!==0?1:0,cob:s.cob!==0?1:0,ops:s.ops!==0?1:0}}; })();
   var RPT_MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
   function rptPeriod(){ var t=todayStr(), y=+t.slice(0,4), m=+t.slice(5,7);
     if(rptCfg.per==="prev"){ m--; if(!m){ m=12; y--; } var mm_=(m<10?"0":"")+m, last=new Date(Date.UTC(y,m,0)).toISOString().slice(0,10); return {from:y+"-"+mm_+"-01",to:last,label:RPT_MES[m-1]+" "+y,closed:true}; }
@@ -2152,7 +2152,7 @@
     r.appendChild(sg); g.appendChild(r); box.appendChild(g);
     box.appendChild(el("div","pe-k","Qué incluye"));
     var g2=el("div","pe-grp vw-g");
-    [["res","Resultado del mes","Valor, ganancia del mes y total, y de dónde salió"],["evo","Gráfico del mes",null],["mov","Lo que más se movió","Las que más subieron y bajaron"],["pos","Tus posiciones","Tabla con valor, peso y resultado"],["dist","Cómo está repartida","Por tipo y por broker"],["cob","Cobros","Dividendos y cupones del mes, y los próximos"],["ops","Compras y ventas del mes",null]].forEach(function(o){
+    [["res","Resultado del mes","Valor, ganancia del mes y total, y de dónde salió"],["evo","Gráfico del mes",null],["mov","Lo que más se movió","Las que más subieron y bajaron"],["dist","Cómo está repartida","Por tipo y por broker"],["cob","Cobros","Dividendos y cupones del mes, y los próximos"],["ops","Compras y ventas del mes",null]].forEach(function(o){
       var l=el("label","vw-r vw-t"), t=el("span","pe-t",o[1]); if(o[2]) t.appendChild(el("small",null,o[2])); l.appendChild(t);
       var i=document.createElement("input"); i.type="checkbox"; i.className="sw"; i.checked=!!rptCfg.s[o[0]];
       i.addEventListener("change",function(){ rptCfg.s[o[0]]=i.checked?1:0; save(LS_RPT,rptCfg); rptBuild(); }); l.appendChild(i); g2.appendChild(l); });
@@ -2251,7 +2251,7 @@
       h.push('<div class="rp-sec"><h3>Lo que más se movió en el mes</h3><div class="rp-2"><table class="rp-t"><tr><th>Subieron</th><th></th></tr>'+(up.length?up.map(function(x){ return '<tr><td>'+E(x.t)+'</td><td class="g">'+PC(x.m)+'</td></tr>'; }).join(""):'<tr><td class="rp-mut">Ninguna</td><td></td></tr>')+'</table>');
       h.push('<table class="rp-t"><tr><th>Bajaron</th><th></th></tr>'+(dn.length?dn.map(function(x){ return '<tr><td>'+E(x.t)+'</td><td class="r">'+PC(x.m)+'</td></tr>'; }).join(""):'<tr><td class="rp-mut">Ninguna</td><td></td></tr>')+'</table></div><div class="rp-note">Variación del precio de cada acción en el mes (desde la compra, si la compraste este mes).</div></div>');
     }
-    if(S.pos&&D.pos.length){
+    if(false){ /* sección de posiciones: se sacó del reporte */
       h.push('<div class="rp-sec"><h3>Tus posiciones</h3><table class="rp-t rp-pos"><tr><th>Activo</th><th>Tipo</th><th>Broker</th><th>Valor</th><th>Peso</th><th>Mes</th><th>Resultado</th></tr>');
       D.pos.forEach(function(x){ h.push('<tr><td><b>'+E(x.t)+'</b></td><td>'+(x.fci?"Fondo":x.k)+'</td><td>'+E(x.b)+'</td><td>'+M(x.v)+'</td><td>'+(D.totV>0?(x.v/D.totV*100).toFixed(1).replace(".",",")+"%":"—")+'</td><td class="'+C(x.m)+'">'+PC(x.m)+'</td><td class="'+C(x.r)+'">'+MS(x.r)+' <small>'+PC(x.rp)+'</small></td></tr>'); });
       h.push('<tr class="tot"><td>Total</td><td></td><td></td><td>'+M(D.totV)+'</td><td>100%</td><td></td><td></td></tr></table></div>');
