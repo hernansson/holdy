@@ -778,8 +778,24 @@
     .wbar::before,.dbar::before{content:""; position:absolute; inset:0 auto 0 0; width:var(--w); background:var(--brand); border-radius:3px}
   }
 </style>
+<script>/* Bloqueo con huella: se tapa todo antes de dibujar si está activado. */try{ if(localStorage.getItem("cartera.lock.v1")) document.documentElement.classList.add("locked"); }catch(e){}</script>
+<style>
+  html.locked body > *:not(#lockScr){visibility:hidden !important}
+  #lockScr{display:none; position:fixed; inset:0; z-index:9999; background:var(--bg,#0b0e11); color:var(--text,#fff); flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; text-align:center}
+  html.locked #lockScr{display:flex}
+  #lockScr .lk-logo{width:64px; height:64px; border-radius:18px; background:var(--brand,#0e9f6e); display:grid; place-items:center}
+  #lockScr h2{margin:0; font-size:22px} #lockScr p{margin:0; color:var(--muted,#8a94a3); font-size:14px; max-width:280px}
+  #lockScr button{min-height:48px; padding:0 28px; font-size:16px; border-radius:14px}
+</style>
 </head>
 <body>
+<div id="lockScr" role="dialog" aria-label="Holdy bloqueada">
+  <div class="lk-logo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+  <h2>Holdy está bloqueada</h2>
+  <p>Usá tu huella, tu cara o el bloqueo de pantalla de este celu para entrar.</p>
+  <button type="button" id="lockBtn" class="primary">Desbloquear</button>
+  <p id="lockMsg"></p>
+</div>
 <section id="gate" hidden style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center">
   <h1 style="margin:0;font-size:34px;letter-spacing:-.03em">Holdy</h1>
   <p style="margin:0;max-width:22em;color:var(--muted,#5b6b69)">Entrá con tu cuenta de Google para ver tu cartera. Se guarda en tu cuenta y te sigue en todos tus dispositivos.</p>
@@ -1206,6 +1222,15 @@
         <button type="button" id="sImport">Importar</button>
       </div>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="sec" id="lockSec">
+      <div class="sec-t">Privacidad</div>
+      <label class="vw-r vw-t" style="padding:4px 0"><span class="pe-t">Bloquear con huella<small id="lockSub">Al abrir Holdy te pide la huella, la cara o el PIN del celu.</small></span><input type="checkbox" class="sw" id="lockTg"></label>
+    </div>
+    <div class="sec" id="xlsSec">
+      <div class="sec-t">Excel</div>
+      <div class="help">Tus posiciones, todas las compras y ventas, cobros y plata sin invertir del perfil abierto, en una planilla.</div>
+      <button type="button" id="xlsBtn">Exportar a Excel</button>
     </div>
     <div class="sec" id="installSec" hidden>
       <div class="sec-t">Instalar</div>
@@ -2182,6 +2207,62 @@
         a.appendChild(el("span","ins-nt",tr[i]&&tr.length>=Math.min(j.news.length,8)-1?tr[i]:x.t)); a.appendChild(el("small",null,x.src+" · "+x.d.split("-").reverse().slice(0,2).join("/"))); c4.appendChild(a); }); }
     bx.appendChild(el("div","ins-foot","Esto es información para entender qué pasó, no una recomendación de compra o venta."));
   }
+
+  // ---------- Bloqueo con huella (WebAuthn del propio celu; no viaja nada al servidor) ----------
+  var LS_LOCK="cartera.lock.v1", lockLeft=0;
+  function lockOn(){ try{ return !!localStorage.getItem(LS_LOCK); }catch(e){ return false; } }
+  function rnd(n){ var a=new Uint8Array(n); crypto.getRandomValues(a); return a; }
+  function lockUnlock(){
+    var id; try{ id=JSON.parse(localStorage.getItem(LS_LOCK)).id; }catch(e){ id=null; }
+    if(!id||!window.PublicKeyCredential){ document.documentElement.classList.remove("locked"); return; }
+    $("lockMsg").textContent="";
+    navigator.credentials.get({publicKey:{challenge:rnd(32),allowCredentials:[{type:"public-key",id:b64uToU8(id)}],userVerification:"required",timeout:60000}})
+      .then(function(){ document.documentElement.classList.remove("locked"); })
+      .catch(function(){ $("lockMsg").textContent="No se pudo verificar. Probá de nuevo."; });
+  }
+  $("lockBtn").addEventListener("click",lockUnlock);
+  if(lockOn()) setTimeout(lockUnlock,300);
+  /* Si la app queda en segundo plano más de 1 minuto, se vuelve a bloquear. */
+  document.addEventListener("visibilitychange",function(){ if(!lockOn()) return; if(document.hidden) lockLeft=Date.now(); else if(lockLeft&&Date.now()-lockLeft>60000){ document.documentElement.classList.add("locked"); setTimeout(lockUnlock,300); } });
+  function lockRender(){ $("lockTg").checked=lockOn(); }
+  $("lockTg").addEventListener("change",function(){
+    var tg=this;
+    if(!tg.checked){ try{ localStorage.removeItem(LS_LOCK); }catch(e){} return; }
+    if(!window.PublicKeyCredential){ tg.checked=false; alert("Este navegador no permite usar la huella."); return; }
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function(ok){
+      if(!ok) throw new Error("Este celu no tiene huella, cara ni bloqueo de pantalla configurado.");
+      return navigator.credentials.create({publicKey:{challenge:rnd(32),rp:{name:"Holdy",id:location.hostname},user:{id:rnd(16),name:(auth&&auth.email)||"holdy",displayName:(auth&&auth.name)||"Holdy"},
+        pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required",residentKey:"discouraged"},timeout:60000,attestation:"none"}});
+    }).then(function(c){ var u=new Uint8Array(c.rawId), s=""; for(var i=0;i<u.length;i++) s+=String.fromCharCode(u[i]);
+      localStorage.setItem(LS_LOCK,JSON.stringify({id:btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""),t:Date.now()})); $("lockSub").textContent="Activado: al abrir Holdy te va a pedir la huella."; })
+      .catch(function(e){ tg.checked=false; alert((e&&e.message&&!/NotAllowed|abort/i.test(e.name||""))?e.message:"No se activó el bloqueo."); });
+  });
+
+  // ---------- Exportar a Excel (SheetJS, se carga solo al usarlo) ----------
+  function loadXlsx(){ if(window.XLSX) return Promise.resolve(window.XLSX); return new Promise(function(res,rej){ var sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"; sc.onload=function(){ res(window.XLSX); }; sc.onerror=function(){ rej(new Error("No pude cargar el generador de Excel. Revisá tu conexión.")); }; document.head.appendChild(sc); }); }
+  function exportXlsx(){
+    var b=$("xlsBtn"); b.disabled=true; b.textContent="Armando el Excel…";
+    loadXlsx().then(function(X){
+      var bk=ui.bk; ui.bk=""; var pr=cur(), PS=positions, CL=pr.closed||[], f=dcF(), unit=dcCur()==="ARS"?"$":"US$", R=function(v,d){ return v===null||v===undefined||!isFinite(v)?null:Math.round(v*f*Math.pow(10,d||2))/Math.pow(10,d||2); };
+      var D=function(d){ return d?d.split("-").reverse().join("/"):""; };
+      var pos=[["Activo","Broker","Tipo","Cantidad","Precio de compra ("+unit+")","Precio actual ("+unit+")","Invertido ("+unit+")","Valor hoy ("+unit+")","Resultado ("+unit+")","Resultado %","Cupones/dividendos cobrados ("+unit+")"]];
+      PS.forEach(function(p){ var cp=curPx(p), cost=pCost(p), v=cp===null?null:p.qty*cp, inc=p.fi?fiIncomeE(p):divSum(divsOf(p.ticker,[p.broker]));
+        pos.push([p.ticker,brokerName(p.broker),p.fi?"Renta fija":(isFci(p)?"Fondo":"Acciones"),p.qty,R(pBuy(p),4),R(cp,4),R(cost),R(v),v===null?null:R(v-cost+(p.fi?inc:0)),v===null||!(cost>0)?null:Math.round((v-cost+(p.fi?inc:0))/cost*10000)/100,R(inc)]); });
+      var ops=[["Fecha","Operación","Activo","Broker","Cantidad","Precio","Monto ("+unit+")","Comisión ("+unit+")","Dólar CCL del día","Dólar MEP del día","Resultado de la venta ("+unit+")"]], rows=[];
+      PS.concat(CL).forEach(function(p){ (p.lots||[]).forEach(function(l){ rows.push([l.d||"","Compra",p.ticker,brokerName(p.broker),l.q,R(lotPx(p,l),4),R(effR(l.q*l.b,pBase(p),fxOn(l.d,l.x))),l.f?R(l.f):null,l.x?l.x[0]:null,l.x?l.x[1]:null,null]); }); });
+      CL.forEach(function(c){ if(!c.sold) return; rows.push([c.sold.d||"","Venta",c.ticker,brokerName(c.broker),c.qty,R(pSellPx(c),4),R(pProceeds(c)),c.sold.f?R(c.sold.f):null,c.sold.x?c.sold.x[0]:null,c.sold.x?c.sold.x[1]:null,R(pProceeds(c)-pCost(c))]); });
+      rows.sort(function(a,b){ return a[0]<b[0]?-1:(a[0]>b[0]?1:0); }).forEach(function(r){ r[0]=D(r[0]); ops.push(r); });
+      var cob=[["Fecha","Activo","Tipo","Broker","Monto ("+unit+")","Cobrado en"]];
+      cobItems().hist.slice().reverse().forEach(function(x){ cob.push([D(x.d),x.t,x.k,brokerName(x.bk),Math.round(x.a*f*100)/100,x.c?"dólar cable":"dólar MEP"]); });
+      var cash=[["Broker","Plata sin invertir ("+unit+")","Fecha"]]; (pr.bal||[]).forEach(function(c){ cash.push([brokerName(c.b),R(c.a),D(c.d||"")]); });
+      ui.bk=bk;
+      var wb=X.utils.book_new();
+      function add(name,a,w){ var ws=X.utils.aoa_to_sheet(a); ws["!cols"]=w.map(function(x){ return {wch:x}; }); X.utils.book_append_sheet(wb,ws,name); }
+      add("Posiciones",pos,[10,20,11,12,16,16,16,16,16,12,18]); add("Compras y ventas",ops,[11,9,10,20,12,12,16,14,12,12,18]); add("Cobros",cob,[11,10,12,20,14,12]); add("Plata sin invertir",cash,[20,22,12]);
+      X.writeFile(wb,"Holdy - "+pr.name+" - "+todayStr()+".xlsx");
+    }).catch(function(e){ alert((e&&e.message)||"No se pudo exportar."); }).then(function(){ b.disabled=false; b.textContent="Exportar a Excel"; });
+  }
+  $("xlsBtn").addEventListener("click",exportXlsx);
 
   // ---------- Avisos al celu (Web Push): cierre del mercado, cobros del día e IBKR ----------
   var LS_PUSH="cartera.push.v1", pushA=load(LS_PUSH,null)||{on:0,prefs:{close:1,cob:1,ib:1},h:""};
@@ -4000,7 +4081,7 @@
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
   // ---------- Ajustes ----------
-  function openSettings(){ renderAccount(); mountGoogleButton(); dlgSet.showModal(); }
+  function openSettings(){ renderAccount(); mountGoogleButton(); try{ lockRender(); }catch(e){} dlgSet.showModal(); }
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
   $("sClose").addEventListener("click",function(){ dlgSet.close(); });
   function doExport(){
