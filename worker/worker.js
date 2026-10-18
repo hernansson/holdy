@@ -24,7 +24,13 @@ const histCache = new Map();
 
 export default {
   // Todas las mañanas (cron en wrangler.toml): trae el reporte de IBKR de cada usuario conectado y lo deja listo.
-  async scheduled(event, env, ctx) { ctx.waitUntil(ibCron(env)); },
+  // Una sola tarea por hora (minuto 35); según la hora hace cada cosa. 11 y 14 UTC: IBKR · 12 UTC: cobros · 21 UTC (lun-vie): cierre.
+  async scheduled(event, env, ctx) {
+    const d = new Date(event.scheduledTime || Date.now()), h = d.getUTCHours(), wd = d.getUTCDay();
+    if (h === 11 || h === 14) ctx.waitUntil(ibCron(env));
+    if (h === 12) ctx.waitUntil(pushCobros(env));
+    if (h === 21 && wd >= 1 && wd <= 5) ctx.waitUntil(pushClose(env)); // 18:35 de Argentina: ya cerró Wall Street todo el año
+  },
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
     const originOk = !origin || ALLOWED_ORIGINS.includes(origin);
@@ -46,10 +52,12 @@ export default {
 
     const url = new URL(request.url);
     if (url.pathname.startsWith("/p/")) return profile(request, env, url, cors);
-    if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr")) return account(request, env, url, cors);
+    if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr") || url.pathname.startsWith("/me/push")) return account(request, env, url, cors);
+    if (url.pathname === "/push/inbox" && request.method === "POST") return pushInbox(request, env, cors);
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
     if (url.pathname === "/history") return history(url, cors);
     if (url.pathname === "/divs") return divs(url, cors);
+    if (url.pathname === "/push/key") return pushKey(env, cors);
     if (url.pathname === "/fx") return fxHistory(cors);
     if (url.pathname === "/insight") return insight(url, env, cors);
     if (url.pathname === "/search") return searchSym(url, env, cors);
@@ -319,6 +327,7 @@ async function account(request, env, url, cors) {
   }
 
   if (url.pathname === "/me/ibkr" || url.pathname === "/me/ibkr/sync") return ibkr(request, env, url, user, nostore);
+  if (url.pathname.startsWith("/me/push")) return pushMe(request, env, url, user, nostore);
 
   if (url.pathname === "/me/data") {
     const key = "u:" + user.sub;
@@ -688,7 +697,9 @@ async function ibCron(env) {
       if (!rec || !rec.token) continue;
       try {
         const x = await (await fetch(IB_BASE + "/SendRequest?t=" + encodeURIComponent(rec.token) + "&q=" + encodeURIComponent(rec.query) + "&v=3", { headers: UA })).text();
-        if (ibTag(x, "Status") !== "Success") { const c = ibTag(x, "ErrorCode"); rec.err = IB_ERR[c] || ("IBKR respondió: " + ibTag(x, "ErrorMessage")); await env.HOLDY_KV.put(k.name, JSON.stringify(rec)); continue; }
+        if (ibTag(x, "Status") !== "Success") { const c = ibTag(x, "ErrorCode"); rec.err = IB_ERR[c] || ("IBKR respondió: " + ibTag(x, "ErrorMessage")); await env.HOLDY_KV.put(k.name, JSON.stringify(rec));
+          if (c === "1012" || c === "1015") await pushTo(env, sub, "ib", { title: "IBKR automático", body: rec.err, tag: "ib-err" }, "ib-err:" + c, 7 * 86400);
+          continue; }
         const ref = ibTag(x, "ReferenceCode"), u = ibTag(x, "Url"), getUrl = /^https:\/\/[a-z0-9.\-]+\.interactivebrokers\.com\//i.test(u) ? u : IB_BASE + "/GetStatement";
         for (let i = 0; i < 24; i++) { // hasta ~2 minutos
           await new Promise((res) => setTimeout(res, 5000));
@@ -700,6 +711,12 @@ async function ibCron(env) {
           }
           if (t.length > 20 && !/<html|^\s*<\?xml/i.test(t)) {
             const at = Date.now();
+            // ¿Trajo operaciones o dividendos nuevos respecto del último reporte?
+            const prev = await env.HOLDY_KV.get("ibc:" + sub, "json"), cnt = ibCount(t), pc = prev ? ibCount(prev.csv) : null;
+            if (pc && (cnt.t > pc.t || cnt.d > pc.d)) {
+              const parts = []; if (cnt.t > pc.t) parts.push((cnt.t - pc.t) + (cnt.t - pc.t === 1 ? " operación nueva" : " operaciones nuevas")); if (cnt.d > pc.d) parts.push((cnt.d - pc.d) + (cnt.d - pc.d === 1 ? " cobro de dividendo" : " cobros de dividendos"));
+              await pushTo(env, sub, "ib", { title: "IBKR", body: "Llegaron " + parts.join(" y ") + ". Abrí Holdy para verlos.", tag: "ib-new" });
+            }
             await env.HOLDY_KV.put("ibc:" + sub, JSON.stringify({ csv: t, at }), { expirationTtl: 26 * 3600 });
             rec.last = at; rec.err = ""; await env.HOLDY_KV.put(k.name, JSON.stringify(rec));
             break;
@@ -774,3 +791,108 @@ async function divs(url, cors) {
   }));
   return json({ data: out }, 200, cors);
 }
+
+// ---------- Avisos al celu (Web Push) ----------
+// Sin contenido cifrado: el aviso "despierta" al service worker, que pide el texto a /push/inbox con su suscripción.
+// La clave VAPID la genera el propio Worker la primera vez y queda en el KV.
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function vapid(env) {
+  let k = await env.HOLDY_KV.get("vapid:key", "json");
+  if (!k) {
+    const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+    k = { priv: await crypto.subtle.exportKey("jwk", kp.privateKey), pub: b64u(await crypto.subtle.exportKey("raw", kp.publicKey)) };
+    await env.HOLDY_KV.put("vapid:key", JSON.stringify(k));
+  }
+  return k;
+}
+async function pushKey(env, cors) { if (!env.HOLDY_KV) return json({ error: "no_kv" }, 501, cors); const k = await vapid(env); return json({ key: k.pub }, 200, cors); }
+async function vapidAuth(env, endpoint) {
+  const k = await vapid(env), aud = new URL(endpoint).origin;
+  const enc = (o) => b64u(new TextEncoder().encode(JSON.stringify(o)));
+  const unsigned = enc({ typ: "JWT", alg: "ES256" }) + "." + enc({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: "https://holdy.pages.dev" });
+  const key = await crypto.subtle.importKey("jwk", k.priv, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(unsigned));
+  return "vapid t=" + unsigned + "." + b64u(sig) + ", k=" + k.pub;
+}
+// Manda un aviso a todos los celus de un usuario que tengan prendido ese tipo ("close" | "cob" | "ib").
+// once: clave para no repetir el mismo aviso (con ttl en segundos).
+async function pushTo(env, sub, kind, msg, once, ttl) {
+  const rec = await env.HOLDY_KV.get("push:" + sub, "json");
+  if (!rec || !rec.subs || !rec.subs.length || !(rec.prefs && rec.prefs[kind])) return 0;
+  if (once) { const ok = await env.HOLDY_KV.get("pushonce:" + sub + ":" + once); if (ok) return 0; await env.HOLDY_KV.put("pushonce:" + sub + ":" + once, "1", { expirationTtl: ttl || 86400 * 2 }); }
+  let sent = 0; const keep = [];
+  for (const s of rec.subs) {
+    const ik = "pin:" + await sha256(s.ep), box = (await env.HOLDY_KV.get(ik, "json")) || [];
+    box.push({ ...msg, at: Date.now() }); await env.HOLDY_KV.put(ik, JSON.stringify(box.slice(-5)), { expirationTtl: 3 * 86400 });
+    try {
+      const r = await fetch(s.ep, { method: "POST", headers: { TTL: "43200", Urgency: "normal", Authorization: await vapidAuth(env, s.ep), "Content-Length": "0" } });
+      if (r.status === 404 || r.status === 410) continue; // suscripción vencida: se borra
+      if (r.ok) sent++;
+    } catch (e) { /* se reintenta en el próximo aviso */ }
+    keep.push(s);
+  }
+  if (keep.length !== rec.subs.length) { rec.subs = keep; await env.HOLDY_KV.put("push:" + sub, JSON.stringify(rec)); }
+  return sent;
+}
+async function pushInbox(request, env, cors) {
+  let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: "bad_json" }, 400, cors); }
+  const ep = String((b && b.ep) || ""); if (!/^https:\/\//.test(ep) || ep.length > 1000) return json({ msgs: [] }, 200, cors);
+  const ik = "pin:" + await sha256(ep), box = (await env.HOLDY_KV.get(ik, "json")) || [];
+  if (box.length) await env.HOLDY_KV.delete(ik);
+  return json({ msgs: box }, 200, { ...cors, "Cache-Control": "no-store" });
+}
+// /me/push: GET estado · PUT {sub:{endpoint}, prefs, agenda, pid} · DELETE {ep} · POST /me/push/test
+async function pushMe(request, env, url, user, h) {
+  const key = "push:" + user.sub, rec = (await env.HOLDY_KV.get(key, "json")) || { subs: [], prefs: { close: 1, cob: 1, ib: 1 }, agenda: [] };
+  if (url.pathname === "/me/push/test" && request.method === "POST") {
+    const n = await pushTo(env, user.sub, "test", { title: "Holdy", body: "Listo: los avisos llegan a este celu." });
+    return json({ ok: true, sent: n }, 200, h);
+  }
+  if (request.method === "GET") return json({ prefs: rec.prefs, n: rec.subs.length }, 200, h);
+  let b; try { b = JSON.parse(await request.text() || "{}"); } catch (e) { return json({ error: "bad_json" }, 400, h); }
+  if (request.method === "DELETE") { const ep = String(b.ep || ""); rec.subs = rec.subs.filter((s) => s.ep !== ep); await env.HOLDY_KV.put(key, JSON.stringify(rec)); return json({ ok: true }, 200, h); }
+  if (request.method === "PUT") {
+    if (b.sub && /^https:\/\//.test(b.sub.endpoint || "") && b.sub.endpoint.length < 1000) { if (!rec.subs.some((s) => s.ep === b.sub.endpoint)) rec.subs = rec.subs.concat({ ep: b.sub.endpoint, at: Date.now() }).slice(-5); }
+    if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, test: 1 };
+    rec.prefs.test = 1;
+    if (Array.isArray(b.agenda)) rec.agenda = b.agenda.slice(0, 60).map((x) => ({ d: String(x.d || "").slice(0, 10), t: String(x.t || "").slice(0, 16), k: String(x.k || "").slice(0, 20), a: Math.round((+x.a || 0) * 100) / 100, cy: String(x.cy || "US$").slice(0, 4) })).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.d));
+    if (Array.isArray(b.pos)) rec.pos = b.pos.slice(0, 200).map((x) => ({ t: String(x.t || "").toUpperCase().slice(0, 12), q: +x.q || 0 })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && x.q > 0);
+    if (b.name) rec.name = String(b.name).slice(0, 40);
+    await env.HOLDY_KV.put(key, JSON.stringify(rec));
+    return json({ ok: true, n: rec.subs.length }, 200, h);
+  }
+  return json({ error: "method_not_allowed" }, 405, h);
+}
+async function pushUsers(env) { const out = []; let cursor; do { const p = await env.HOLDY_KV.list({ prefix: "push:", cursor }); cursor = p.list_complete ? undefined : p.cursor; p.keys.forEach((k) => out.push(k.name.slice(5))); } while (cursor); return out; }
+const fmtUS = (n) => (n < 0 ? "−" : "") + "US$ " + Math.abs(n).toLocaleString("es-AR", { minimumFractionDigits: Math.abs(n) < 100 ? 2 : 0, maximumFractionDigits: Math.abs(n) < 100 ? 2 : 0 });
+// 9:00 de Argentina: lo que cobrás hoy (cupones y vencimientos de bonos, dividendos estimados), según la agenda que manda la app.
+async function pushCobros(env) {
+  const today = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  for (const sub of await pushUsers(env)) {
+    const rec = await env.HOLDY_KV.get("push:" + sub, "json"); if (!rec || !rec.agenda) continue;
+    const hoy = rec.agenda.filter((x) => x.d === today); if (!hoy.length) continue;
+    const tot = hoy.reduce((a, x) => a + x.a, 0);
+    const body = hoy.length === 1 ? "Hoy cobrás " + (hoy[0].k || "").toLowerCase() + " de " + hoy[0].t + " ≈ " + fmtUS(hoy[0].a) + "." : "Hoy cobrás " + hoy.map((x) => x.t).join(", ") + " ≈ " + fmtUS(tot) + " en total.";
+    await pushTo(env, sub, "cob", { title: "Cobro de hoy", body, tag: "cob-" + today }, "cob:" + today);
+  }
+}
+// 18:35 de Argentina (lun-vie): cómo cerraron hoy tus acciones (precio de Finnhub × tus cantidades).
+async function pushClose(env) {
+  const today = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10), qc = {};
+  for (const sub of await pushUsers(env)) {
+    const rec = await env.HOLDY_KV.get("push:" + sub, "json"); if (!rec || !rec.prefs || !rec.prefs.close || !rec.subs || !rec.subs.length || !rec.pos || !rec.pos.length) continue;
+    let dAmt = 0, base = 0; const mv = [];
+    for (const p of rec.pos) {
+      if (!(p.t in qc)) { try { const r = await fetch("https://finnhub.io/api/v1/quote?symbol=" + encodeURIComponent(p.t) + "&token=" + encodeURIComponent(env.FINNHUB_KEY)); const j = r.ok ? await r.json() : null; qc[p.t] = j && j.c > 0 && j.t && new Date(j.t * 1000).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10) ? j : null; } catch (e) { qc[p.t] = null; } }
+      const q = qc[p.t]; if (!q || typeof q.d !== "number" || !(q.pc > 0)) continue;
+      dAmt += q.d * p.q; base += q.pc * p.q; mv.push({ t: p.t, dp: q.d / q.pc });
+    }
+    if (!(base > 0)) continue; // feriado o sin datos de hoy
+    mv.sort((a, b) => b.dp - a.dp);
+    const pc = (v) => (v >= 0 ? "+" : "−") + Math.abs(v * 100).toFixed(1).replace(".", ",") + "%";
+    let body = "Tus acciones hoy: " + (dAmt >= 0 ? "+" : "") + fmtUS(dAmt) + " (" + pc(dAmt / base) + ").";
+    if (mv.length > 1) body += " Subió más " + mv[0].t + " " + pc(mv[0].dp) + "; bajó más " + mv[mv.length - 1].t + " " + pc(mv[mv.length - 1].dp) + ".";
+    await pushTo(env, sub, "close", { title: "Cierre del mercado", body, tag: "close-" + today }, "close:" + today);
+  }
+}
+function ibCount(csv) { let t = 0, d = 0; String(csv || "").split("\n").forEach((l) => { if (/"(BUY|SELL)"/.test(l) && /"STK"/.test(l)) t++; if (/Dividends/.test(l) && /"DETAIL"/.test(l)) d++; }); return { t, d }; }

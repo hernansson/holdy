@@ -54,7 +54,7 @@ jobs:
             echo "binding = \"AI\""
             echo ""
             echo "[triggers]"
-            echo "crons = [\"0 11 * * *\", \"0 14 * * *\"]"
+            echo "crons = [\"35 * * * *\"]"
           } > wrangler.toml
           echo "account=$ACC" >> "$GITHUB_OUTPUT"
 
@@ -80,5 +80,7 @@ jobs:
           echo "::notice title=search::$R"
           D=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/divs?symbols=AAPL,KO,VUAA" | head -c 400)
           echo "::notice title=divs::$D"
+          K=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/push/key" | head -c 60)
+          echo "::notice title=push key::$K"
           S=$(curl -sS -o /dev/null -w "%{http_code}" "$U/me/data")
           echo "::notice title=me/data sin sesion (debe ser 401)::$S"
