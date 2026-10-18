@@ -210,7 +210,7 @@
   .pe-grp:not(:has(.pe-r:not([hidden]))){display:none}
   .pe-del{background:transparent; border:0; box-shadow:none; color:var(--neg); font-weight:600; font-size:14px; justify-self:center; margin-top:8px; min-height:36px}
   .ib-st.busy{display:flex; gap:10px; align-items:center} .ib-st.busy::before{content:""; flex:0 0 18px; height:18px; border-radius:50%; border:2.5px solid var(--line); border-top-color:var(--brand); animation:ins-r .8s linear infinite}
-  #ibGo.loading{opacity:.75} #dlgIb.ib-busy input,#dlgIb.ib-busy select{opacity:.55}
+  #ibGo.loading{opacity:.75} #dlgIb button:disabled{opacity:.45} .ib-st{font-variant-numeric:tabular-nums} #dlgIb.ib-busy input,#dlgIb.ib-busy select{opacity:.55}
   .ib-st{font-size:14px; line-height:1.45; padding:10px 12px; border-radius:12px; background:var(--chip)} .ib-st:empty{display:none} .ib-st.ok{background:color-mix(in srgb,var(--pos) 12%,transparent)} .ib-st.err{background:color-mix(in srgb,var(--neg) 12%,transparent)}
   dialog#dlgSrch{height:min(70vh,640px)} @media (max-width:699px){ dialog#dlgSrch{height:88dvh} } dialog#dlgSrch[open]{display:flex; flex-direction:column}
   #srchIn{width:100%; box-sizing:border-box; font-size:16px; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--sh-card); color:var(--text); margin:2px 0 8px}
@@ -2873,6 +2873,8 @@
   var LS_IB="cartera.ibkr.v1", ibA=load(LS_IB,null)||{}, ibBusy=false, ibSrv=null;
   function ibSaveLocal(){ save(LS_IB,ibA); }
   function ibWhen(t){ return t?new Date(t).toLocaleString("es-AR",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}):""; }
+  /* Solo el cartel de estado (mientras carga no se redibuja el resto, para que no salte nada). */
+  function ibStatus(note,cls){ var st=$("ibAutoSt"); st.className="ib-st"+(cls?" "+cls:""); st.textContent=note; }
   function ibRenderDlg(note,cls){
     var st=$("ibAutoSt"), con=!!(ibSrv&&ibSrv.connected);
     st.className="ib-st"+(cls?" "+cls:"");
@@ -2905,7 +2907,7 @@
       if(signal&&signal.aborted) throw new Error("cancelado");
       var sec=Math.round((Date.now()-t0)/1000);
       if(sec>180) throw new Error("IBKR no terminó de armar el reporte en 3 minutos. Probá de nuevo más tarde (a veces tarda después del cierre del mercado).");
-      if(!silent&&$("dlgIb").open) ibRenderDlg("IBKR está armando el reporte… "+sec+" s. Puede tardar un par de minutos.","busy");
+      if(!silent&&$("dlgIb").open) ibStatus("IBKR está armando el reporte… "+sec+" s. Puede tardar un par de minutos.","busy");
       return new Promise(function(res){ setTimeout(res,4000); }).then(function(){ return call("?poll=1"); }).then(wait);
     }
     return call(force?"?force=1":"").then(wait)
@@ -2941,7 +2943,7 @@
     if(!/^\d{3,12}$/.test(q)){ ibRenderDlg("El número de Flex Query son solo dígitos (lo ves en la lista de Flex Queries de IBKR).","err"); return; }
     var changed=tok||!con||q!==ibSrv.query||pid!==(ibSrv.pid||"");
     ibCtl=new AbortController(); var sig=ibCtl.signal;
-    ibRenderDlg("Pidiendo el reporte a IBKR… puede tardar hasta medio minuto.","busy"); ibLoading(true);
+    ibStatus("Pidiendo el reporte a IBKR…","busy"); ibLoading(true);
     (changed?api("PUT","/me/ibkr",{token:tok,query:q,pid:pid},sig).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j&&j.error==="bad_token"?"Ese token no parece válido.":"No pude guardar los datos."); }); }):Promise.resolve())
       .then(function(){ ibSrv={connected:true,query:q,pid:pid,tail:tok?tok.slice(-4):(ibSrv&&ibSrv.tail)||"",err:""}; ibA.pid=pid; ibA.on=1; ibA.srv=ibSrv; ibSaveLocal(); return ibSync(false,!changed,sig); })
       .then(function(x){ $("ibTok").value=""; ibRenderDlg("Listo: "+(x?x.msg:"")+" Se cargó en “"+(x?x.pr.name:"")+"”. De ahora en más se actualiza sola una vez por día.","ok"); })
