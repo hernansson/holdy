@@ -2387,7 +2387,7 @@
     var g0=el("div","pe-grp vw-g"); box.appendChild(g0);
     var r=el("div","vw-r"), sg=el("div","seg sm vw-seg");
     var cur_=simIn.mode==="have"?"have":simIn.goal;
-    [["have","Cuánto junto"],["cap","Llegar a…"],["live","Cobrar por mes"]].forEach(function(o){ var b=el("button",cur_===o[0]?"on":"",o[1]); b.type="button";
+    [["have","Ahorro"],["cap","Meta"],["live","Renta"]].forEach(function(o){ var b=el("button",cur_===o[0]?"on":"",o[1]); b.type="button";
       b.addEventListener("click",function(){ if(cur_===o[0]) return; if(o[0]==="have") simIn.mode="have"; else { simIn.mode="need"; simIn.goal=o[0]; } simSave(); simForm(); simCalcNow(); }); sg.appendChild(b); });
     r.appendChild(sg); g0.appendChild(r);
     var sb=el("button","pe-r sim-sum"); sb.type="button"; sb.id="simSum"; sb.addEventListener("click",simOpenA);
