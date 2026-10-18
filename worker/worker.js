@@ -145,14 +145,30 @@ async function sha256(text) {
 
 async function profile(request, env, url, cors) {
   if (!env.HOLDY_KV) return json({ error: "sync_not_configured" }, 501, cors);
-  const code = decodeURIComponent(url.pathname.slice(3));
+  const parts = url.pathname.slice(3).split("/"), code = decodeURIComponent(parts[0] || ""), sub = parts[1] || "";
   if (!/^[A-Za-z0-9_-]{8,40}$/.test(code)) return json({ error: "bad_code" }, 400, cors);
-  const key = "p:" + code;
+  const key = "p:" + code, vkey = "pv:" + code;
   const stored = await env.HOLDY_KV.get(key, "json");
+  const nostore = { ...cors, "Cache-Control": "no-store" };
 
-  if (request.method === "GET") {
-    if (!stored) return json({ error: "not_found" }, 404, { ...cors, "Cache-Control": "no-store" });
-    return json({ data: stored.data, updated: stored.updated }, 200, { ...cors, "Cache-Control": "no-store" });
+  if (request.method === "GET" && !sub) {
+    if (!stored) return json({ error: "not_found" }, 404, nostore);
+    // Quién mira: si viene con sesión de Holdy, se anota (nombre, email, última vez). El dueño puede quitarle el acceso.
+    // Para ver una cartera compartida hay que haber entrado a Holdy (así se sabe quién mira y se puede quitar el acceso).
+    {
+      const u = await sessionUser(request, env);
+      if (!u) return json({ error: "login_required" }, 401, nostore);
+      {
+        const pv = (await env.HOLDY_KV.get(vkey, "json")) || { v: {}, b: [] };
+        if ((pv.b || []).includes(u.sub)) return json({ error: "revoked" }, 403, nostore);
+        const now = Date.now(), cur = pv.v[u.sub];
+        if (!cur || now - cur.l > 60 * 60 * 1000 || cur.e !== u.email) {
+          pv.v[u.sub] = { n: u.name || "", e: u.email || "", f: cur ? cur.f : now, l: now };
+          await env.HOLDY_KV.put(vkey, JSON.stringify(pv), { expirationTtl: TTL_PROFILE });
+        }
+      }
+    }
+    return json({ data: stored.data, updated: stored.updated }, 200, nostore);
   }
 
   const secret = request.headers.get("X-Holdy-Secret") || "";
@@ -160,8 +176,26 @@ async function profile(request, env, url, cors) {
   const hash = await sha256(secret);
   if (stored && stored.secretHash !== hash) return json({ error: "forbidden" }, 403, cors);
 
+  // Solo el dueño (con el secreto): ver quién mira y quitarle el acceso a alguien.
+  if (sub === "viewers" && request.method === "GET") {
+    const pv = (await env.HOLDY_KV.get(vkey, "json")) || { v: {}, b: [] };
+    const list = Object.keys(pv.v).map((k) => ({ id: k.slice(-12), n: pv.v[k].n, e: pv.v[k].e, f: pv.v[k].f, l: pv.v[k].l })).sort((a, b) => b.l - a.l);
+    return json({ viewers: list, blocked: (pv.b || []).length }, 200, nostore);
+  }
+  if (sub === "block" && request.method === "POST") {
+    let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: "bad_json" }, 400, cors); }
+    const pv = (await env.HOLDY_KV.get(vkey, "json")) || { v: {}, b: [] };
+    const full = Object.keys(pv.v).find((k) => k.slice(-12) === String((b && b.id) || ""));
+    if (!full) return json({ error: "not_found" }, 404, nostore);
+    delete pv.v[full]; pv.b = (pv.b || []).concat(full).slice(-200);
+    await env.HOLDY_KV.put(vkey, JSON.stringify(pv), { expirationTtl: TTL_PROFILE });
+    return json({ ok: true }, 200, nostore);
+  }
+  if (sub) return json({ error: "not_found" }, 404, cors);
+
   if (request.method === "DELETE") {
     if (stored) await env.HOLDY_KV.delete(key);
+    await env.HOLDY_KV.delete(vkey);
     return json({ ok: true }, 200, cors);
   }
   if (request.method === "PUT") {

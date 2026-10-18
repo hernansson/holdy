@@ -85,3 +85,4 @@ Plan gratuito de KV: unas 1.000 escrituras por día; Holdy agrupa los cambios pa
 3. `git push && git push --tags`: Cloudflare Pages publica la app sola en un minuto.
 4. Si cambiaste `worker/worker.js`, también se publica solo (GitHub Actions → "Publicar Worker"); el resultado de la prueba se ve en la pestaña Actions del repositorio.
 - IBKR en segundo plano: el Worker tiene una tarea diaria (cron `0 11 * * *` y `0 14 * * *`: 8:00 y 11:00 de Argentina, después del cierre contable de IBKR) que trae el reporte de cada usuario conectado y lo guarda 24 h en `ibc:<usuario>`; al abrir la app se aplica al instante. El pedido manual va en dos pasos (SendRequest y luego `?poll=1` cada 4 s, hasta 3 minutos).
+- Carteras compartidas: para verlas hay que haber entrado a Holdy; el Worker anota quién mira (`pv:<código>`: nombre, email, última vez) y el dueño lo ve en Compartir (`GET /p/<código>/viewers` con el secreto) y puede quitar el acceso (`POST /p/<código>/block`).
