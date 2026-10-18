@@ -225,7 +225,7 @@
   .sim-warn{font-size:14px; color:var(--neg); padding:10px}
   #simView{padding-bottom:110px !important}
   .sim-bar{position:fixed; left:0; right:0; bottom:0; z-index:20; display:flex; justify-content:space-between; gap:12px; max-width:860px; margin:0 auto; box-sizing:border-box; padding:12px 18px calc(12px + env(safe-area-inset-bottom)); background:var(--card); border-top:1px solid var(--line); box-shadow:0 -6px 20px rgba(0,0,0,.12)}
-  .sim-bar[hidden]{display:none} .sim-bar div{display:grid; gap:1px} .sim-bar div.r{text-align:right} .sim-bar small{font-size:11.5px; color:var(--muted)} .sim-bar b{font-size:20px; font-weight:800; font-variant-numeric:tabular-nums} .sim-bar div:first-child b{color:var(--brand)}
+  .sim-bar[hidden]{display:none} .sim-bar div{display:grid; gap:1px} .sim-bar div.r{text-align:right} .sim-bar small{font-size:11.5px; color:var(--muted)} .sim-bar b{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.15} .sim-bar div:first-child b{color:var(--brand)} .sim-bar div.r b{font-size:18px}
   .sim-sup summary{font-size:14px; font-weight:600; color:var(--muted); padding:10px 4px; cursor:pointer} .sim-ok{min-height:46px; margin-top:6px}
   #rptCfg .pe-grp .pe-r{border-top:1px solid var(--line)} #rptCfg .pe-grp .pe-r:first-child{border-top:0}
   #simABody .sim-a{padding:10px 14px} #simABody .pe-t small{font-size:12px}
@@ -2456,10 +2456,9 @@
     var capRet=new Float64Array(N); for(var i2=0;i2<N;i2++) capRet[i2]=cap*G[i2]+ap*Aa[i2];
     var p10=simPct(capRet,0.1), p50=simPct(capRet,0.5), p90=simPct(capRet,0.9);
     var bar=$("simBar"); bar.hidden=false; bar.textContent="";
-    if(simIn.mode==="need"){ var b1=el("div"); b1.appendChild(el("small",null,"Tenés que poner por mes")); b1.appendChild(el("b",null,ap>0?M(ap):"Nada: ya te alcanza")); bar.appendChild(b1);
-      var b2=el("div","r"); b2.appendChild(el("small",null,"A los "+ret+" tendrías")); b2.appendChild(el("b",null,M(p50*fRet))); bar.appendChild(b2); }
-    else { var b3=el("div"); b3.appendChild(el("small",null,"A los "+ret+" ("+yrRet+") tendrías")); b3.appendChild(el("b",null,M(p50*fRet))); bar.appendChild(b3);
-      var b4=el("div","r"); b4.appendChild(el("small",null,"En dólares de hoy")); b4.appendChild(el("b",null,M(p50))); bar.appendChild(b4); }
+    /* Barra fija: el monto en dólares de ese año, grande; abajo, chico, lo que vale descontando la inflación. */
+    var b3=el("div"); b3.appendChild(el("small",null,"A los "+ret+" ("+yrRet+") tendrías")); b3.appendChild(el("b",null,M(p50*fRet))); b3.appendChild(el("small",null,"≈ "+M(p50)+" de hoy, descontando la inflación")); bar.appendChild(b3);
+    if(simIn.mode==="need"){ var b1=el("div","r"); b1.appendChild(el("small",null,"Poné por mes")); b1.appendChild(el("b",null,ap>0?M(ap):"Nada")); bar.appendChild(b1); }
     var c1=card("A los "+ret+" años ("+yrRet+") tendrías");
     c1.appendChild(el("div","sim-big",M(p50*fRet))); c1.appendChild(el("div","sim-sub","≈ "+M(p50)+" de hoy (lo que compra esa plata hoy)"));
     var tr=el("div","sim-3"); [["Si le va mal",p10],["Normal",p50],["Si le va bien",p90]].forEach(function(x){ var d=el("div"); d.appendChild(el("small",null,x[0])); d.appendChild(el("b",null,M(x[1]*fRet))); d.appendChild(el("small",null,M(x[1])+" de hoy")); tr.appendChild(d); }); c1.appendChild(tr);
