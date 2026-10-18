@@ -2458,7 +2458,7 @@
       var cN=card("Cómo llegás"), live=simIn.goal==="live";
       var meta=live?"gastar "+M(+simIn.live||0)+" por mes (en plata de hoy) "+(simIn.livePlan==="inf"?"para siempre":"hasta los "+end):"tener "+M(+simIn.goalAmt||0)+" a los "+ret;
       if(apN<=0) cN.appendChild(el("div","sim-n","Con lo que tenés hoy ya alcanza para "+meta+", sin poner nada más."));
-      else { cN.appendChild(el("div","sim-n","Poniendo "+M(apN)+" por mes durante "+yAcc+" años, a los "+ret+" juntás "+M(target*fRet)+"."+(live?" Con eso podés "+meta+".":"")));
+      else { cN.appendChild(el("div","sim-n","Poniendo "+M(apN)+" por mes durante "+yAcc+" años, a los "+ret+" juntás "+M(target*fRet)+"."+(live?" Con eso podés "+meta+(simIn.livePlan==="inf"?", y la plata no se termina nunca: vivís de lo que rinde.":": lo que queda sigue rindiendo y a los "+end+" llega a cero."):"")));
         cN.appendChild(el("div","sim-n","Cada año subí un poco lo que ponés, lo mismo que la inflación.")); }
       ap=apN;
     }
