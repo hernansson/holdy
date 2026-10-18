@@ -202,7 +202,19 @@
   .rfoot{margin-top:8px; font-size:12px; color:var(--muted); line-height:1.4}
   /* Pestaña Cobros */
   .cob-hd{padding:4px 2px 12px}
-  #shareWho{display:grid; gap:6px; margin-top:8px} .sw-k{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-top:4px}
+  #shareWho{display:grid; gap:6px}
+  .shc{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px} .shc[hidden]{display:none}
+  .shc-k{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em}
+  .shc-code{font:600 22px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.12em; margin:8px 0 12px; user-select:all; -webkit-user-select:all}
+  .shc-btns{display:grid; grid-template-columns:1fr 1fr; gap:8px} .shc-h{font-size:12.5px; color:var(--muted); line-height:1.45; margin-top:10px}
+  .vw-hd{display:grid; gap:4px} .vw-sub{font-size:13px; color:var(--muted); line-height:1.4} .vw-g .vw-sub{padding:0 14px 12px}
+  #vwBody{display:grid; gap:6px} .vw-r{display:flex; align-items:center; gap:12px; padding:12px 14px} .vw-g .vw-r + .vw-r{border-top:1px solid var(--line)}
+  .vw-l{font-size:14px; font-weight:600; flex:0 0 auto} .vw-seg{flex:1; display:flex} .vw-seg button{flex:1; padding:0 6px}
+  .vw-t{cursor:pointer; font-weight:600; font-size:15px; color:var(--text)} .vw-t .pe-t small{font-weight:400}
+  .vw-st{font-size:12.5px; color:var(--muted); text-align:center; min-height:16px}
+  input.sw{appearance:none; -webkit-appearance:none; flex:0 0 auto; width:46px; height:28px; border-radius:14px; background:var(--line); position:relative; cursor:pointer; transition:background .2s; margin:0; border:0; padding:0; min-height:0}
+  input.sw::after{content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .2s}
+  input.sw:checked{background:var(--brand)} input.sw:checked::after{transform:translateX(18px)} .sw-k{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-top:4px}
   .sw-r{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line)} .sw-t{display:grid; gap:1px; flex:1; min-width:0}
   .sw-t b{font-size:14.5px} .sw-t small{font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .sw-r button{min-height:32px; padding:0 12px; font-size:13px} .sw-n{font-size:12px; color:var(--muted)}
@@ -215,7 +227,7 @@
   .pe-r{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; border:0; border-radius:0; box-shadow:none; padding:12px 14px; min-height:0; color:var(--text); font-weight:600; font-size:15px}
   .pe-r[hidden]{display:none} .pe-grp .pe-r + .pe-r:not([hidden]){border-top:1px solid var(--line)}
   .pe-t{display:grid; gap:2px; flex:1; min-width:0} .pe-t small{font-size:12.5px; font-weight:400; color:var(--muted)} .pe-r .go{color:var(--muted); font-size:20px}
-  .pe-grp:not(:has(.pe-r:not([hidden]))){display:none}
+  .pe-grp:not(.vw-g):not(:has(.pe-r:not([hidden]))){display:none}
   .pe-del{background:transparent; border:0; box-shadow:none; color:var(--neg); font-weight:600; font-size:14px; justify-self:center; margin-top:8px; min-height:36px}
   .ib-st.busy{display:flex; gap:10px; align-items:center} .ib-st.busy::before{content:""; flex:0 0 18px; height:18px; border-radius:50%; border:2.5px solid var(--line); border-top-color:var(--brand); animation:ins-r .8s linear infinite}
   #ibGo.loading{opacity:.75} #dlgIb button:disabled{opacity:.45} .ib-st{font-variant-numeric:tabular-nums} #dlgIb.ib-busy input,#dlgIb.ib-busy select{opacity:.55}
@@ -1013,27 +1025,39 @@
         </div>
       </div>
     <button type="button" id="peDel" class="pe-del">Eliminar perfil</button>
-    <div class="sharebox" id="shareBox" hidden>
-      <strong id="shareTitle"></strong>
-      <div id="codeWrap" hidden>
-        <div class="big codebig" id="shareCode"></div>
-        <div class="btns split">
-          <button type="button" id="codeCopy">Copiar código</button>
-          <button type="button" id="codeStop" class="danger">Dejar de compartir</button>
-        </div>
-        <div class="help">Tu amigo abre Holdy, entra a Perfiles y pega este código. Cada vez que cambies algo, se actualiza solo en su celu. Ve tus cantidades y precios de compra.</div>
-        <div id="shareWho"></div>
-      </div>
-      <div class="help" id="shareMsg" role="status" aria-live="polite" hidden></div>
-      <div id="linkWrap">
-        <input id="shareLink" readonly aria-label="Link para compartir">
-        <div class="btns">
-          <button type="button" id="shareCopy">Copiar</button>
-          <button type="button" id="shareNative" hidden>Compartir…</button>
-        </div>
-        <div class="help" id="shareNote"></div>
-      </div>
     </div>
+
+    <div id="pvShare" style="display:grid;gap:14px" hidden>
+      <div class="shc" id="shareBox">
+        <div id="codeWrap" hidden>
+          <div class="shc-k">Tu código</div>
+          <div class="shc-code" id="shareCode"></div>
+          <div class="shc-btns">
+            <button type="button" id="codeCopy">Copiar</button>
+            <button type="button" id="codeSend" class="primary">Enviar…</button>
+          </div>
+          <div class="shc-h">Tu amigo abre Holdy, va a Perfiles → “Agregar el perfil de otra persona” y pega el código. Los cambios le llegan solos.</div>
+        </div>
+        <span id="shareTitle" hidden></span>
+        <div class="help" id="shareMsg" role="status" aria-live="polite" hidden></div>
+        <div id="linkWrap" hidden>
+          <input id="shareLink" readonly aria-label="Link para compartir">
+          <div class="btns">
+            <button type="button" id="shareCopy">Copiar</button>
+            <button type="button" id="shareNative" hidden>Compartir…</button>
+          </div>
+          <div class="help" id="shareNote"></div>
+        </div>
+      </div>
+      <div id="shareWho"></div>
+      <button type="button" id="codeStop" class="pe-del">Dejar de compartir</button>
+    </div>
+
+    <div id="pvViewer" style="display:grid;gap:14px" hidden>
+      <div class="vw-hd" id="vwHd"></div>
+      <div id="vwBody"></div>
+      <div class="vw-st" id="vwSt" role="status" aria-live="polite"></div>
+      <button type="button" id="vwRevoke" class="pe-del">Quitar acceso</button>
     </div>
 
     <div id="pvNew" style="display:grid;gap:14px" hidden>
@@ -3816,11 +3840,11 @@
   window.addEventListener("hashchange",handleHash);
 
   var pvMode="list", pvProf=null, ibTargetId="new";
-  var PV_DEPTH={list:0,new:1,edit:1,imp:2}, PV_ID={list:"pvList",new:"pvNew",edit:"pvEdit",imp:"pvImp"};
+  var PV_DEPTH={list:0,new:1,edit:1,imp:2,share:2,viewer:3}, PV_ID={list:"pvList",new:"pvNew",edit:"pvEdit",imp:"pvImp",share:"pvShare",viewer:"pvViewer"};
   function pvShow(v,pr){
     var prevM=pvMode; pvMode=v; if(pr) pvProf=pr;
-    $("pvList").hidden=v!=="list"; $("pvEdit").hidden=v!=="edit"; $("pvNew").hidden=v!=="new"; $("pvImp").hidden=v!=="imp";
-    $("pvTitle").textContent=v==="list"?"Perfiles":v==="new"?"Nuevo perfil":v==="imp"?"Importar operaciones":(pvProf?pvProf.name:"Perfil");
+    Object.keys(PV_ID).forEach(function(k){ $(PV_ID[k]).hidden=v!==k; });
+    $("pvTitle").textContent=v==="list"?"Perfiles":v==="new"?"Nuevo perfil":v==="imp"?"Importar operaciones":v==="share"?"Compartir":v==="viewer"?(vwCur&&vwCur.title||"Persona"):(pvProf?pvProf.name:"Perfil");
     window.scrollTo(0,0);
     // Transición interna: hacia adentro entra desde la derecha, al volver entra desde la izquierda.
     if(prevM&&prevM!==v&&!$("dlgProf").hidden){
@@ -3866,7 +3890,9 @@
     var b=$("peSave"); b.textContent="Guardado ✓"; setTimeout(function(){ b.textContent="Guardar"; },1500);
   });
   $("peUse").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); setActive(id); });
-  $("peShare").addEventListener("click",function(){ if(pvProf) showShare(pvProf); });
+  $("peShare").addEventListener("click",function(){ if(!pvProf) return; $("shareWho").textContent=""; pvShow("share"); showShare(pvProf); });
+  $("codeSend").addEventListener("click",function(){ var c=$("shareCode").textContent, t="Mirá mi cartera en Holdy (https://holdy.pages.dev): en Perfiles → “Agregar el perfil de otra persona”, pegá el código "+c;
+    if(navigator.share) navigator.share({text:t}).catch(function(){}); else { if(navigator.clipboard) navigator.clipboard.writeText(t); shareMsg("Copié el mensaje con el código para que lo pegues donde quieras."); } });
   /* Se abre encima de Perfiles; al cerrarla se vuelve al perfil, con el estado actualizado. */
   $("peIbAuto").addEventListener("click",function(){ if(!pvProf) return; openIb(pvProf.id); });
   $("dlgIb").addEventListener("close",function(){ if(dlgProf.open&&pvProf) openProfEdit(pvProf); });
@@ -3894,61 +3920,69 @@
     return a.join(" · "); }
   function cfgTxt(c){ if(!c) return "Ve todo"; var v=viewTxt({t:c.t,b:c.b,p:c.p,s:c.s,m:c.m,i:c.i}), a=c.x?"acceso hasta el "+new Date(c.x).toLocaleDateString("es-AR"):(c.d?"acceso por "+c.d+" días desde que la abra":"");
     return (v?"Ve "+v:"Ve todo")+(a?" · "+a:""); }
-  /* Panel para elegir qué ve una persona. onSave(c) devuelve una promesa. */
-  function cfgPanel(c,brokers,onSave){
-    c=c||{}; var p=el("div","sw-p");
-    function sel(lbl,opts,val){ var l=el("label"); l.appendChild(document.createTextNode(lbl)); var s=document.createElement("select");
-      opts.forEach(function(o){ var op=document.createElement("option"); op.value=String(o[0]); op.textContent=o[1]; if(String(o[0])===String(val)) op.selected=true; s.appendChild(op); }); l.appendChild(s); p.appendChild(l); return s; }
-    var sT=sel("Qué ve",[["all","Todo"],["acc","Solo acciones"],["fi","Solo renta fija"]],c.t||"all");
-    var sB=sel("Broker",[[-1,"Todos"]].concat(brokers.map(function(b){ return [bkCode(b),brokerName(b)]; })),c.b===undefined?-1:c.b);
-    var sP=sel("Montos",[[0,"Ver montos"],[1,"Solo porcentajes"]],c.p?1:0);
-    var sS=sel("Ventas",[[1,"Mostrar"],[0,"Ocultar"]],c.s===0?0:1);
-    var sM=sel("Plata sin invertir",[[1,"Mostrar"],[0,"Ocultar"]],c.m===0?0:1);
-    var sI=sel("Dividendos y cupones cobrados",[[1,"Mostrar"],[0,"Ocultar"]],c.i===0?0:1);
-    var sD=sel("Acceso",[[0,"Sin vencimiento"],[7,"7 días"],[30,"30 días"],[90,"90 días"]],c.d||0);
-    p.appendChild(el("div","sw-h","Con “solo porcentajes” ve cuánto pesa cada posición y cuánto gana en %, pero no cantidades ni plata. Ocultar cupones hace que los bonos muestren solo la variación de precio."));
-    var bt=el("button","primary","Guardar"); bt.type="button"; p.appendChild(bt);
-    bt.addEventListener("click",function(){ bt.disabled=true; bt.textContent="Guardando…";
-      onSave({t:sT.value,b:+sB.value,p:+sP.value,s:+sS.value,m:+sM.value,i:+sI.value,d:+sD.value}).catch(function(){ bt.disabled=false; bt.textContent="No se pudo, reintentar"; }); });
-    return p;
-  }
   function authH(){ return auth?{"Authorization":"Bearer "+auth.session}:{}; }
-  /* Quiénes ven tu cartera compartida (se anota cuando la abren con su cuenta de Holdy). */
+  /* Quiénes ven tu cartera compartida (se anota cuando la abren con su cuenta de Holdy). Cada fila abre su configuración. */
+  var vwCur=null;
+  function shFetch(pr,path,body){ return fetch(SYNC_BASE+"/p/"+pr.sync.code+path,body?{method:"POST",headers:{"Content-Type":"application/json","X-Holdy-Secret":pr.sync.secret},body:JSON.stringify(body)}:{cache:"no-store",headers:{"X-Holdy-Secret":pr.sync.secret}}); }
   function loadViewers(pr){
     var box=$("shareWho"); if(!pr.sync){ box.textContent=""; return Promise.resolve(null); }
-    return fetch(SYNC_BASE+"/p/"+pr.sync.code+"/viewers",{cache:"no-store",headers:{"X-Holdy-Secret":pr.sync.secret}}).then(function(r){ return r.ok?r.json():null; }).then(function(j){
+    return shFetch(pr,"/viewers").then(function(r){ return r.ok?r.json():null; }).then(function(j){
       box.textContent=""; if(!j) return null;
-      var v=j.viewers||[]; box.appendChild(el("div","sw-k",v.length?"La están viendo ("+v.length+")":"Todavía nadie la abrió"));
-      var bks={}; (pr.id===profData.active?positions:pr.positions).concat(pr.closed||[]).forEach(function(x){ bks[x.broker]=1; });
-      function saveCfg(id,c){ return fetch(SYNC_BASE+"/p/"+pr.sync.code+"/cfg",{method:"POST",headers:{"Content-Type":"application/json","X-Holdy-Secret":pr.sync.secret},body:JSON.stringify({id:id,c:c})}).then(function(r){ if(!r.ok) throw 0; }); }
-      /* Fila "Para quien entre nuevo" y una por persona, cada una con su configuración. */
-      var dr=el("div","sw-r sw-def"), dt=el("div","sw-t"); dt.appendChild(el("b",null,"Para quien entre nuevo")); dt.appendChild(el("small",null,cfgTxt(j.def))); dr.appendChild(dt);
-      var dbn=el("button",null,"Configurar"); dbn.type="button"; dr.appendChild(dbn); box.insertBefore(dr,box.firstChild);
-      var dp=cfgPanel(j.def,Object.keys(bks),function(c){ return saveCfg("default",c).then(function(){ loadViewers(pr); }); }); dp.hidden=true; dr.after(dp);
-      dbn.addEventListener("click",function(){ dp.hidden=!dp.hidden; });
-      v.forEach(function(x){ var r=el("div","sw-r"), t=el("div","sw-t");
-        t.appendChild(el("b",null,x.n||x.e||"Alguien")); t.appendChild(el("small",null,(x.n&&x.e?x.e+" · ":"")+"la miró "+timeAgo(x.l)));
-        t.appendChild(el("small","sw-c",cfgTxt(x.c)));
-        r.appendChild(t);
-        var cb=el("button",null,"Configurar"); cb.type="button"; r.appendChild(cb);
-        var pnl=cfgPanel(x.c,Object.keys(bks),function(c){ return saveCfg(x.id,c).then(function(){ loadViewers(pr); }); }); pnl.hidden=true;
-        cb.addEventListener("click",function(){ pnl.hidden=!pnl.hidden; });
-        var b=el("button","danger","Quitar"); b.type="button";
-        b.addEventListener("click",function(){ if(!confirm("¿Quitarle el acceso a "+(x.n||x.e)+"? Deja de ver tu cartera aunque tenga el código.")) return;
-          b.disabled=true; fetch(SYNC_BASE+"/p/"+pr.sync.code+"/block",{method:"POST",headers:{"Content-Type":"application/json","X-Holdy-Secret":pr.sync.secret},body:JSON.stringify({id:x.id})}).then(function(){ loadViewers(pr); }); });
-        r.appendChild(b); box.appendChild(r); box.appendChild(pnl); });
-      if(j.blocked) box.appendChild(el("div","sw-n",j.blocked+(j.blocked===1?" persona sin acceso":" personas sin acceso")+"."));
+      var v=j.viewers||[];
+      function row(title,sub,sub2,onClick){ var b=el("button","pe-r"); b.type="button"; var t=el("span","pe-t",title); if(sub) t.appendChild(el("small",null,sub)); if(sub2) t.appendChild(el("small","sw-c",sub2)); b.appendChild(t); b.appendChild(el("span","go","›")); b.addEventListener("click",onClick); return b; }
+      box.appendChild(el("div","pe-k","Qué ve cada uno"));
+      var g1=el("div","pe-grp"); g1.appendChild(row("Para quien entre nuevo",null,cfgTxt(j.def),function(){ openViewer(pr,{id:"default",title:"Para quien entre nuevo",c:j.def}); })); box.appendChild(g1);
+      box.appendChild(el("div","pe-k",v.length?"La están viendo ("+v.length+")":"Todavía nadie la abrió"));
+      if(v.length){ var g2=el("div","pe-grp");
+        v.forEach(function(x){ g2.appendChild(row(x.n||x.e||"Alguien",(x.n&&x.e?x.e+" · ":"")+"la miró "+timeAgo(x.l),cfgTxt(x.c),function(){ openViewer(pr,{id:x.id,title:x.n||x.e||"Alguien",sub:(x.n&&x.e?x.e+" · ":"")+"la miró "+timeAgo(x.l),c:x.c}); })); });
+        box.appendChild(g2); }
+      if(j.blocked) box.appendChild(el("div","sw-n",j.blocked+(j.blocked===1?" persona sin acceso.":" personas sin acceso.")));
       return v.length;
     }).catch(function(){ box.textContent=""; return null; });
   }
+  /* Pantalla de una persona (o "para quien entre nuevo"): cada cambio se guarda solo. */
+  function openViewer(pr,x){
+    vwCur=x; var c=Object.assign({t:"all",b:-1,p:0,s:1,m:1,i:1,d:0},x.c||{});
+    pvShow("viewer"); $("vwSt").textContent="";
+    var hd=$("vwHd"); hd.textContent=""; if(x.sub) hd.appendChild(el("div","vw-sub",x.sub));
+    if(x.id==="default") hd.appendChild(el("div","vw-sub","Lo que va a ver alguien la primera vez que abra tu código. Después lo podés cambiar para cada uno."));
+    var body=$("vwBody"); body.textContent="";
+    var bks={}; (pr.id===profData.active?positions:pr.positions).concat(pr.closed||[]).forEach(function(p){ bks[p.broker]=1; });
+    var tmr=null;
+    function save(){ clearTimeout(tmr); $("vwSt").textContent="Guardando…"; tmr=setTimeout(function(){
+      shFetch(pr,"/cfg",{id:x.id,c:c}).then(function(r){ if(!r.ok) throw 0; $("vwSt").textContent="Guardado ✓"; x.c=Object.assign({},c); }).catch(function(){ $("vwSt").textContent="No se pudo guardar. Revisá tu conexión."; }); },350); }
+    function grp(title){ body.appendChild(el("div","pe-k",title)); var g=el("div","pe-grp vw-g"); body.appendChild(g); return g; }
+    function seg(g,label,opts,key){ var r=el("div","vw-r"); if(label) r.appendChild(el("span","vw-l",label)); var sg=el("div","seg sm vw-seg");
+      opts.forEach(function(o){ var b=el("button",String(c[key])===String(o[0])?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(String(c[key])===String(o[0])) return; c[key]=o[0]; [].forEach.call(sg.children,function(z){ z.classList.remove("on"); }); b.classList.add("on"); save(); }); sg.appendChild(b); });
+      r.appendChild(sg); g.appendChild(r); }
+    function tog(g,label,sub,key,inv){ var r=el("label","vw-r vw-t"); var t=el("span","pe-t",label); if(sub) t.appendChild(el("small",null,sub)); r.appendChild(t);
+      var i=document.createElement("input"); i.type="checkbox"; i.className="sw"; i.checked=inv?!c[key]:!!c[key];
+      i.addEventListener("change",function(){ c[key]=(inv?!i.checked:i.checked)?1:0; save(); }); r.appendChild(i); g.appendChild(r); }
+    var g=grp("Qué ve");
+    seg(g,null,[["all","Todo"],["acc","Acciones"],["fi","Renta fija"]],"t");
+    var bl=Object.keys(bks); if(bl.length>1) seg(g,"Broker",[[-1,"Todos"]].concat(bl.map(function(b){ return [bkCode(b),b]; })),"b");
+    g=grp("Privacidad");
+    tog(g,"Ocultar montos","Ve solo porcentajes: cuánto pesa cada posición y cuánto gana","p",false);
+    tog(g,"Ventas","Lo que ya vendiste y cuánto ganaste","s",false);
+    tog(g,"Plata sin invertir",null,"m",false);
+    tog(g,"Dividendos y cupones cobrados","Si lo apagás, los bonos muestran solo la variación de precio","i",false);
+    g=grp("Acceso");
+    seg(g,null,[[0,"Siempre"],[7,"7 días"],[30,"30 días"],[90,"90 días"]],"d");
+    if(c.x) g.appendChild(el("div","vw-sub",(Date.now()>c.x?"Venció el ":"Vence el ")+new Date(c.x).toLocaleDateString("es-AR")+(x.id==="default"?"":" (si cambiás los días, se cuenta desde hoy).")));
+    else if(x.id==="default"&&c.d) g.appendChild(el("div","vw-sub","Los días se cuentan desde que cada uno abre el código."));
+    $("vwRevoke").hidden=x.id==="default";
+  }
+  $("vwRevoke").addEventListener("click",function(){ var x=vwCur, pr=pvProf; if(!x||!pr||x.id==="default") return;
+    if(!confirm("¿Quitarle el acceso a "+x.title+"? Deja de ver tu cartera aunque tenga el código.")) return;
+    shFetch(pr,"/block",{id:x.id}).then(function(){ pvShow("share"); loadViewers(pr); }); });
   function showShare(pr){
     if(pr.id===profData.active) pr.positions=positions;
     $("shareTitle").textContent="Compartir “"+pr.name+"”";
-    $("shareBox").hidden=false; $("codeWrap").hidden=true; $("linkWrap").hidden=true; shareMsg("");
+    $("shareBox").hidden=false; $("codeWrap").hidden=true; $("linkWrap").hidden=true; $("codeStop").hidden=true; shareMsg("");
     ensureSync(pr).then(function(ok){
       if(ok){
         $("shareCode").textContent=fmtCode(pr.sync.code);
-        $("codeWrap").hidden=false; renderProfile(); loadViewers(pr); return;
+        $("codeWrap").hidden=false; $("codeStop").hidden=false; renderProfile(); loadViewers(pr); return;
       }
       // Sin sincronización: se ofrece el link con una foto fija
       return encodeToken(buildPayload(pr)).then(function(tok){
@@ -3996,7 +4030,7 @@
     fetch(SYNC_BASE+"/p/"+sy.code,{method:"DELETE",headers:{"X-Holdy-Secret":sy.secret}}).then(function(r){
       if(!r.ok && r.status!==404) throw new Error("x");
       target.sync=null; target.syncDirty=false; target.shareKey=undefined; target.mod=Date.now(); save(LS_PROF,profData);
-      $("codeWrap").hidden=true; shareMsg("Listo: dejaste de compartir “"+target.name+"”. El código ya no funciona."); render(); renderProfList();
+      $("codeWrap").hidden=true; $("shareWho").textContent=""; $("codeStop").hidden=true; shareMsg("Listo: dejaste de compartir “"+target.name+"”. El código ya no funciona."); render(); renderProfList();
     }).catch(function(){ shareMsg("No se pudo dejar de compartir. Probá de nuevo con conexión."); })
       .then(function(){ b.disabled=false; });
   });
@@ -4028,6 +4062,8 @@
   $("btnProfAdm").addEventListener("click",function(){ $("shareBox").hidden=true; renderProfList(); pvShow("list"); dlgProf.showModal(); });
   $("pfClose").addEventListener("click",function(){
     if(pvMode==="imp"){ if(ibTargetId==="new") pvShow("new"); else { var p=profData.profiles.filter(function(x){return x.id===ibTargetId;})[0]; if(p) openProfEdit(p); else pvShow("list"); } }
+    else if(pvMode==="viewer"){ pvShow("share"); loadViewers(pvProf); }
+    else if(pvMode==="share"){ openProfEdit(pvProf); }
     else if(pvMode==="edit"||pvMode==="new"){ renderProfList(); pvShow("list"); }
     else dlgProf.close();
   });
