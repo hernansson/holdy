@@ -162,13 +162,16 @@ async function profile(request, env, url, cors) {
         const pv = (await env.HOLDY_KV.get(vkey, "json")) || { v: {}, b: [] };
         if ((pv.b || []).includes(u.sub)) return json({ error: "revoked" }, 403, nostore);
         const now = Date.now(), cur = pv.v[u.sub];
-        if (!cur || now - cur.l > 60 * 60 * 1000 || cur.e !== u.email) {
-          pv.v[u.sub] = { n: u.name || "", e: u.email || "", f: cur ? cur.f : now, l: now };
+        // Configuración de lo que ve: la suya, o la "por defecto" la primera vez (se copia y queda fija).
+        const cfg = cleanCfg(cur && cur.c ? cur.c : (pv.d || {}), cur && cur.c ? null : now);
+        if (cfg.x && now > cfg.x) return json({ error: "revoked", why: "expired" }, 403, nostore);
+        if (!cur || now - cur.l > 60 * 60 * 1000 || cur.e !== u.email || !cur.c) {
+          pv.v[u.sub] = { n: u.name || "", e: u.email || "", f: cur ? cur.f : now, l: now, c: cfg, k: (cur && cur.k) || (0.35 + Math.random() * 2.6) };
           await env.HOLDY_KV.put(vkey, JSON.stringify(pv), { expirationTtl: TTL_PROFILE });
         }
+        return json({ data: viewFor(stored.data, cfg, pv.v[u.sub].k), updated: stored.updated }, 200, nostore);
       }
     }
-    return json({ data: stored.data, updated: stored.updated }, 200, nostore);
   }
 
   const secret = request.headers.get("X-Holdy-Secret") || "";
@@ -179,8 +182,23 @@ async function profile(request, env, url, cors) {
   // Solo el dueño (con el secreto): ver quién mira y quitarle el acceso a alguien.
   if (sub === "viewers" && request.method === "GET") {
     const pv = (await env.HOLDY_KV.get(vkey, "json")) || { v: {}, b: [] };
-    const list = Object.keys(pv.v).map((k) => ({ id: k.slice(-12), n: pv.v[k].n, e: pv.v[k].e, f: pv.v[k].f, l: pv.v[k].l })).sort((a, b) => b.l - a.l);
-    return json({ viewers: list, blocked: (pv.b || []).length }, 200, nostore);
+    const list = Object.keys(pv.v).map((k) => ({ id: k.slice(-12), n: pv.v[k].n, e: pv.v[k].e, f: pv.v[k].f, l: pv.v[k].l, c: cleanCfg(pv.v[k].c || pv.d || {}) })).sort((a, b) => b.l - a.l);
+    return json({ viewers: list, blocked: (pv.b || []).length, def: cleanCfg(pv.d || {}) }, 200, nostore);
+  }
+  if (sub === "cfg" && request.method === "POST") {
+    let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: "bad_json" }, 400, cors); }
+    const pv = (await env.HOLDY_KV.get(vkey, "json")) || { v: {}, b: [] };
+    const inC = { ...((b && b.c) || {}), x: 0 };
+    if (b && b.id === "default") pv.d = cleanCfg(inC);
+    else {
+      const full = Object.keys(pv.v).find((k) => k.slice(-12) === String((b && b.id) || ""));
+      if (!full) return json({ error: "not_found" }, 404, nostore);
+      const old = pv.v[full].c || {};
+      // El vencimiento corre desde que lo elegís; si no cambiaste los días, se mantiene.
+      pv.v[full].c = cleanCfg(+old.d === +inC.d && old.x ? { ...inC, x: old.x } : inC, Date.now());
+    }
+    await env.HOLDY_KV.put(vkey, JSON.stringify(pv), { expirationTtl: TTL_PROFILE });
+    return json({ ok: true }, 200, nostore);
   }
   if (sub === "block" && request.method === "POST") {
     let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: "bad_json" }, 400, cors); }
@@ -689,4 +707,41 @@ async function ibCron(env) {
       } catch (e) { /* se reintenta mañana o cuando abra la app */ }
     }
   } while (cursor);
+}
+
+// ---------- Qué ve cada persona de una cartera compartida ----------
+// c = { t: "all"|"acc"|"fi", b: -1 | código de broker, p: 1 solo porcentajes, s: 0 sin ventas, m: 0 sin plata sin invertir,
+//       i: 0 sin dividendos ni cupones, d: días de acceso (0 = sin vencimiento), x: vence (ms) }
+function cleanCfg(c, from) {
+  c = c || {};
+  const o = { t: ["all", "acc", "fi"].includes(c.t) ? c.t : "all", b: Number.isInteger(c.b) && c.b >= 0 && c.b < 10 ? c.b : -1,
+    p: c.p ? 1 : 0, s: c.s === 0 ? 0 : 1, m: c.m === 0 ? 0 : 1, i: c.i === 0 ? 0 : 1, d: [0, 7, 30, 90].includes(+c.d) ? +c.d : 0, x: +c.x || 0 };
+  if (from && o.d && !o.x) o.x = from + o.d * 86400000;
+  if (!o.d) o.x = 0;
+  return o;
+}
+// Arma la versión recortada de la cartera para quien mira. Con "solo porcentajes" todas las cantidades y montos se
+// multiplican por un número secreto de esa persona: los % dan igual, los montos reales no se pueden deducir.
+function viewFor(data, c, k) {
+  if (!data || !Array.isArray(data.p)) return data;
+  const full = c.t === "all" && c.b < 0 && !c.p && c.s && c.m && c.i;
+  if (full) return data;
+  const K = c.p ? k : 1, sc = (v) => (typeof v === "number" ? Math.round(v * K * 1e6) / 1e6 : v);
+  const isFi = (r) => !!(r[10] && Array.isArray(r[10])) || /\{fci:[PD]\}/.test(String(r[7] || ""));
+  const keep = (r) => Array.isArray(r) && (c.b < 0 || r[0] === c.b) && (c.t === "all" || (c.t === "fi") === isFi(r));
+  const fix = (r) => {
+    r = r.slice(); r[3] = sc(r[3]);
+    if (Array.isArray(r[8])) r[8] = r[8].map((l) => { l = l.slice(); l[0] = sc(l[0]); if (l.length > 5) l[5] = sc(l[5]); return l; });
+    if (Array.isArray(r[9]) && r[9].length > 4) { r[9] = r[9].slice(); r[9][4] = sc(r[9][4]); }
+    if (Array.isArray(r[10])) { r[10] = r[10].slice(); if (Array.isArray(r[10][3])) r[10][3] = c.i ? r[10][3].map((x) => [x[0], sc(x[1])]) : []; }
+    return r;
+  };
+  const o = { ...data };
+  o.p = data.p.filter(keep).map(fix);
+  o.c = c.s ? (data.c || []).filter(keep).map(fix) : [];
+  o.sb = c.m ? (data.sb || []).filter((r) => c.b < 0 || r[0] === c.b).map((r) => { r = r.slice(); r[1] = sc(r[1]); return r; }) : [];
+  o.m = c.m && c.b < 0 ? (data.m || []).map((r) => [r[0], sc(r[1])]) : [];
+  o.dv = c.i && c.t !== "fi" ? (data.dv || []).filter((r) => c.b < 0 || r[0] === c.b).map((r) => { r = r.slice(); r[3] = sc(r[3]); return r; }) : [];
+  o.f = { t: c.t, b: c.b, p: c.p, s: c.s, m: c.m, i: c.i, x: c.x };
+  return o;
 }
