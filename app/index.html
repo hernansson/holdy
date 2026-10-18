@@ -2608,7 +2608,7 @@
     if(S.res){
       h.push('<div class="rp-kpis"><div class="rp-kpi"><span>Valor de la cartera</span><b>'+M(D.valEnd+(D.cash||0))+'</b>'+(D.cash?'<small>incluye '+M(D.cash)+' sin invertir</small>':'')+'</div>');
       h.push('<div class="rp-kpi"><span>Resultado '+P.del+'</span><b class="'+C(D.month)+'">'+MS(D.month)+'</b><small>'+(D.month!==null&&D.base>0?PC(D.month/D.base):"")+'</small></div>');
-      if(P.all) h.push('<div class="rp-kpi"><span>Lo que pusiste</span><b>'+M(D.costAll)+'</b><small>compras, con el dólar de cada día</small></div>'); else
+      if(P.all) h.push('<div class="rp-kpi"><span>Compraste en total</span><b>'+M(D.costAll)+'</b><small>incluye lo que después vendiste</small></div>'); else
       h.push('<div class="rp-kpi"><span>Resultado total</span><b class="'+C(D.totalAll)+'">'+MS(D.totalAll)+'</b><small>'+(D.costAll>0?PC(D.totalAll/D.costAll)+" sobre lo invertido":"")+'</small></div>');
       /* Comparación: tu % del mes contra lo que hizo el S&P 500 (el índice de las 500 empresas más grandes de EE.UU.) en el mismo período. */
       var myP=(D.month!==null&&D.base>0)?D.month/D.base:null, dif=(myP!==null&&D.spy!==null)?myP-D.spy:null;
