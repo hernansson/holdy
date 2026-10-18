@@ -1235,8 +1235,9 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v192"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
-  try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
+  var APP_VER="holdy-v193"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  /* Número de versión: el build interno 192 se muestra como 1.9.2 (sube solo con cada publicación). */
+  try{ var vb_=+APP_VER.replace(/^holdy-v/,"")||0; document.getElementById("drVer").textContent="Versión "+Math.floor(vb_/100)+"."+Math.floor(vb_%100/10)+"."+(vb_%10); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
   var nfCache={};
