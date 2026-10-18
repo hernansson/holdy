@@ -49,6 +49,7 @@ export default {
     if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr")) return account(request, env, url, cors);
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
     if (url.pathname === "/history") return history(url, cors);
+    if (url.pathname === "/divs") return divs(url, cors);
     if (url.pathname === "/fx") return fxHistory(cors);
     if (url.pathname === "/insight") return insight(url, env, cors);
     if (url.pathname === "/search") return searchSym(url, env, cors);
@@ -744,4 +745,32 @@ function viewFor(data, c, k) {
   o.dv = c.i && c.t !== "fi" ? (data.dv || []).filter((r) => c.b < 0 || r[0] === c.b).map((r) => { r = r.slice(); r[3] = sc(r[3]); return r; }) : [];
   o.f = { t: c.t, b: c.b, p: c.p, s: c.s, m: c.m, i: c.i, x: c.x };
   return o;
+}
+
+// ---------- /divs?symbols=AAPL,KO: dividendos por acción de los últimos 2 años (Yahoo), para estimar los próximos ----------
+const divCache = new Map();
+async function divs(url, cors) {
+  const syms = (url.searchParams.get("symbols") || "").toUpperCase().split(",").map((x) => x.trim()).filter(Boolean);
+  if (!syms.length || syms.length > 40 || syms.some((x) => !/^[A-Z0-9.\-]{1,12}$/.test(x))) return json({ error: "bad_symbols" }, 400, cors);
+  const out = {};
+  await Promise.all(syms.map(async (sym) => {
+    const hit = divCache.get(sym);
+    if (hit && Date.now() - hit.at < 12 * 3600 * 1000) { out[sym] = hit.d; return; }
+    const cands = sym.includes(".") ? [sym] : (ALIAS[sym] ? [ALIAS[sym]] : [sym]);
+    let d = [];
+    for (const c of cands) {
+      try {
+        const r = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(c) + "?range=2y&interval=1mo&events=div",
+          { headers: { "User-Agent": "Mozilla/5.0 (compatible; Holdy/1.0)", "Accept": "application/json" } });
+        if (!r.ok) continue;
+        const j = await r.json(), res = j && j.chart && j.chart.result && j.chart.result[0];
+        const ev = res && res.events && res.events.dividends;
+        if (ev) d = Object.values(ev).filter((x) => x && x.date && x.amount > 0).map((x) => [new Date(x.date * 1000).toISOString().slice(0, 10), Math.round(x.amount * 1e6) / 1e6]).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+        break;
+      } catch (e) { /* sin datos */ }
+    }
+    divCache.set(sym, { at: Date.now(), d }); if (divCache.size > 500) divCache.delete(divCache.keys().next().value);
+    out[sym] = d;
+  }));
+  return json({ data: out }, 200, cors);
 }

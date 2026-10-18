@@ -2304,10 +2304,34 @@
     vDiv().forEach(function(x){ hist.push({d:x.d,t:x.t,bk:x.b,k:"Dividendo",a:divE(x),c:x.c==="C"}); });
     return {hist:hist.sort(function(a,b){ return a.d<b.d?1:-1; }),next:next.sort(function(a,b){ return a.d<b.d?-1:1; })};
   }
+  /* Próximos dividendos (estimados): con los dividendos por acción del último año (Yahoo, vía Worker /divs)
+     se calcula cada cuánto paga y cuánto; × tus acciones, neto de la retención del 30% de EE.UU. */
+  var LS_DIVQ="cartera.divq.v1", divQ=load(LS_DIVQ,null)||{t:0,d:{}}, divBusy=null;
+  function divTks(){ var o={}; vPos().forEach(function(p){ if(p.ccy!=="USD"||p.fi||isFci(p)||!(p.qty>0)) return; if(isCedPos(p)&&!CB_MARK.test(p.note||"")) return; o[p.ticker]=(o[p.ticker]||0)+p.qty; }); return o; }
+  function fetchDivQ(){
+    var tks=Object.keys(divTks()); if(!tks.length||!PROXY_URL||!navigator.onLine) return Promise.resolve(false);
+    var miss=tks.filter(function(t){ return !(t in divQ.d); });
+    if(!miss.length&&Date.now()-divQ.t<12*3600*1000) return Promise.resolve(false);
+    if(divBusy) return divBusy;
+    divBusy=fetch(PROXY_URL+"/divs?symbols="+encodeURIComponent(tks.slice(0,40).join(","))).then(function(r){ return r.ok?r.json():null; }).then(function(j){
+      if(!j||!j.data) return false; Object.keys(j.data).forEach(function(k){ divQ.d[k]=Array.isArray(j.data[k])?j.data[k]:[]; }); divQ.t=Date.now(); save(LS_DIVQ,divQ); return true; })
+      .catch(function(){ return false; }).then(function(x){ divBusy=null; return x; });
+    return divBusy;
+  }
+  function divNext(){
+    var q=divTks(), out=[], tn=dayNum(todayStr());
+    Object.keys(q).forEach(function(tk){ var h=(divQ.d[tk]||[]).filter(function(x){ return dayNum(x[0])>tn-400; }); if(h.length<2) return;
+      var iv=[]; for(var i=1;i<h.length;i++) iv.push(dayNum(h[i][0])-dayNum(h[i-1][0])); iv.sort(function(a,b){return a-b;});
+      var step=iv[Math.floor(iv.length/2)]; if(!(step>=20&&step<=200)) return;
+      var last=h[h.length-1], n=dayNum(last[0])+step; while(n<=tn) n+=step;
+      for(; n<=tn+365; n+=step) out.push({d:dayStr(n),t:tk,bk:"",k:"Dividendo",a:effR(last[1]*q[tk]*0.7,"C",null),c:true,est:1}); });
+    return out.sort(function(a,b){ return a.d<b.d?-1:1; });
+  }
   function cobEntry(box,kind){
     var it=cobItems(), yr=todayStr().slice(0,4), isD=kind==="dv";
     var h=it.hist.filter(function(x){ return (x.k==="Dividendo")===isD; }), y=h.filter(function(x){ return x.d.slice(0,4)===yr; }).reduce(function(t,x){return t+x.a;},0);
-    var nx=isD?null:it.next[0];
+    var nx=isD?divNext()[0]:it.next[0];
+    if(isD) fetchDivQ().then(function(ch){ if(ch&&ui.tab==="acc") renderList(); });
     if(!h.length&&!nx) return;
     var b=el("button","cob-entry"); b.type="button";
     var l=el("span","ce-l"); l.appendChild(el("b",null,isD?"Dividendos":"Cupones"));
@@ -2315,36 +2339,37 @@
     b.appendChild(l);
     var r=el("span","ce-r"); r.appendChild(el("small",null,"Cobrado en "+yr)); r.appendChild(el("b",null,ui.hide?MASK:mR(y,"USD"))); b.appendChild(r);
     b.appendChild(el("span","ce-go","›"));
-    b.addEventListener("click",function(){ cobView=isD?"dv":"prox"; drawCob(); var d=$("dlgCob"); if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); } $("cobBody").scrollTop=0; });
+    b.addEventListener("click",function(){ cobView=isD?"dprox":"prox"; drawCob(); var d=$("dlgCob"); if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); } $("cobBody").scrollTop=0; });
     box.appendChild(b);
   }
   function drawCob(){
     var sg=$("cobSeg"); sg.textContent="";
-    var isD=cobView==="dv"; $("cobTitle").textContent=isD?"Dividendos":"Cupones"; sg.hidden=isD;
-    if(!isD) [["prox","Próximos"],["hist","Cobrados"]].forEach(function(o){ var b=el("button",cobView===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(cobView===o[0]) return; cobView=o[0]; drawCob(); $("cobBody").scrollTop=0; }); sg.appendChild(b); });
+    var isD=cobView==="dv"||cobView==="dprox"; $("cobTitle").textContent=isD?"Dividendos":"Cupones"; sg.hidden=false;
+    (isD?[["dprox","Próximos"],["dv","Cobrados"]]:[["prox","Próximos"],["hist","Cobrados"]]).forEach(function(o){ var b=el("button",cobView===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(cobView===o[0]) return; cobView=o[0]; drawCob(); $("cobBody").scrollTop=0; }); sg.appendChild(b); });
     var bx=$("cobBody"); bx.textContent=""; renderCobros(bx);
   }
   function renderCobros(box){
-    var isD=cobView==="dv", it0=cobItems(), yr=todayStr().slice(0,4), MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-    var list=cobView==="prox"?it0.next:it0.hist.filter(function(x){ return (x.k==="Dividendo")===isD; });
+    if(cobView==="dprox") fetchDivQ().then(function(ch){ if(ch&&cobView==="dprox"&&$("dlgCob").open) drawCob(); });
+    var isD=cobView==="dv"||cobView==="dprox", pro=cobView==="prox"||cobView==="dprox", it0=cobItems(), yr=todayStr().slice(0,4), MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    var list=cobView==="prox"?it0.next:(cobView==="dprox"?divNext():it0.hist.filter(function(x){ return (x.k==="Dividendo")===isD; }));
     var M=function(n){ return ui.hide?MASK:mR(n,"USD"); }, M2=function(n){ return ui.hide?MASK:mm(n,"USD"); };
     var hd=el("div","cob-hd"), tot=0;
-    if(cobView==="prox"){ tot=list.reduce(function(t,x){return t+x.a;},0); hd.appendChild(el("div","cob-k","Próximos 12 meses")); }
+    if(pro){ tot=list.reduce(function(t,x){return t+x.a;},0); hd.appendChild(el("div","cob-k","Próximos 12 meses")); }
     else { list.forEach(function(x){ if(x.d.slice(0,4)===yr) tot+=x.a; }); hd.appendChild(el("div","cob-k",(isD?"Dividendos":"Cupones")+" cobrados en "+yr)); }
-    hd.appendChild(el("div","cob-big",(cobView==="prox"?"≈ ":"")+M(tot)));
-    hd.appendChild(el("div","cob-ch",cobView==="prox"?"Cupones y vencimientos de tus bonos, estimados con la tasa de cada uno.":(isD?"Netos de impuestos, con el dólar del día del cobro. Los futuros no se conocen de antemano.":"Lo que te pagaron tus bonos, incluidos los que ya vendiste.")));
+    hd.appendChild(el("div","cob-big",(pro?"≈ ":"")+M(tot)));
+    hd.appendChild(el("div","cob-ch",cobView==="prox"?"Cupones y vencimientos de tus bonos, estimados con la tasa de cada uno.":(cobView==="dprox"?"Estimado con lo que pagó cada acción en el último año, por tus acciones de hoy y neto de la retención del 30%. Las fechas son aproximadas.":(isD?"Netos de impuestos, con el dólar del día del cobro.":"Lo que te pagaron tus bonos, incluidos los que ya vendiste."))));
     box.appendChild(hd);
-    if(!list.length) box.appendChild(el("div","cob-sum",cobView==="prox"?"No hay cupones a cobrar en los próximos 12 meses.":"Todavía no hay cobros. Se cargan al importar los archivos de tus brokers."));
+    if(!list.length) box.appendChild(el("div","cob-sum",cobView==="prox"?"No hay cupones a cobrar en los próximos 12 meses.":(cobView==="dprox"?(divBusy?"Buscando los dividendos de tus acciones…":"Tus acciones no pagan dividendos regulares (o todavía no hay datos)."):"Todavía no hay cobros. Se cargan al importar los archivos de tus brokers.")));
     var lastM="", grp=null;
     list.forEach(function(x){
       var mk=x.d.slice(0,7);
       if(mk!==lastM){ lastM=mk; var mt=list.filter(function(y){ return y.d.slice(0,7)===mk; }).reduce(function(t,y){return t+y.a;},0);
-        var mh=el("div","cob-m"); mh.appendChild(el("span",null,MES[+x.d.slice(5,7)-1]+(x.d.slice(0,4)!==yr||cobView==="prox"?" "+x.d.slice(0,4):""))); mh.appendChild(el("span",null,M(mt))); box.appendChild(mh);
+        var mh=el("div","cob-m"); mh.appendChild(el("span",null,MES[+x.d.slice(5,7)-1]+(x.d.slice(0,4)!==yr||pro?" "+x.d.slice(0,4):""))); mh.appendChild(el("span",null,M(mt))); box.appendChild(mh);
         grp=el("div","cob-g"); box.appendChild(grp); }
       var r=el("div","cob-r");
       r.appendChild(el("span","cob-d",x.d.slice(8,10)+"/"+x.d.slice(5,7)));
       var mid=el("span","cob-t"); mid.appendChild(el("b",null,x.t)); if(x.k==="Vencimiento") mid.appendChild(el("span","cob-tag vt",x.k));
-      mid.appendChild(el("small",null,bkShort(x.bk)+(x.c?" · cable":""))); r.appendChild(mid);
+      mid.appendChild(el("small",null,x.est?"estimado · fecha aproximada":bkShort(x.bk)+(x.c?" · cable":""))); r.appendChild(mid);
       r.appendChild(el("span","cob-a",M2(x.a))); grp.appendChild(r);
     });
     var nm=vPos().filter(function(p){ return p.fi&&(!(p.fi.c>0)||!p.fi.m); }).map(function(p){return p.ticker;});
