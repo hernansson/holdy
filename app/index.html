@@ -2235,7 +2235,9 @@
       h.push('<div class="rp-kpis"><div class="rp-kpi"><span>Valor de la cartera</span><b>'+M(D.valEnd+(D.cash||0))+'</b>'+(D.cash?'<small>incluye '+M(D.cash)+' sin invertir</small>':'')+'</div>');
       h.push('<div class="rp-kpi"><span>Resultado del mes</span><b class="'+C(D.month)+'">'+MS(D.month)+'</b><small>'+(D.month!==null&&D.base>0?PC(D.month/D.base):"")+'</small></div>');
       h.push('<div class="rp-kpi"><span>Resultado total</span><b class="'+C(D.totalAll)+'">'+MS(D.totalAll)+'</b><small>'+(D.costAll>0?PC(D.totalAll/D.costAll)+" sobre lo invertido":"")+'</small></div>');
-      h.push('<div class="rp-kpi"><span>S&amp;P 500 en el mes</span><b class="'+C(D.spy)+'">'+PC(D.spy)+'</b><small>como referencia</small></div></div>');
+      /* Comparación: tu % del mes contra lo que hizo el S&P 500 (el índice de las 500 empresas más grandes de EE.UU.) en el mismo período. */
+      var myP=(D.month!==null&&D.base>0)?D.month/D.base:null, dif=(myP!==null&&D.spy!==null)?myP-D.spy:null;
+      h.push('<div class="rp-kpi"><span>Contra el S&amp;P 500</span><b class="'+C(dif)+'">'+(dif===null?"—":(dif>=0?"Le ganaste":"Te ganó"))+'</b><small>'+(dif===null?"sin datos del índice":"Vos "+PC(myP)+" · S&amp;P 500 "+PC(D.spy)+" en el mes")+'</small></div></div>');
       if(D.month!==null){ h.push('<div class="rp-sec"><h3>De dónde salió el resultado del mes</h3><table class="rp-t">');
         [["Variación de precios",D.price],["Cupones cobrados",D.cpn],["Dividendos cobrados",D.dvs],["Ganancia de lo que vendiste",D.real]].forEach(function(r){ if(r[1]===null||(Math.abs(r[1])<0.005&&r[0]!=="Variación de precios")) return; h.push('<tr><td>'+r[0]+'</td><td class="'+C(r[1])+'">'+MS(r[1],true)+'</td></tr>'); });
         h.push('<tr class="tot"><td>Total del mes</td><td class="'+C(D.month)+'">'+MS(D.month,true)+'</td></tr></table></div>'); }
