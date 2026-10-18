@@ -23,6 +23,8 @@ const HIST_TTL_MS = 6 * 60 * 60 * 1000;
 const histCache = new Map();
 
 export default {
+  // Todas las mañanas (cron en wrangler.toml): trae el reporte de IBKR de cada usuario conectado y lo deja listo.
+  async scheduled(event, env, ctx) { ctx.waitUntil(ibCron(env)); },
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
     const originOk = !origin || ALLOWED_ORIGINS.includes(origin);
@@ -577,48 +579,80 @@ async function ibkr(request, env, url, user, h) {
     }
     return json({ error: "method_not_allowed" }, 405, h);
   }
-  // /me/ibkr/sync
+  // /me/ibkr/sync — en dos pasos para no colgar el Worker:
+  //   POST /me/ibkr/sync          → pide el reporte a IBKR (SendRequest) y devuelve {pending:true}  (o el CSV si hay uno reciente)
+  //   POST /me/ibkr/sync?poll=1   → un intento de GetStatement: {pending:true} mientras IBKR lo arma, o {csv}
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, h);
   if (!rec) return json({ error: "not_connected" }, 404, h);
-  const force = url.searchParams.get("force") === "1";
-  const cached = await env.HOLDY_KV.get("ibc:" + user.sub, "json");
-  if (cached && (Date.now() - cached.at < (force ? 5 : 60) * 60 * 1000)) return json({ csv: cached.csv, at: cached.at, cached: true }, 200, h);
-  const save = async (patch) => { await env.HOLDY_KV.put(key, JSON.stringify({ ...rec, ...patch })); };
-  const UA = { "User-Agent": "Holdy/1.0 (portfolio tracker)" };
-  let ref = "", getUrl = IB_BASE + "/GetStatement";
-  try {
-    const r = await fetch(IB_BASE + "/SendRequest?t=" + encodeURIComponent(rec.token) + "&q=" + encodeURIComponent(rec.query) + "&v=3", { headers: UA });
-    const x = await r.text();
+  const force = url.searchParams.get("force") === "1", poll = url.searchParams.get("poll") === "1";
+  const put = async (patch) => { Object.assign(rec, patch); await env.HOLDY_KV.put(key, JSON.stringify(rec)); };
+  const UA = { "User-Agent": "Holdy/1.0 (portfolio tracker)", "Accept": "*/*" };
+  const fail = async (code, msg, status) => { await put({ err: msg, ref: "" }); return json({ error: "ibkr", code, msg }, status || 502, h); };
+  if (!poll) {
+    // Reporte ya traído (por la tarea de la mañana o un pedido reciente): "Actualizar ahora" solo lo reusa si tiene menos de 5 minutos.
+    const cached = await env.HOLDY_KV.get("ibc:" + user.sub, "json");
+    if (cached && (Date.now() - cached.at < (force ? 5 * 60 * 1000 : 20 * 3600 * 1000))) return json({ csv: cached.csv, at: cached.at, cached: true }, 200, h);
+    let x = "", st = 0;
+    try { const r = await fetch(IB_BASE + "/SendRequest?t=" + encodeURIComponent(rec.token) + "&q=" + encodeURIComponent(rec.query) + "&v=3", { headers: UA }); st = r.status; x = await r.text(); }
+    catch (e) { return json({ error: "ibkr", msg: "No pude conectarme con IBKR." }, 502, h); }
     if (ibTag(x, "Status") !== "Success") {
-      const code = ibTag(x, "ErrorCode"), msg = IB_ERR[code] || ("IBKR respondió: " + (ibTag(x, "ErrorMessage") || ("error " + r.status)));
-      await save({ err: msg });
-      return json({ error: "ibkr", code, msg }, 502, h);
+      const code = ibTag(x, "ErrorCode");
+      return fail(code, IB_ERR[code] || ("IBKR respondió: " + (ibTag(x, "ErrorMessage") || ("error " + st + " " + x.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)))));
     }
-    ref = ibTag(x, "ReferenceCode"); const u = ibTag(x, "Url"); if (/^https:\/\/[a-z0-9.\-]+\.interactivebrokers\.com\//i.test(u)) getUrl = u;
-  } catch (e) { return json({ error: "ibkr", msg: "No pude conectarme con IBKR." }, 502, h); }
-  // El reporte tarda unos segundos en generarse: se reintenta.
-  for (let i = 0; i < 8; i++) {
-    await new Promise((res) => setTimeout(res, i ? 3000 : 1500));
-    let t = "";
-    try { const r = await fetch(getUrl + "?t=" + encodeURIComponent(rec.token) + "&q=" + encodeURIComponent(ref) + "&v=3", { headers: UA }); t = await r.text(); }
-    catch (e) { continue; }
-    if (/<FlexStatementResponse/i.test(t) && /<ErrorCode>/i.test(t)) {
-      const code = ibTag(t, "ErrorCode");
-      if (code === "1019" || code === "1001" || code === "1021") continue; // todavía generándose
-      const msg = IB_ERR[code] || ("IBKR respondió: " + ibTag(t, "ErrorMessage"));
-      await save({ err: msg });
-      return json({ error: "ibkr", code, msg }, 502, h);
-    }
-    if (/^\s*<\?xml|<FlexQueryResponse/i.test(t)) {
-      await save({ err: "Tu Flex Query está en formato XML. En IBKR cambiá el formato a CSV." });
-      return json({ error: "ibkr", code: "xml", msg: "Tu Flex Query está en formato XML. En IBKR editala y cambiá el formato a CSV." }, 502, h);
-    }
-    if (t.length > 20) {
-      const at = Date.now();
-      if (t.length < 20000000) await env.HOLDY_KV.put("ibc:" + user.sub, JSON.stringify({ csv: t, at }), { expirationTtl: 6 * 3600 });
-      await save({ last: at, err: "" });
-      return json({ csv: t, at }, 200, h);
-    }
+    const u = ibTag(x, "Url");
+    await put({ ref: ibTag(x, "ReferenceCode"), refAt: Date.now(), getUrl: /^https:\/\/[a-z0-9.\-]+\.interactivebrokers\.com\//i.test(u) ? u : IB_BASE + "/GetStatement" });
+    return json({ pending: true }, 200, h);
   }
-  return json({ error: "ibkr", code: "timeout", msg: "IBKR tardó demasiado en generar el reporte. Probá de nuevo en un rato." }, 504, h);
+  if (!rec.ref) return json({ error: "ibkr", code: "noref", msg: "No hay un pedido en curso. Probá de nuevo." }, 409, h);
+  if (Date.now() - (rec.refAt || 0) > 10 * 60 * 1000) return fail("old", "El pedido a IBKR venció. Probá de nuevo.", 410);
+  let t = "", st = 0;
+  try { const r = await fetch((rec.getUrl || IB_BASE + "/GetStatement") + "?t=" + encodeURIComponent(rec.token) + "&q=" + encodeURIComponent(rec.ref) + "&v=3", { headers: UA }); st = r.status; t = await r.text(); }
+  catch (e) { return json({ pending: true, note: "red" }, 200, h); }
+  if (/<FlexStatementResponse/i.test(t) && /<ErrorCode>/i.test(t)) {
+    const code = ibTag(t, "ErrorCode");
+    if (code === "1019" || code === "1001" || code === "1021" || code === "1004") return json({ pending: true, code }, 200, h); // todavía armándose
+    return fail(code, IB_ERR[code] || ("IBKR respondió: " + ibTag(t, "ErrorMessage")));
+  }
+  if (/^\s*<\?xml|<FlexQueryResponse/i.test(t)) return fail("xml", "Tu Flex Query está en formato XML. En IBKR editala y cambiá el formato a CSV.");
+  if (/<html/i.test(t) || st >= 400) return fail("http" + st, "IBKR respondió con un error (" + st + "). Probá de nuevo en un rato.");
+  if (t.length < 20) return json({ pending: true, note: "vacio" }, 200, h);
+  const at = Date.now();
+  if (t.length < 20000000) await env.HOLDY_KV.put("ibc:" + user.sub, JSON.stringify({ csv: t, at }), { expirationTtl: 6 * 3600 });
+  await put({ last: at, err: "", ref: "" });
+  return json({ csv: t, at }, 200, h);
+}
+
+// Tarea diaria: para cada usuario con IBKR conectado, pide el reporte y lo guarda en "ibc:<usuario>" (24 h).
+async function ibCron(env) {
+  if (!env.HOLDY_KV) return;
+  const UA = { "User-Agent": "Holdy/1.0 (portfolio tracker)", "Accept": "*/*" };
+  let cursor;
+  do {
+    const page = await env.HOLDY_KV.list({ prefix: "ib:", cursor });
+    cursor = page.list_complete ? undefined : page.cursor;
+    for (const k of page.keys) {
+      const sub = k.name.slice(3), rec = await env.HOLDY_KV.get(k.name, "json");
+      if (!rec || !rec.token) continue;
+      try {
+        const x = await (await fetch(IB_BASE + "/SendRequest?t=" + encodeURIComponent(rec.token) + "&q=" + encodeURIComponent(rec.query) + "&v=3", { headers: UA })).text();
+        if (ibTag(x, "Status") !== "Success") { const c = ibTag(x, "ErrorCode"); rec.err = IB_ERR[c] || ("IBKR respondió: " + ibTag(x, "ErrorMessage")); await env.HOLDY_KV.put(k.name, JSON.stringify(rec)); continue; }
+        const ref = ibTag(x, "ReferenceCode"), u = ibTag(x, "Url"), getUrl = /^https:\/\/[a-z0-9.\-]+\.interactivebrokers\.com\//i.test(u) ? u : IB_BASE + "/GetStatement";
+        for (let i = 0; i < 24; i++) { // hasta ~2 minutos
+          await new Promise((res) => setTimeout(res, 5000));
+          const t = await (await fetch(getUrl + "?t=" + encodeURIComponent(rec.token) + "&q=" + encodeURIComponent(ref) + "&v=3", { headers: UA })).text();
+          if (/<FlexStatementResponse/i.test(t) && /<ErrorCode>/i.test(t)) {
+            const c = ibTag(t, "ErrorCode");
+            if (c === "1019" || c === "1001" || c === "1021" || c === "1004") continue;
+            rec.err = IB_ERR[c] || ("IBKR respondió: " + ibTag(t, "ErrorMessage")); await env.HOLDY_KV.put(k.name, JSON.stringify(rec)); break;
+          }
+          if (t.length > 20 && !/<html|^\s*<\?xml/i.test(t)) {
+            const at = Date.now();
+            await env.HOLDY_KV.put("ibc:" + sub, JSON.stringify({ csv: t, at }), { expirationTtl: 26 * 3600 });
+            rec.last = at; rec.err = ""; await env.HOLDY_KV.put(k.name, JSON.stringify(rec));
+            break;
+          }
+        }
+      } catch (e) { /* se reintenta mañana o cuando abra la app */ }
+    }
+  } while (cursor);
 }

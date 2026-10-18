@@ -2896,7 +2896,18 @@
   function ibSync(silent,force,signal){
     if(ibBusy||!auth) return Promise.resolve();
     ibBusy=true;
-    return api("POST","/me/ibkr/sync"+(force?"?force=1":""),undefined,signal).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j&&j.msg)||"No pude traer el reporte de IBKR."); return j; }); })
+    var t0=Date.now();
+    function call(q){ return api("POST","/me/ibkr/sync"+q,undefined,signal).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j&&j.msg)||"No pude traer el reporte de IBKR."); return j; }); }); }
+    /* IBKR arma el reporte en segundo plano: se pregunta cada 4 s, hasta 3 minutos. */
+    function wait(j){
+      if(!j.pending) return j;
+      if(signal&&signal.aborted) throw new Error("cancelado");
+      var sec=Math.round((Date.now()-t0)/1000);
+      if(sec>180) throw new Error("IBKR no terminó de armar el reporte en 3 minutos. Probá de nuevo más tarde (a veces tarda después del cierre del mercado).");
+      if(!silent&&$("dlgIb").open) ibRenderDlg("IBKR está armando el reporte… "+sec+" s. Puede tardar un par de minutos.","busy");
+      return new Promise(function(res){ setTimeout(res,4000); }).then(function(){ return call("?poll=1"); }).then(wait);
+    }
+    return call(force?"?force=1":"").then(wait)
       .then(function(j){
         if(signal&&signal.aborted) throw new Error("cancelado");
         var R=ibkrState(j.csv||""); if(R.err) throw new Error("El reporte de IBKR llegó pero: "+R.err);
@@ -2944,7 +2955,7 @@
   });
   /* Al abrir la app: si está conectado y pasaron más de 12 horas, se actualiza solo. */
   var ibTry=0;
-  function ibAuto(){ if(!auth||!ibA.on||!navigator.onLine) return; if(Date.now()-(ibA.last||0)<12*3600*1000||Date.now()-ibTry<3600*1000) return; ibTry=Date.now(); ibSync(true).catch(function(){}); }
+  function ibAuto(){ if(!auth||!ibA.on||!navigator.onLine) return; if(Date.now()-(ibA.last||0)<6*3600*1000||Date.now()-ibTry<3600*1000) return; ibTry=Date.now(); ibSync(true).catch(function(){}); }
 
   // ---------- Buscar cualquier acción o ETF y abrir "¿Qué pasó con X?" ----------
   var srchT=null, srchSeq=0;
