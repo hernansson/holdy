@@ -75,12 +75,12 @@ Plan gratuito de KV: unas 1.000 escrituras por día; Holdy agrupa los cambios pa
 - Versión visible (menú): `APP_SEMVER` en index.html, semántica y a mano (mayor.funciones.arreglos). `APP_VER`/`CACHE` (holdy-vNNN) es interno y sube en cada publicación.
 
 ## Cómo publicar un cambio (para cuando toques el código)
-1. Editá `app/index.html` (la app entera está en ese archivo).
-2. Corré `node tools/version.js patch` (o `minor` / `major`), igual que `npm version`: hace solo los pasos 2 y 3, el commit ("vX.Y.Z") y el tag; después `git push && git push --tags`. Con `--no-git` solo cambia los números. A mano sería:
-   subí la versión visible en `var APP_SEMVER="1.9.3"` (buscalo en el archivo):
-   - arreglo o retoque chico → el último número (1.9.3 → 1.9.4);
-   - función nueva → el del medio y el último vuelve a 0 (1.9.3 → 1.10.0);
-   - cambio enorme → el primero (1.9.3 → 2.0.0).
-3. Subí el número interno en **dos** lugares, siempre igual: `var APP_VER="holdy-vNNN"` en `app/index.html` y `const CACHE = "holdy-vNNN"` en `app/sw.js` (+1). Si no, los celulares siguen mostrando la versión vieja.
-4. Hacé commit y push a `main`: Cloudflare Pages publica la app sola en un minuto.
-5. Si cambiaste `worker/worker.js`, también se publica solo (GitHub Actions → "Publicar Worker"); el resultado de la prueba se ve en la pestaña Actions del repositorio.
+1. Editá `app/index.html` (la app entera está en ese archivo) y hacé commit de tus cambios.
+2. Subí la versión con npm, como en cualquier proyecto:
+   - `npm version patch` → arreglo o retoque chico (1.9.3 → 1.9.4)
+   - `npm version minor` → función nueva (1.9.3 → 1.10.0)
+   - `npm version major` → cambio enorme (1.9.3 → 2.0.0)
+   Además de `package.json`, copia la versión a `APP_SEMVER` (lo que se ve en el menú) y sube el número interno del caché
+   en `app/index.html` (`APP_VER`) y `app/sw.js` (`CACHE`) con `tools/sync-version.js`; hace el commit "1.9.4" y el tag `v1.9.4`.
+3. `git push && git push --tags`: Cloudflare Pages publica la app sola en un minuto.
+4. Si cambiaste `worker/worker.js`, también se publica solo (GitHub Actions → "Publicar Worker"); el resultado de la prueba se ve en la pestaña Actions del repositorio.

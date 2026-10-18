@@ -1,0 +1,9 @@
+{
+  "name": "holdy",
+  "version": "1.9.3",
+  "private": true,
+  "description": "Holdy: seguimiento de cartera (PWA)",
+  "scripts": {
+    "version": "node tools/sync-version.js && git add app/index.html app/sw.js"
+  }
+}
