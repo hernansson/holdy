@@ -2467,16 +2467,11 @@
     /* Barra fija: el monto en dólares de ese año, grande; abajo, chico, lo que vale descontando la inflación. */
     var b3=el("div"); b3.appendChild(el("small",null,"A los "+ret+" ("+yrRet+") tendrías")); b3.appendChild(el("b",null,M(p50*fRet))); b3.appendChild(el("small",null,"≈ "+M(p50)+" en dólares de hoy")); bar.appendChild(b3);
     if(simIn.mode==="need"){ var b1=el("div","r"); b1.appendChild(el("small",null,"Poné por mes")); b1.appendChild(el("b",null,ap>0?M(ap):"Nada")); bar.appendChild(b1); }
-    var c1=card("Según cómo le vaya al mercado");
-
-    var tr=el("div","sim-3"); [["Escenario malo",p10],["Normal",p50],["Escenario bueno",p90]].forEach(function(x){ var d=el("div"); d.appendChild(el("small",null,x[0])); d.appendChild(el("b",null,M(x[1]*fRet))); d.appendChild(el("small",null,M(x[1])+" de hoy")); tr.appendChild(d); }); c1.appendChild(tr);
-    c1.appendChild(el("div","sim-n","El mercado no sube parejo: simulamos 2.000 futuros posibles. Normal es el del medio; en el malo, 9 de cada 10 futuros terminan mejor; en el bueno, solo 1 de cada 10 lo supera."));
     var c2=card("¿Cuánto podrías gastar por mes desde los "+ret+"?");
-    c2.appendChild(el("div","sim-n","En dólares de hoy, con lo del caso normal."));
+    c2.appendChild(el("div","sim-n","En dólares de hoy."));
     function opt(t,amt,sub){ var r=el("div","sim-o"); var a=el("div"); a.appendChild(el("b",null,t)); a.appendChild(el("small",null,sub)); r.appendChild(a); r.appendChild(el("div","sim-amt",M(amt))); c2.appendChild(r); }
     opt("Para siempre",p50*sInf,"Vivís de lo que rinde y no se termina nunca");
-    opt("Hasta los "+end,p50*sEnd,"La usás toda, con margen si al mercado le va mal");
-    opt("Hasta los "+end+" (justo)",p50*sEnd50,"Más gasto, pero en la mitad de los casos no alcanza");
+    opt("Hasta los "+end,p50*sEnd,"La vas gastando hasta que se termina");
     var toEnd=p50*sEnd;
     var c3=card("Si quisieras gastar");
     var row=el("label","sim-g"); var w=el("span","sim-in"); w.appendChild(el("i",null,cy)); var gi=document.createElement("input"); gi.inputMode="decimal"; gi.placeholder="Ej. 3.000"; gi.value=simIn.gasto?Math.round(simIn.gasto).toLocaleString("es-AR"):""; w.appendChild(gi); row.appendChild(w); row.appendChild(el("span",null,"por mes, de hoy")); c3.appendChild(row);
