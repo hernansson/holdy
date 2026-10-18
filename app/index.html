@@ -226,7 +226,7 @@
   
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
   .sim-bar::before{content:""; position:absolute; left:-17px; right:-17px; top:-9px; height:9px; background:var(--bg)}
-  .sim-q{padding:12px 16px 0} #dlgSimA.sim-live::backdrop{background:rgba(0,0,0,.12)} .sim-bar[hidden]{display:none} .sim-bar div{display:grid; gap:1px} .sim-bar div.r{text-align:right} .sim-bar small{font-size:11.5px; color:var(--muted)} .sim-bar b{white-space:nowrap; font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.15} .sim-bar div:first-child b{color:var(--brand)} .sim-bar div.r b{font-size:18px}
+  .sim-q{padding:12px 16px 0} .sim-hint{padding:0 16px 12px; font-size:12px; color:var(--muted)} #dlgSimA.sim-live::backdrop{background:rgba(0,0,0,.12)} .sim-bar[hidden]{display:none} .sim-bar div{display:grid; gap:1px} .sim-bar div.r{text-align:right} .sim-bar small{font-size:11.5px; color:var(--muted)} .sim-bar b{white-space:nowrap; font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.15} .sim-bar div:first-child b{color:var(--brand)} .sim-bar div.r b{font-size:18px}
   .sim-sup summary{font-size:14px; font-weight:600; color:var(--muted); padding:10px 4px; cursor:pointer} .sim-ok{min-height:46px; margin-top:6px}
   #rptCfg .pe-grp .pe-r{border-top:1px solid var(--line)} #rptCfg .pe-grp .pe-r:first-child{border-top:0}
   #simABody .sim-a{padding:10px 14px} #simABody .pe-t small{font-size:12px}
@@ -2412,19 +2412,18 @@
     var box=$("simABody"); box.textContent=""; $("dlgSimA").querySelector("h3").textContent="En qué invertís";
     var g2=el("div","pe-grp vw-g sim-as"); box.appendChild(g2); var keys=Object.keys(SIM_ASSETS).concat(["custom"]);
     keys.forEach(function(k){ var A=SIM_ASSETS[k], b=el("button","sim-a"+(simIn.a===k?" on":"")); b.type="button";
-      var t=el("span","pe-t",A?A.n:"Personalizado"); t.appendChild(el("small",null,A?simPctTxt(simNom(A.r*100))+" · "+A.s:"Elegís el rendimiento, cuánto sube y baja y la inflación")); b.appendChild(t); b.appendChild(el("i","sim-dot"));
+      var t=el("span","pe-t",A?A.n:"Personalizado"); t.appendChild(el("small",null,A?simPctTxt(simNom(A.r*100))+" · "+A.s:"Ponés vos los números")); b.appendChild(t); b.appendChild(el("i","sim-dot"));
       b.addEventListener("click",function(){ simIn.a=k; if(A){ simIn.r=A.r*100; simIn.v=A.v*100; } simSave(); simForm(); simCalcNow(); simOpenA(); }); g2.appendChild(b); });
     /* Solo en Personalizado: los números a mano. El rendimiento se escribe en dólares (como se suele ver: ~10% el S&P 500). */
     if(simIn.a==="custom"){
-      var g4=el("div","pe-grp vw-g"); box.appendChild(g4);
-      [["Rendimiento anual","nom","En dólares. S&P 500 histórico: ~10%"],["Cuánto sube y baja","v","Volatilidad anual. S&P 500: ~17%"],["Inflación de EE.UU.","inf","Para mostrar lo que vale en dólares de hoy. Histórica: ~3%"]].forEach(function(o){
-        var r=el("label","vw-r sim-r"); var t=el("span","pe-t",o[0]); t.appendChild(el("small",null,o[2])); r.appendChild(t);
-        var cur_=o[1]==="nom"?simNom(+simIn.r):+simIn[o[1]];
-        var w=el("span","sim-in"), i=document.createElement("input"); i.inputMode="decimal"; i.value=cur_.toLocaleString("es-AR",{maximumFractionDigits:1}); w.appendChild(i); w.appendChild(el("i",null,"%")); r.appendChild(w);
+      var g4=el("div","pe-grp vw-g"); box.appendChild(g4); var er=el("div","vw-r sim-ages"); g4.appendChild(er);
+      [["Rinde (%)","nom"],["Sube y baja (%)","v"],["Inflación (%)","inf"]].forEach(function(o){
+        var c=el("label","sim-age"); c.appendChild(el("small",null,o[0])); var i=document.createElement("input"); i.inputMode="decimal";
+        i.value=(o[1]==="nom"?simNom(+simIn.r):+simIn[o[1]]).toLocaleString("es-AR",{maximumFractionDigits:1}); c.appendChild(i); er.appendChild(c);
         var tm=null; i.addEventListener("input",function(){ clearTimeout(tm); tm=setTimeout(function(){ var v=pnum(i.value); if(!(isFinite(v)&&v>=0)) return;
           if(o[1]==="nom"){ simIn.r=((1+v/100)/(1+(+simIn.inf||0)/100)-1)*100; } else if(o[1]==="inf"){ var nom=simNom(+simIn.r); simIn.inf=v; simIn.r=((1+nom/100)/(1+v/100)-1)*100; } else simIn[o[1]]=v;
-          simSave(); simForm(); simCalc(); },400); });
-        g4.appendChild(r); });
+          simSave(); simForm(); simCalcNow(); },400); }); });
+      g4.appendChild(el("div","sim-hint","Referencia S&P 500: rinde ~10% por año, sube y baja ~17%, inflación ~3%."));
     }
     var ok=el("button","primary sim-ok","Listo"); ok.type="button"; ok.addEventListener("click",function(){ $("dlgSimA").close(); }); box.appendChild(ok);
     var d=$("dlgSimA"); d.classList.add("sim-live"); if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
