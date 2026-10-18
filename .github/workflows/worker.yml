@@ -54,7 +54,7 @@ jobs:
             echo "binding = \"AI\""
             echo ""
             echo "[triggers]"
-            echo "crons = [\"0 10 * * *\"]"
+            echo "crons = [\"0 11 * * *\", \"0 14 * * *\"]"
           } > wrangler.toml
           echo "account=$ACC" >> "$GITHUB_OUTPUT"
 
