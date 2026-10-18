@@ -2449,12 +2449,12 @@
       ["input","keyup","change","compositionend"].forEach(function(ev){ i.addEventListener(ev,apply); });
       i.addEventListener("blur",function(){ apply(); show(); }); parent.appendChild(r); return r; }
     var g=el("div","pe-grp vw-g sim-adj"); box.appendChild(g); simDyn=[]; simIn.liveNom=0;
-    if(simIn.mode==="need"&&simIn.goal==="cap"){ sl(g,"Quiero juntar","goalAmt",0,5000000,10000,1); }
+    if(simIn.mode==="need"&&simIn.goal==="cap"){ sl(g,"Quiero juntar","goalAmt",0,2000000,10000,1); }
     else if(simIn.mode==="need"){ var eq=el("div","sim-eq"); var upd=function(){ var n=Math.max(0,Math.round(simIn.ret)-Math.round(simIn.age)), f=Math.pow(1+(+simIn.inf||0)/100,n), v=+simIn.live||0;
           eq.textContent="En plata de hoy. En "+(+todayStr().slice(0,4)+n)+" van a ser ≈ "+simM(v*f)+" por mes."; };
         sl(g,"Quiero cobrar por mes","live",0,20000,100,1,upd); g.appendChild(eq); upd(); simDyn.push(upd); }
     else sl(g,"Ponés por mes","ap",0,20000,100,1);
-    sl(g,"Arrancás con","cap",0,Math.max(1000000,Math.ceil((+simIn.cap||0)*2/100000)*100000),1000,1);
+    sl(g,"Arrancás con","cap",0,Math.max(300000,Math.ceil((+simIn.cap||0)*2/50000)*50000),1000,1);
     if(simIn.mode==="need"&&simIn.goal==="cap"){ simIn._yrs=Math.max(1,Math.round(simIn.ret-simIn.age)); sl(g,"En cuántos años","_yrs",1,50,1,0,function(){ simIn._yrs=Math.max(1,Math.round(simIn._yrs)); simIn.ret=Math.round(simIn.age)+simIn._yrs; if(simIn.end<=simIn.ret) simIn.end=Math.min(100,simIn.ret+1); }); }
     else simAgeBar(g);
     /* En qué invertís: botones chicos. */
