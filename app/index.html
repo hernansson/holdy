@@ -209,6 +209,8 @@
   .pe-t{display:grid; gap:2px; flex:1; min-width:0} .pe-t small{font-size:12.5px; font-weight:400; color:var(--muted)} .pe-r .go{color:var(--muted); font-size:20px}
   .pe-grp:not(:has(.pe-r:not([hidden]))){display:none}
   .pe-del{background:transparent; border:0; box-shadow:none; color:var(--neg); font-weight:600; font-size:14px; justify-self:center; margin-top:8px; min-height:36px}
+  .ib-st.busy{display:flex; gap:10px; align-items:center} .ib-st.busy::before{content:""; flex:0 0 18px; height:18px; border-radius:50%; border:2.5px solid var(--line); border-top-color:var(--brand); animation:ins-r .8s linear infinite}
+  #ibGo.loading{opacity:.75} #dlgIb.ib-busy input,#dlgIb.ib-busy select{opacity:.55}
   .ib-st{font-size:14px; line-height:1.45; padding:10px 12px; border-radius:12px; background:var(--chip)} .ib-st:empty{display:none} .ib-st.ok{background:color-mix(in srgb,var(--pos) 12%,transparent)} .ib-st.err{background:color-mix(in srgb,var(--neg) 12%,transparent)}
   dialog#dlgSrch{height:min(70vh,640px)} @media (max-width:699px){ dialog#dlgSrch{height:88dvh} } dialog#dlgSrch[open]{display:flex; flex-direction:column}
   #srchIn{width:100%; box-sizing:border-box; font-size:16px; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--sh-card); color:var(--text); margin:2px 0 8px}
@@ -867,7 +869,7 @@
     <h3>IBKR automático</h3>
     <div class="ib-st" id="ibAutoSt"></div>
     <div id="ibAutoForm">
-      <div class="help" style="font-size:13.5px;color:var(--muted);line-height:1.45">Holdy trae solo tus operaciones, dividendos y efectivo de Interactive Brokers una vez por día. Necesita el <b>token del Flex Web Service</b> (IBKR → Settings → Account Settings → Flex Web Service) y el <b>número de tu Flex Query</b> (en formato CSV, con Trades, Cash Transactions y Cash Report). El token solo sirve para leer reportes: no permite operar ni mover plata.</div>
+      <div class="help" style="font-size:13.5px;color:var(--muted);line-height:1.45">Holdy trae solo tus operaciones, dividendos y efectivo de Interactive Brokers una vez por día. Necesita el <b>token del Flex Web Service</b> (IBKR → Performance &amp; Reports → Flex Queries → Flex Web Service Configuration) y el <b>número de tu Flex Query</b> (en formato CSV, con Trades, Cash Transactions y Cash Report). El token solo sirve para leer reportes: no permite operar ni mover plata.</div>
       <label>Token<input id="ibTok" autocomplete="off" spellcheck="false" inputmode="numeric" placeholder="Pegá el token de IBKR"></label>
       <label>Número de Flex Query (Query ID)<input id="ibQid" autocomplete="off" inputmode="numeric" placeholder="Ej. 1234567"></label>
     </div>
@@ -1233,7 +1235,7 @@
   };
 
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v191"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v192"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   try{ document.getElementById("drVer").textContent="Versión "+APP_VER.replace(/^holdy-v/,""); }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -2888,11 +2890,12 @@
       .catch(function(e){ ibRenderDlg(e&&e.message==="old"?"El servidor todavía no tiene esta función. Esperá unos minutos y volvé a abrir.":"No pude consultar el estado. Revisá tu conexión.","err"); });
   }
   /* Trae el reporte y lo aplica al perfil elegido. silent: al abrir la app, sin preguntas. */
-  function ibSync(silent,force){
+  function ibSync(silent,force,signal){
     if(ibBusy||!auth) return Promise.resolve();
     ibBusy=true;
-    return api("POST","/me/ibkr/sync"+(force?"?force=1":"")).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j&&j.msg)||"No pude traer el reporte de IBKR."); return j; }); })
+    return api("POST","/me/ibkr/sync"+(force?"?force=1":""),undefined,signal).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j&&j.msg)||"No pude traer el reporte de IBKR."); return j; }); })
       .then(function(j){
+        if(signal&&signal.aborted) throw new Error("cancelado");
         var R=ibkrState(j.csv||""); if(R.err) throw new Error("El reporte de IBKR llegó pero: "+R.err);
         var pid=(ibSrv&&ibSrv.pid)||ibA.pid||profData.active, pr=profData.profiles.filter(function(p){return p.id===pid&&!p.readOnly;})[0]||cur();
         cur().positions=positions;
@@ -2902,23 +2905,35 @@
         ibA.last=j.at||Date.now(); ibA.err=""; ibA.on=1; ibA.pid=pr.id; ibSaveLocal();
         return {msg:R.msg,pr:pr};
       })
-      .catch(function(e){ ibA.err=e&&e.message||"Error"; ibSaveLocal(); if(silent) showBanner("IBKR automático: "+ibA.err,false); throw e; })
+      .catch(function(e){ if((e&&e.name==="AbortError")||(signal&&signal.aborted)) throw new Error("cancelado"); ibA.err=e&&e.message||"Error"; ibSaveLocal(); if(silent) showBanner("IBKR automático: "+ibA.err,false); throw e; })
       .then(function(x){ ibBusy=false; return x; },function(e){ ibBusy=false; throw e; });
   }
 
-  $("ibCancel").addEventListener("click",function(){ $("dlgIb").close(); });
+  $("ibCancel").addEventListener("click",function(){ if(ibCtl){ ibCtl.abort(); return; } $("dlgIb").close(); });
+  var ibCtl=null;
+  function ibLoading(on){
+    var d=$("dlgIb"); d.classList.toggle("ib-busy",on);
+    ["ibTok","ibQid","ibPid","ibOff","ibGo"].forEach(function(id){ $(id).disabled=on; });
+    $("ibCancel").textContent=on?"Cancelar":"Cerrar";
+    $("ibGo").classList.toggle("loading",on); if(on) $("ibGo").textContent="Trayendo…";
+  }
+  $("dlgIb").addEventListener("cancel",function(e){ if(ibCtl){ e.preventDefault(); ibCtl.abort(); } }); /* Escape/atrás: cancela en vez de cerrar */
+  $("dlgIb").addEventListener("click",function(e){ if(e.target===this&&!ibCtl) this.close(); });
   $("ibGo").addEventListener("click",function(){
     var tok=$("ibTok").value.replace(/\s+/g,""), con=!!(ibSrv&&ibSrv.connected), q=$("ibQid").value.replace(/\s+/g,"")||(con?String(ibSrv.query||""):""), pid=$("ibPid").value;
     if(!con&&!/^[A-Za-z0-9]{10,64}$/.test(tok)){ ibRenderDlg("Pegá el token completo del Flex Web Service.","err"); return; }
     if(tok&&!/^[A-Za-z0-9]{10,64}$/.test(tok)){ ibRenderDlg("Ese token no parece válido.","err"); return; }
     if(!/^\d{3,12}$/.test(q)){ ibRenderDlg("El número de Flex Query son solo dígitos (lo ves en la lista de Flex Queries de IBKR).","err"); return; }
     var changed=tok||!con||q!==ibSrv.query||pid!==(ibSrv.pid||"");
-    $("ibGo").disabled=true; ibRenderDlg("Pidiendo el reporte a IBKR… puede tardar unos segundos.");
-    (changed?api("PUT","/me/ibkr",{token:tok,query:q,pid:pid}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j&&j.error==="bad_token"?"Ese token no parece válido.":"No pude guardar los datos."); }); }):Promise.resolve())
-      .then(function(){ ibSrv={connected:true,query:q,pid:pid,tail:tok?tok.slice(-4):(ibSrv&&ibSrv.tail)||"",err:""}; ibA.pid=pid; ibA.on=1; ibSaveLocal(); return ibSync(false,!changed); })
+    ibCtl=new AbortController(); var sig=ibCtl.signal;
+    ibRenderDlg("Pidiendo el reporte a IBKR… puede tardar hasta medio minuto.","busy"); ibLoading(true);
+    (changed?api("PUT","/me/ibkr",{token:tok,query:q,pid:pid},sig).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j&&j.error==="bad_token"?"Ese token no parece válido.":"No pude guardar los datos."); }); }):Promise.resolve())
+      .then(function(){ ibSrv={connected:true,query:q,pid:pid,tail:tok?tok.slice(-4):(ibSrv&&ibSrv.tail)||"",err:""}; ibA.pid=pid; ibA.on=1; ibSaveLocal(); return ibSync(false,!changed,sig); })
       .then(function(x){ $("ibTok").value=""; ibRenderDlg("Listo: "+(x?x.msg:"")+" Se cargó en “"+(x?x.pr.name:"")+"”. De ahora en más se actualiza sola una vez por día.","ok"); })
-      .catch(function(e){ if(ibSrv) ibSrv.err=e&&e.message; ibRenderDlg("⚠ "+(e&&e.message||"No se pudo."),"err"); })
-      .then(function(){ $("ibGo").disabled=false; });
+      .catch(function(e){ var m=e&&(e.name==="AbortError"?"cancelado":e.message);
+        if(m==="cancelado"){ ibRenderDlg("Cancelado. No se cambió nada en tu cartera."); return; }
+        if(ibSrv) ibSrv.err=m; ibRenderDlg("⚠ "+(m||"No se pudo."),"err"); })
+      .then(function(){ ibCtl=null; ibLoading(false); $("ibGo").textContent=ibSrv&&ibSrv.connected?"Actualizar ahora":"Conectar y traer"; });
   });
   $("ibOff").addEventListener("click",function(){
     if(!confirm("¿Desconectar IBKR? Lo que ya se importó queda en tu cartera; solo deja de actualizarse solo.")) return;
@@ -4759,8 +4774,8 @@
     if(!out.some(function(x){return x.id===profData.active;})) profData.active=out[0].id;
     positions=cur().positions;
   }
-  function api(method,path,body){
-    return fetch(SYNC_BASE+path,{method:method,cache:"no-store",headers:{"Authorization":"Bearer "+auth.session,"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
+  function api(method,path,body,signal){
+    return fetch(SYNC_BASE+path,{method:method,cache:"no-store",signal:signal,headers:{"Authorization":"Bearer "+auth.session,"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
   }
   function setCloudStatus(t){ cloudStatus=t; renderAccount(); }
   function cloudSync(){
