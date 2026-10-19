@@ -530,7 +530,8 @@
   .note{font-size:12px; color:var(--muted); margin-top:6px}
   body.welcome #btnAdd{display:none !important}
   .tour{position:fixed; inset:0; z-index:1000; opacity:0; transition:opacity .25s} .tour.on{opacity:1}
-  .tour-hole{position:fixed; border-radius:16px; box-shadow:0 0 0 9999px rgba(4,10,14,.78); transition:top .45s cubic-bezier(.2,.9,.2,1),left .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1); pointer-events:none}
+  .tour-hole{position:fixed; border-radius:16px; transition:top .45s cubic-bezier(.2,.9,.2,1),left .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1); pointer-events:none}
+  .tour-dim{position:fixed; inset:0; width:100%; height:100%; pointer-events:none} .tour-mr{transition:x .45s cubic-bezier(.2,.9,.2,1),y .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1)}
   .tour-ring{position:absolute; inset:-3px; border-radius:19px; border:3px solid var(--brand); box-shadow:0 0 18px color-mix(in srgb,var(--brand) 70%,transparent)}
   .tour-ring.go{animation:tourRing 1.6s ease-out .35s infinite} @keyframes tourRing{0%{transform:scale(1);opacity:1}70%{transform:scale(1.08);opacity:0}100%{opacity:0}}
   .tour-card{position:fixed; left:16px; right:16px; max-width:420px; margin:0 auto; background:var(--card); color:var(--text); border-radius:20px; padding:18px 18px 14px; box-shadow:0 18px 40px rgba(0,0,0,.4); transition:top .45s cubic-bezier(.2,.9,.2,1)}
@@ -2850,19 +2851,26 @@
   var TOUR=[
     [".sum-card","Tu cartera de un vistazo","Cuánto vale todo hoy y cuánto ganaste."],
     ["#list .acc","Tocá cualquier inversión","Ves el detalle y por qué subió o bajó."],
-    ["#profSel","Una cartera por broker","Cambiá de perfil acá. También la podés compartir."],
-    ["#btnMenu","Más en el menú","Reportes, Proyección de tu retiro y Avisos al celu."],
+    ["#profSel","La cartera de tus amigos","Si alguien te comparte la suya, la ves acá y la comparás con la tuya."],
+    ["#btnAdd","Cargá tus inversiones","Una por una desde acá, o todas juntas subiendo el archivo de tu broker (Menú → Perfiles → Importar)."],
+    ["#btnMenu","Más en el menú","Proyectá cuánto vas a tener a futuro y armá reportes en PDF."],
     ["#demoBar","Ahora te toca a vos","Salí del ejemplo y cargá tu propia cartera."]
   ];
   function tourStart(){
     var steps=TOUR.filter(function(t){ var e=document.querySelector(t[0]); return e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=="hidden"; }); if(!steps.length) return;
     var ov=el("div","tour"), hole=el("div","tour-hole"), ring=el("i","tour-ring"), card=el("div","tour-card"), arr=el("i","tour-arr");
-    hole.appendChild(ring); ov.appendChild(hole); ov.appendChild(card); ov.appendChild(arr); document.body.appendChild(ov);
+    hole.appendChild(ring);
+    /* Oscurecido con una máscara SVG (más confiable que una sombra gigante): todo oscuro menos el hueco. */
+    var NS="http://www.w3.org/2000/svg", svg=document.createElementNS(NS,"svg"); svg.setAttribute("class","tour-dim");
+    svg.innerHTML='<defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><rect class="tour-mr" rx="16" fill="#000"/></mask></defs><rect width="100%" height="100%" fill="rgba(4,10,14,.78)" mask="url(#tourMask)"/>';
+    var mr=svg.querySelector(".tour-mr");
+    ov.appendChild(svg); ov.appendChild(hole); ov.appendChild(card); ov.appendChild(arr); document.body.appendChild(ov);
     requestAnimationFrame(function(){ ov.classList.add("on"); });
     var i=0, tgt=null;
     function place(){ if(!tgt) return; var r=tgt.getBoundingClientRect(), pad=8, vh=window.innerHeight, vw=window.innerWidth;
       var L=Math.max(6,r.left-pad), W=Math.min(vw-12,r.width+pad*2);
       hole.style.top=(r.top-pad)+"px"; hole.style.left=L+"px"; hole.style.width=W+"px"; hole.style.height=(r.height+pad*2)+"px";
+      mr.style.x=L+"px"; mr.style.y=(r.top-pad)+"px"; mr.style.width=W+"px"; mr.style.height=(r.height+pad*2)+"px";
       var ch=card.offsetHeight, below=r.bottom+pad+16, up=!(below+ch<vh-16), top=up?Math.max(12,r.top-pad-16-ch):below;
       card.style.top=top+"px";
       var cx=Math.max(28,Math.min(vw-28,r.left+r.width/2)); arr.style.left=(cx-8)+"px"; arr.style.top=(up?top+ch-1:top-8)+"px"; arr.classList.toggle("up",up); }
