@@ -535,7 +535,7 @@
   .tour-card.fin{top:auto !important; bottom:0; left:0; right:0; max-width:560px; border-radius:24px 24px 0 0; padding:26px 20px calc(18px + env(safe-area-inset-bottom)); display:grid; gap:4px; text-align:center; animation:tourUp .45s cubic-bezier(.2,.9,.25,1)}
   .tour-card.fin .wel-ic{margin:0 auto 10px} .tour-card.fin p{margin:2px 0 16px} .tour-card.fin .primary{min-height:52px; border-radius:16px; font-size:16px; font-weight:800} .tour-card.fin .linkbtn{padding:12px; color:var(--muted); font-weight:600}
   @keyframes tourUp{from{transform:translateY(100%)}to{transform:none}}
-  .tour-dim{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; opacity:.78; transition:opacity .4s} .tour.intro .tour-dim{opacity:.95}
+  .tour-dim{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; opacity:.78; transition:opacity .4s} .tour.intro .tour-dim{opacity:1}
   .tour-card.fin.in{animation:tourUp .4s cubic-bezier(.2,.9,.25,1)} .tour-mr{transition:x .45s cubic-bezier(.2,.9,.2,1),y .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1)}
   .tour-ring{position:absolute; inset:-3px; border-radius:19px; border:3px solid var(--brand); box-shadow:0 0 18px color-mix(in srgb,var(--brand) 70%,transparent)}
   .tour-ring.go{animation:tourRing 1.6s ease-out .35s infinite} @keyframes tourRing{0%{transform:scale(1);opacity:1}70%{transform:scale(1.08);opacity:0}100%{opacity:0}}
@@ -2895,7 +2895,7 @@
       var started=false; go.addEventListener("click",function(e){ e.stopPropagation(); if(started) return; started=true;
         Promise.resolve(ready).then(function(){ if(!ov.isConnected) return; window.scrollTo(0,0); pick(); if(steps.length<2){ end(); return; } i=0; show(); }); });
       place(); }
-    function show(){ ov.classList.remove("intro"); var t=steps[i], last=!t[0]; sel=t[0]; if(i===0){ lastR=null; ov.classList.add("notrans"); setTimeout(function(){ ov.classList.remove("notrans"); },60); } card.textContent=""; card.className="tour-card"+(last?" fin":""); void card.offsetWidth; card.classList.add("in");
+    function show(){ var t=steps[i], last=!t[0]; sel=t[0]; requestAnimationFrame(function(){ ov.classList.remove("intro"); }); if(i===0){ lastR=null; ov.classList.add("notrans"); setTimeout(function(){ ov.classList.remove("notrans"); },60); } card.textContent=""; card.className="tour-card"+(last?" fin":""); void card.offsetWidth; card.classList.add("in");
       ring.classList.remove("go"); void ring.offsetWidth; ring.classList.add("go");
       if(last){
         /* Cierre: hoja desde abajo, sin resaltado. */
