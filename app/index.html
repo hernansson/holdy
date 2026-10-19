@@ -528,6 +528,13 @@
   .lotlist{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:grid;gap:4px}
   .lotline{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
   .note{font-size:12px; color:var(--muted); margin-top:6px}
+  body.welcome #btnAdd{display:none !important}
+  .wel{display:grid; gap:10px; padding:26px 18px 18px; background:var(--card); border:1px solid var(--line); border-radius:18px; text-align:center}
+  .wel-ic{width:56px; height:56px; margin:0 auto 4px; border-radius:16px; display:grid; place-items:center; background:var(--brand); color:var(--brand-ink)}
+  .wel h2{margin:0; font-size:22px} .wel p{margin:0 0 8px; color:var(--muted); font-size:15px; line-height:1.45}
+  .wel-b{display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:14px 16px; border-radius:14px; background:var(--chip); color:var(--text); border:1px solid transparent; box-shadow:none; min-height:0; font-size:16px; font-weight:700}
+  .wel-b .pe-t{flex:1; display:grid; gap:2px} .wel-b small{font-weight:400; font-size:13px; color:var(--muted)} .wel-b .go{font-size:20px; color:var(--muted)}
+  .wel-b.pri{background:var(--brand); color:var(--brand-ink)} .wel-b.pri small,.wel-b.pri .go{color:inherit; opacity:.85}
   .empty{text-align:center; color:var(--muted); padding:36px 12px; background:var(--card); border:1px dashed var(--line); border-radius:14px}
   .fab{
     position:fixed; right:16px; bottom:calc(16px + env(safe-area-inset-bottom));
@@ -2807,17 +2814,29 @@
     var nm=vPos().filter(function(p){ return p.fi&&(!(p.fi.c>0)||!p.fi.m); }).map(function(p){return p.ticker;});
     if(cobView==="prox"&&nm.length) box.appendChild(el("div","cob-note","Sin tasa o vencimiento para calcular: "+nm.join(", ")+" (cargalos en Editar)."));
   }
+  /* Primera vez: bienvenida con tres caminos para arrancar. */
+  function welcomeCard(){
+    var w=el("div","wel");
+    var ic=el("div","wel-ic"); ic.innerHTML='<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg>'; w.appendChild(ic);
+    w.appendChild(el("h2",null,"Bienvenido a Holdy"));
+    w.appendChild(el("p",null,"Toda tu cartera en un solo lugar: acciones, bonos y fondos de todos tus brokers, en dólares."));
+    var opts=[
+      ["Importar de mi broker","IBKR, Balanz o IOL: subís el archivo y listo",function(){ ibTargetId=profData.active; ibReset(); renderProfList(); pvShow("imp"); dlgProf.showModal(); },1],
+      ["Cargar a mano","Ticker, cantidad y precio de compra",function(){ $("btnAdd").click(); }],
+      ["Ver un ejemplo","Probá la app con una cartera de muestra",function(){ renderProfList(); pvShow("new"); dlgProf.showModal(); $("pfDemo").click(); }]
+    ];
+    opts.forEach(function(o){ var b=el("button","wel-b"+(o[3]?" pri":"")); b.type="button"; var t=el("span","pe-t",o[0]); t.appendChild(el("small",null,o[1])); b.appendChild(t); b.appendChild(el("span","go","›")); b.addEventListener("click",o[2]); w.appendChild(b); });
+    return w;
+  }
   function renderList(){
     renderTabs();
-    var box=$("list"); box.textContent=""; $("dist").textContent="";
+    var box=$("list"); box.textContent=""; $("dist").textContent=""; document.body.classList.remove("welcome");
     if(ui.tab==="sold"){ renderSoldList(box); return; }
     var allN=allPosN(), positions=vPos(); /* con el filtro de broker, solo las de ese broker */
     if(allN&&!positions.length){ box.appendChild(el("div","empty","No tenés posiciones abiertas en "+brokerName(bkOn())+".")); return; }
     if(!positions.length){
-      var e=el("div","empty");
-      e.appendChild(el("div",null,"Todavía no cargaste ninguna posición."));
-      e.appendChild(el("div","help","Tocá “+ Posición” y cargá ticker, cantidad y precio de compra. El precio actual se completa solo."));
-      box.appendChild(e); return;
+      if(isRO()){ box.appendChild(el("div","empty","Este perfil todavía no tiene posiciones.")); return; }
+      document.body.classList.add("welcome"); box.appendChild(welcomeCard()); return;
     }
     // total por moneda para el peso
     var totalByCcy={};
