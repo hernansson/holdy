@@ -825,7 +825,7 @@ async function pushTo(env, sub, kind, msg, once, ttl) {
     const ik = "pin:" + await sha256(s.ep), box = (await env.HOLDY_KV.get(ik, "json")) || [];
     box.push({ ...msg, at: Date.now() }); await env.HOLDY_KV.put(ik, JSON.stringify(box.slice(-5)), { expirationTtl: 3 * 86400 });
     try {
-      const r = await fetch(s.ep, { method: "POST", headers: { TTL: "43200", Urgency: "normal", Authorization: await vapidAuth(env, s.ep), "Content-Length": "0" } });
+      const r = await fetch(s.ep, { method: "POST", headers: { TTL: "43200", Urgency: "high", Authorization: await vapidAuth(env, s.ep), "Content-Length": "0" } });
       if (r.status === 404 || r.status === 410) continue; // suscripción vencida: se borra
       if (r.ok) sent++;
     } catch (e) { /* se reintenta en el próximo aviso */ }
