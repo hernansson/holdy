@@ -529,6 +529,10 @@
   .lotline{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
   .note{font-size:12px; color:var(--muted); margin-top:6px}
   body.welcome #btnAdd{display:none !important}
+  .tour{position:fixed; inset:0; z-index:1000} .tour-hole{position:fixed; border-radius:14px; box-shadow:0 0 0 9999px rgba(0,0,0,.72); outline:2px solid var(--brand); transition:all .3s cubic-bezier(.2,.8,.2,1); pointer-events:none}
+  .tour-card{position:fixed; left:16px; right:16px; max-width:420px; margin:0 auto; background:var(--card); color:var(--text); border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.35); transition:top .3s cubic-bezier(.2,.8,.2,1)}
+  .tour-card b{font-size:17px} .tour-card p{margin:6px 0 12px; font-size:15px; line-height:1.45; color:var(--muted)} .tour-n{font-size:12px; color:var(--muted); font-weight:700; margin-bottom:4px}
+  .tour-bt{display:flex; justify-content:space-between; align-items:center} .tour-bt .primary{min-height:42px; padding:0 20px; border-radius:999px; font-weight:800}
   .imp-pick,.imp-how{display:grid; gap:10px} .imp-pick[hidden],.imp-how[hidden]{display:none} .imp-q{font-size:17px; font-weight:700; padding:2px 2px 4px}
   .imp-bk{display:flex; align-items:center; justify-content:space-between; font-size:17px} .linkbtn{background:none; border:0; box-shadow:none; color:var(--brand); font-weight:700; padding:6px 4px; min-height:0}
   .imp-steps{margin:0; padding:14px 16px 14px 34px; background:var(--card); border:1px solid var(--line); border-radius:14px; display:grid; gap:10px; font-size:15px; line-height:1.45}
@@ -2836,6 +2840,38 @@
     var nm=vPos().filter(function(p){ return p.fi&&(!(p.fi.c>0)||!p.fi.m); }).map(function(p){return p.ticker;});
     if(cobView==="prox"&&nm.length) box.appendChild(el("div","cob-note","Sin tasa o vencimiento para calcular: "+nm.join(", ")+" (cargalos en Editar)."));
   }
+  /* Guía: oscurece la pantalla y resalta dónde tocar, paso a paso. */
+  var TOUR=[
+    [".sum-card","Tu cartera","Lo que vale todo hoy y cuánto ganaste o perdiste."],
+    [".dcseg","Moneda","Mirá los montos en dólar CCL, MEP o en pesos."],
+    ["#evo","Evolución","Cómo fue cambiando tu cartera. Elegí el período: 1 mes, 3 meses, 1 año o todo."],
+    ["#tabs","Tus inversiones","Acciones, renta fija y lo que ya vendiste, cada cosa por separado."],
+    ["#list .acc","Cada inversión","Tocá una para ver el detalle: cuánto pusiste, cuánto vale y por qué subió o bajó."],
+    ["#profSel","Perfiles","Cambiá de cartera: una por broker, o la de alguien que te la compartió."],
+    ["#btnSearch","Buscar","Buscá cualquier acción y mirá qué le pasó."],
+    ["#btnHide","Ocultar montos","Tapá los números si estás en un lugar público."],
+    ["#btnMenu","Menú","Reportes, Proyección, Avisos y configuración."],
+    ["#btnAdd","Cargar a mano","Sumá una compra o una venta cuando quieras."],
+    ["#demoBar","¡Listo!","Cuando quieras, salí del ejemplo y cargá tu propia cartera."]
+  ];
+  function tourStart(){
+    var steps=TOUR.filter(function(t){ var e=document.querySelector(t[0]); return e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=="hidden"; }); if(!steps.length) return;
+    var ov=el("div","tour"), hole=el("div","tour-hole"), card=el("div","tour-card"); ov.appendChild(hole); ov.appendChild(card); document.body.appendChild(ov);
+    var i=0, tgt=null;
+    function place(){ if(!tgt) return; var r=tgt.getBoundingClientRect(), pad=6, vh=window.innerHeight, vw=window.innerWidth;
+      hole.style.top=(r.top-pad)+"px"; hole.style.left=Math.max(4,r.left-pad)+"px"; hole.style.width=(Math.min(vw-8,r.width+pad*2))+"px"; hole.style.height=(r.height+pad*2)+"px";
+      var ch=card.offsetHeight, below=r.bottom+pad+12, top=(below+ch<vh-12)?below:Math.max(12,r.top-pad-12-ch); card.style.top=top+"px"; }
+    function show(){ var t=steps[i]; tgt=document.querySelector(t[0]); card.textContent="";
+      card.appendChild(el("div","tour-n",(i+1)+" de "+steps.length)); card.appendChild(el("b",null,t[1])); card.appendChild(el("p",null,t[2]));
+      var bt=el("div","tour-bt"), sk=el("button","linkbtn",i<steps.length-1?"Saltar":""); sk.type="button"; sk.addEventListener("click",end);
+      var nx=el("button","primary",i<steps.length-1?"Siguiente":"Terminar"); nx.type="button"; nx.addEventListener("click",function(){ if(i<steps.length-1){ i++; show(); } else end(); });
+      bt.appendChild(sk); bt.appendChild(nx); card.appendChild(bt);
+      var cs=getComputedStyle(tgt).position; if(cs!=="fixed"&&cs!=="sticky"&&!tgt.closest("header")){ var r=tgt.getBoundingClientRect(); if(r.top<80||r.bottom>window.innerHeight-200) window.scrollTo({top:window.scrollY+r.top-140,behavior:"smooth"}); }
+      place(); setTimeout(place,350); }
+    function end(){ window.removeEventListener("scroll",place); window.removeEventListener("resize",place); ov.remove(); }
+    window.addEventListener("scroll",place,{passive:true}); window.addEventListener("resize",place);
+    show();
+  }
   /* Primera vez: bienvenida con tres caminos para arrancar. */
   function welcomeCard(){
     var w=el("div","wel");
@@ -2845,7 +2881,7 @@
     var opts=[
       ["Importar de mi broker","IBKR, Balanz o IOL: subís el archivo y listo",function(){ ibTargetId=profData.active; ibReset(); renderProfList(); pvShow("imp"); pvDirect=true; dlgProf.showModal(); },1],
       ["Cargar a mano","Ticker, cantidad y precio de compra",function(){ $("btnAdd").click(); }],
-      ["Ver un ejemplo","Probá la app con una cartera de muestra",function(){ var b=this, sm=b.querySelector("small"); buildDemo(function(t){ sm.textContent=t||"Probá la app con una cartera de muestra"; },b,null); }]
+      ["Ver un ejemplo","Probá la app con una cartera de muestra",function(){ var b=this, sm=b.querySelector("small"); buildDemo(function(t){ sm.textContent=t||"Probá la app con una cartera de muestra"; },b,function(){ setTimeout(tourStart,700); }); }]
     ];
     opts.forEach(function(o){ var b=el("button","wel-b"+(o[3]?" pri":"")); b.type="button"; var t=el("span","pe-t",o[0]); t.appendChild(el("small",null,o[1])); b.appendChild(t); b.appendChild(el("span","go","›")); b.addEventListener("click",o[2]); w.appendChild(b); });
     return w;
