@@ -489,10 +489,10 @@
   @keyframes vinR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
   @keyframes vinL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
   .vin-r{animation:vinR .26s cubic-bezier(.2,.8,.2,1)} .vin-l{animation:vinL .26s cubic-bezier(.2,.8,.2,1)}
-  .scr.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
-  .scr.leave{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
+  .scr.enter,#cmpView.enter,#rptView.enter,#simView.enter,#pushView.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
+  .scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
   main.enter-back{animation:mainBack .28s cubic-bezier(.2,.8,.2,1)}
-  @media (prefers-reduced-motion:reduce){.scr.enter,main.enter-back,.vin-r,.vin-l{animation:none}.scr.leave{animation:none;display:none}}
+  @media (prefers-reduced-motion:reduce){.scr.enter,main.enter-back,.vin-r,.vin-l{animation:none}.scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave{animation:none;display:none}}
   .scr .cmphdr{padding:0 16px}
   .scr form{padding:8px 16px 18px}
   #cmpView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px}
