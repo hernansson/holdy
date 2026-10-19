@@ -2672,7 +2672,9 @@
         var q0=pre.reduce(function(a,l){ return a+l.q; },0), p0=q0?hpx(p.ticker,d0):null;
         var cost=(q0&&p0?q0*p0:0)+inP.reduce(function(a,l){ return a+l.q*l.b; },0), qn=q0+inP.reduce(function(a,l){ return a+l.q; },0);
         var px=closed?p.sold.p:((prices[p.ticker]&&prices[p.ticker].price)||hpx(p.ticker,tdn)); if(!(cost>0&&px>0&&qn>0)) return;
-        var m=qn*px/cost-1, k=p.ticker; if(seen[k]&&Math.abs(seen[k].m)>=Math.abs(m)) return; seen[k]={t:k,m:m}; }
+        /* Dividendos cobrados en el período (igual que los cupones en los bonos). */
+        var dv=(pr.div||[]).reduce(function(a,x){ var dn=dayNum(x.d); return (x.t===p.ticker&&x.b===p.broker&&dn>d0&&(sd===null||dn<=sd))?a+(+x.a||0):a; },0);
+        var m=(qn*px+dv)/cost-1, k=p.ticker; if(seen[k]&&Math.abs(seen[k].m)>=Math.abs(m)) return; seen[k]={t:k,m:m}; }
       /* Bonos: precio de lo que pagaste al de hoy + los cupones que cobraste en el período. */
       var F=R.full||{};
       function mvFi(p,closed){ if(!p.fi||p.ccy!=="USD") return; var h=F["FI:"+p.ticker+":"+p.fi.r+":"+(p.fi.m||"")]; if(!h||!h.pts.length) return;
