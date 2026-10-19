@@ -2673,7 +2673,14 @@
         var cost=(q0&&p0?q0*p0:0)+inP.reduce(function(a,l){ return a+l.q*l.b; },0), qn=q0+inP.reduce(function(a,l){ return a+l.q; },0);
         var px=closed?p.sold.p:((prices[p.ticker]&&prices[p.ticker].price)||hpx(p.ticker,tdn)); if(!(cost>0&&px>0&&qn>0)) return;
         var m=qn*px/cost-1, k=p.ticker; if(seen[k]&&Math.abs(seen[k].m)>=Math.abs(m)) return; seen[k]={t:k,m:m}; }
-      PS.forEach(function(p){ mv(p,false); }); CL.forEach(function(p){ mv(p,true); });
+      /* Bonos: precio de lo que pagaste al de hoy + los cupones que cobraste en el período. */
+      var F=R.full||{};
+      function mvFi(p,closed){ if(!p.fi||p.ccy!=="USD") return; var h=F["FI:"+p.ticker+":"+p.fi.r+":"+(p.fi.m||"")]; if(!h||!h.pts.length) return;
+        var sd=closed&&p.sold?dayNum(p.sold.d):null; if(closed&&(sd===null||sd<=d0)) return;
+        var at=function(d){ var v=null; h.pts.forEach(function(r){ if(dayNum(r[0])<=d) v=r[1]; }); return v; };
+        var v0=at(d0)||h.pts[0][1], v1=closed?at(sd):h.pts[h.pts.length-1][1]; if(!(v0>0&&v1>0)) return;
+        var m=v1/v0-1, k=p.ticker; if(seen[k]&&Math.abs(seen[k].m)>=Math.abs(m)) return; seen[k]={t:k,m:m}; }
+      PS.forEach(function(p){ mv(p,false); mvFi(p,false); }); CL.forEach(function(p){ mv(p,true); mvFi(p,true); });
       D.movers=Object.keys(seen).map(function(k){ return seen[k]; }).sort(function(a,b){ return b.m-a.m; });
       return D; });
   }
@@ -4281,7 +4288,7 @@
       var today=todayStr(), rows=[];
       ents.forEach(function(x){ var c=cmpCurve(x.e.ev,hist,today,false); if(c&&c.pts.length>1) rows.push({n:x.name,o:x.owner,f:x.friend,id:x.pr.id,pts:c.pts.map(function(p){ return [p[0],1+p[1]/100]; })}); });
       if(hist.SPY) rows.push({n:"S&P 500",spy:true,pts:hist.SPY.pts.map(function(r){ return [dayNum(r[0]),(r[2]>0?r[2]:r[1])]; })});
-      return {rows:rows,hist:raw};
+      return {rows:rows,hist:raw,full:hist};
     });
   }
   function perStart(per){ var t=todayStr(); return per==="mes"?dayNum(t.slice(0,8)+"01")-1:(per==="ytd"?dayNum(t.slice(0,4)+"-01-01")-1:-Infinity); }
