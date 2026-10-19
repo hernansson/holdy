@@ -2888,10 +2888,11 @@
     function intro(){ sel=null; card.textContent=""; card.className="tour-card fin"; void card.offsetWidth; card.classList.add("in"); card.style.top="";
       var ic=el("div","wel-ic"); ic.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg>'; card.appendChild(ic);
       card.appendChild(el("b",null,"Una cartera de ejemplo")); card.appendChild(el("p",null,"Inversiones inventadas, con precios reales. Te muestro lo principal en 5 pasos."));
-      var go=el("button","primary","Preparando…"); go.type="button"; go.disabled=true; card.appendChild(go);
+      var go=el("button","primary","Empezar"); go.type="button"; card.appendChild(go);
       var st=el("button","linkbtn","Prefiero verla solo"); st.type="button"; st.addEventListener("click",function(e){ e.stopPropagation(); end(); }); card.appendChild(st);
-      Promise.resolve(ready).then(function(){ if(!ov.isConnected) return; go.disabled=false; go.textContent="Empezar"; });
-      go.addEventListener("click",function(e){ e.stopPropagation(); window.scrollTo(0,0); pick(); if(steps.length<2){ end(); return; } i=0; show(); });
+      /* Si tocás antes de que esté listo el ejemplo, arranca apenas esté (sin mostrar "cargando"). */
+      var started=false; go.addEventListener("click",function(e){ e.stopPropagation(); if(started) return; started=true;
+        Promise.resolve(ready).then(function(){ if(!ov.isConnected) return; window.scrollTo(0,0); pick(); if(steps.length<2){ end(); return; } i=0; show(); }); });
       place(); }
     function show(){ var t=steps[i], last=!t[0]; sel=t[0]; if(i===0){ lastR=null; ov.classList.add("notrans"); setTimeout(function(){ ov.classList.remove("notrans"); },60); } card.textContent=""; card.className="tour-card"+(last?" fin":""); void card.offsetWidth; card.classList.add("in");
       ring.classList.remove("go"); void ring.offsetWidth; ring.classList.add("go");
