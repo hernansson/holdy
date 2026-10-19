@@ -530,6 +530,9 @@
   .lotline{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
   .note{font-size:12px; color:var(--muted); margin-top:6px}
   body.welcome #btnAdd{display:none !important}
+  .wif{display:grid; gap:4px; padding:16px; margin:4px 0 12px; border-radius:16px; background:var(--card); border:1px solid var(--line)} .wif-k{font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+  .wif-big{font-size:20px; font-weight:800} .wif-big.pos{color:var(--pos)} .wif-big.neg{color:var(--neg)} .wif-sub{font-size:13.5px; color:var(--muted)}
+  .wif-ln{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px} .wif-ln span{display:grid; gap:1px; padding:10px 12px; border-radius:12px; background:var(--chip)} .wif-ln small{font-size:11.5px; color:var(--muted)} .wif-ln b{font-size:16px} .wif-ln i{font-style:normal; font-size:12.5px; font-weight:600} .wif-ln i.pos{color:var(--pos)} .wif-ln i.neg{color:var(--neg)}
   .tour{position:fixed; inset:0; z-index:1000; opacity:0; transition:opacity .25s} .tour.on{opacity:1}
   .tour-hole{position:fixed; border-radius:16px; transition:top .45s cubic-bezier(.2,.9,.2,1),left .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1); pointer-events:none}
   .tour.notrans .tour-hole,.tour.notrans .tour-mr,.tour.notrans .tour-card,.tour.notrans .tour-arr{transition:none !important}
@@ -2113,8 +2116,32 @@
     sp.appendChild(el("span","acc-amt",(ui.hide?MASK:mRs(amt,ccy).replace(/[A-Z]*\$\s?/,""))+" ("));
     sp.appendChild(el("span","acc-pc",fmtPct(pct))); sp.appendChild(el("span","acc-amt",")")); return sp;
   }
+  /* "¿Y si no vendías?": precio de hoy de lo que vendiste (acciones en USD). */
+  var soldPx={}, soldPxBusy=null, soldPxT=0;
+  function whatIfOk(c){ return c.sold&&c.ccy==="USD"&&!c.fi&&!isFci(c)&&c.source!=="manual"&&c.sold.p>0; }
+  function whatIfPx(t){ var q=prices[t]; if(q&&q.price>0&&(!q.cur||q.cur==="USD")) return q.price; return soldPx[t]||null; }
+  function ensureSoldPx(){
+    var need=[]; vClosed().forEach(function(c){ if(whatIfOk(c)&&!whatIfPx(c.ticker)&&need.indexOf(c.ticker)<0) need.push(c.ticker); });
+    if(!need.length||soldPxBusy||!navigator.onLine||Date.now()-soldPxT<10*60*1000) return;
+    soldPxBusy=fetchHistory(need.slice(0,60),dayStr(dayNum(todayStr())-10)).then(function(j){ Object.keys(j.data||{}).forEach(function(t){ var h=j.data[t]; if(h&&h.currency==="USD"&&h.pts&&h.pts.length) soldPx[t]=h.pts[h.pts.length-1][1]; }); })
+      .catch(function(){}).then(function(){ soldPxBusy=null; soldPxT=Date.now(); if(ui.tab==="sold") renderList(); });
+  }
+  function whatIf(c){ if(!whatIfOk(c)) return null; var px=whatIfPx(c.ticker); if(!(px>0)) return null; var d=c.qty*(px-c.sold.p); return {px:px,diff:d,pct:px/c.sold.p-1,diffE:effR(d,pBase(c),null),heldE:effR(c.qty*px,pBase(c),null)}; }
+  function whatIfCard(cl){
+    var rows=cl.map(function(c){ return {c:c,w:whatIf(c)}; }).filter(function(x){ return x.w; }); if(!rows.length) return null;
+    var tot=rows.reduce(function(a,x){ return a+x.w.diffE; },0), ccy="USD";
+    var card=el("div","wif"); card.appendChild(el("div","wif-k","¿Y si no vendías?"));
+    card.appendChild(el("div","wif-big "+(tot>0?"neg":"pos"),tot>0?"Tus ventas te costaron "+mR(Math.abs(tot),ccy):"Tus ventas te ahorraron "+mR(Math.abs(tot),ccy)));
+    card.appendChild(el("div","wif-sub",tot>0?"Si no vendías nada, hoy tendrías eso de más.":"Si no vendías nada, hoy tendrías eso de menos."));
+    rows.sort(function(a,b){ return a.w.diffE-b.w.diffE; });
+    var best=rows[0], worst=rows[rows.length-1], ln=el("div","wif-ln");
+    if(best.w.diffE<0){ var a=el("span"); a.appendChild(el("small",null,"Mejor venta")); a.appendChild(el("b",null,best.c.ticker)); a.appendChild(el("i","pos","bajó "+fmtPct(-best.w.pct).replace("+","")+" después")); ln.appendChild(a); }
+    if(worst.w.diffE>0){ var b=el("span"); b.appendChild(el("small",null,"La que más te costó")); b.appendChild(el("b",null,worst.c.ticker)); b.appendChild(el("i","neg","subió "+fmtPct(worst.w.pct).replace("+","")+" después")); ln.appendChild(b); }
+    if(ln.childNodes.length) card.appendChild(ln);
+    return card; }
   function renderSoldList(box){
     var soldEls=[], cl=vClosed().slice();
+    ensureSoldPx(); var wc_=whatIfCard(cl); if(wc_) box.appendChild(wc_);
     function soldDays(c){ var hl=(c.lots&&c.lots.length?c.lots:[{q:c.qty,b:c.buy,d:""}]).filter(function(l){return l.d&&l.q>0&&l.b>0;}); if(!hl.length) return null; var sdn=dayNum(c.sold.d), wc=0, wd=0; hl.forEach(function(l){ var w=l.q*l.b; wc+=w; wd+=w*Math.max(0,sdn-dayNum(l.d)); }); return wd/wc; }
     function soldVal(c){
       var cost=pCost(c), gain=pProceeds(c)-cost+(c.fi?fiIncomeE(c):0);
@@ -2150,6 +2177,7 @@
       if(c.ccy==="USD"&&!positions.some(function(x){ return x.ticker===c.ticker&&x.broker===c.broker; })){ var sdv=divsOf(c.ticker,[c.broker]); if(sdv.length) pair("Dividendos de "+c.ticker,"+"+mm(divSum(sdv),c.ccy),"pos",sdv.length+(sdv.length===1?" cobro":" cobros")+" mientras la tuviste"); }
       pair("Precio de compra",mm(pBuy(c),c.ccy)); pair("Precio de venta",mm(pSellPx(c),c.ccy));
       var sfx_=fxPart(c); if(fxSig(sfx_,cost)){ pair("Por la acción",mRs(gain-sfx_,c.ccy),cls(gain-sfx_),cost+sfx_>0?fmtPct((gain-sfx_)/(cost+sfx_)):""); pair("Por el dólar",mRs(sfx_,c.ccy),cls(sfx_)); }
+      var wi=whatIf(c); if(wi) pair("Si no vendías, hoy valdría",mR(wi.heldE,c.ccy),"",(wi.diffE>=0?"Subió ":"Bajó ")+fmtPct(Math.abs(wi.pct)).replace("+","")+" desde que vendiste · "+(wi.diffE>=0?"te perdiste ":"te ahorraste ")+mR(Math.abs(wi.diffE),c.ccy));
       pair("Fecha de venta",c.sold.d.split("-").reverse().join("/")); pair("Broker",brokerName(c.broker));
       var hl=(c.lots&&c.lots.length?c.lots:[{q:c.qty,b:c.buy,d:""}]).filter(function(l){return l.d&&l.q>0&&l.b>0;}), sdn=dayNum(c.sold.d);
       if(hl.length){
