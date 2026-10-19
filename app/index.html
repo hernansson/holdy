@@ -2845,7 +2845,7 @@
     var opts=[
       ["Importar de mi broker","IBKR, Balanz o IOL: subís el archivo y listo",function(){ ibTargetId=profData.active; ibReset(); renderProfList(); pvShow("imp"); pvDirect=true; dlgProf.showModal(); },1],
       ["Cargar a mano","Ticker, cantidad y precio de compra",function(){ $("btnAdd").click(); }],
-      ["Ver un ejemplo","Probá la app con una cartera de muestra",function(){ renderProfList(); pvShow("new"); dlgProf.showModal(); $("pfDemo").click(); }]
+      ["Ver un ejemplo","Probá la app con una cartera de muestra",function(){ var b=this, sm=b.querySelector("small"); buildDemo(function(t){ sm.textContent=t||"Probá la app con una cartera de muestra"; },b,null); }]
     ];
     opts.forEach(function(o){ var b=el("button","wel-b"+(o[3]?" pri":"")); b.type="button"; var t=el("span","pe-t",o[0]); t.appendChild(el("small",null,o[1])); b.appendChild(t); b.appendChild(el("span","go","›")); b.addEventListener("click",o[2]); w.appendChild(b); });
     return w;
@@ -3989,7 +3989,7 @@
   [dlgProf,dlgSet].forEach(function(x){
     Object.defineProperty(x,"open",{get:function(){ return !x.hidden; }});
     x.showModal=function(){ setScr(x); try{ history.pushState({scr:1},""); }catch(e){} };
-    x.close=function(){ if(x.hidden) return; if(history.state&&history.state.scr) history.back(); else setScr(null); };
+    x.close=function(){ if(x.hidden) return; if(history.state&&history.state.scr){ x._closing=true; history.back(); } else setScr(null); };
   });
   var SPY_ID="__spy", SPY_NAME="S&P 500";
   var cmpStart="common";
@@ -4004,7 +4004,11 @@
     runCompare();
   }
   $("cmpBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setCmp(false); });
-  window.addEventListener("popstate",function(){ if(cmpOpen) setScr(null); });
+  window.addEventListener("popstate",function(){
+    /* Botón atrás del celu: si la pantalla tiene pasos adentro, vuelve un paso y se queda. */
+    if(dlgProf._closing||dlgSet._closing){ dlgProf._closing=dlgSet._closing=false; setScr(null); return; }
+    if(window.pvCanBack&&window.pvCanBack()){ window.pvBackStep(); try{ history.pushState({scr:1},""); }catch(e){} return; }
+    if(cmpOpen) setScr(null); });
   $("cmpA").addEventListener("change",runCompare); $("cmpB").addEventListener("change",runCompare);
   function pctTxt(v){ return fmtPct(v/100); }
   function fmtD(n){ return dayStr(n).split("-").reverse().join("/"); }
@@ -4334,7 +4338,7 @@
     profData.profiles=profData.profiles.filter(function(x){ return x!==pr; });
     if(!profData.profiles.length) profData.profiles.push({id:"main",name:"Mis acciones",positions:[],readOnly:false,mod:Date.now()});
     profData.active=profData.profiles.some(function(x){ return x.id===back; })?back:profData.profiles[0].id;
-    positions=cur().positions; openId=null; save(LS_PROF,profData); render(); refresh(false); });
+    positions=cur().positions; openId=null; save(LS_PROF,profData); clearBanner(); render(); refresh(false); });
   function setActive(id){
     if(!profData.profiles.some(function(x){return x.id===id;})) return;
     cur().positions=positions;
@@ -4760,14 +4764,18 @@
   });
   var pvDirect=false;
   $("btnProfAdm").addEventListener("click",function(){ pvDirect=false; $("shareBox").hidden=true; renderProfList(); pvShow("list"); dlgProf.showModal(); });
-  $("pfClose").addEventListener("click",function(){
-    if(pvDirect){ pvDirect=false; dlgProf.close(); return; }
+  /* Atrás dentro de Perfiles: un paso por vez (flecha de la pantalla y botón atrás del celu hacen lo mismo). */
+  function pvCanBack(){ if(dlgProf.hidden) return false; if(pvMode==="imp"&&!$("ibHow").hidden) return true; return !pvDirect&&pvMode!=="list"; }
+  window.pvBackStep=function(){ if(pvMode==="imp"&&!$("ibHow").hidden){ ibMsg(""); $("ibAct").hidden=true; ibPickBk(null); return; } pvStepBack(); };
+  $("pfClose").addEventListener("click",function(){ if(pvCanBack()) pvBackStep(); else { pvDirect=false; dlgProf.close(); } });
+  window.pvCanBack=pvCanBack;
+  function pvStepBack(){
     if(pvMode==="imp"){ if(ibTargetId==="new") pvShow("new"); else { var p=profData.profiles.filter(function(x){return x.id===ibTargetId;})[0]; if(p) openProfEdit(p); else pvShow("list"); } }
     else if(pvMode==="viewer"){ pvShow("share"); loadViewers(pvProf); }
     else if(pvMode==="share"){ openProfEdit(pvProf); }
     else if(pvMode==="edit"||pvMode==="new"){ renderProfList(); pvShow("list"); }
     else dlgProf.close();
-  });
+  }
   $("pfAdd").addEventListener("click",function(){
     var n=cleanName($("pfName").value); if(!n){ alert("Escribí un nombre."); return; }
     if(profData.profiles.length>=20){ alert("Llegaste al máximo de 20 perfiles."); return; }
@@ -4776,9 +4784,9 @@
     profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null;
     save(LS_PROF,profData); render(); renderProfList(); openProfEdit(np);
   });
-  $("pfDemo").addEventListener("click",function(){
-    var msg=$("pfDemoMsg"), btn=$("pfDemo");
-    function say(t){ msg.textContent=t; msg.hidden=!t; }
+  $("pfDemo").addEventListener("click",function(){ var msg=$("pfDemoMsg"); buildDemo(function(t){ msg.textContent=t; msg.hidden=!t; },$("pfDemo"),function(){ dlgProf.close(); }); });
+  /* Arma el perfil de ejemplo (sirve desde Perfiles y desde la bienvenida). */
+  function buildDemo(say,btn,after){
     if(profData.profiles.length>=20){ say("Llegaste al máximo de 20 perfiles."); return; }
     if(!navigator.onLine){ say("Necesito conexión para armar el ejemplo con precios reales de esas fechas."); return; }
     var T=todayStr(), base=dayNum(T);
@@ -4814,10 +4822,10 @@
         cur().positions=positions;
         var np={id:rid(),name:"Ejemplo",positions:pos,closed:closed,readOnly:false,mod:Date.now(),demo:1,back:profData.active};
         profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null;
-        save(LS_PROF,profData); say(""); dlgProf.close(); render(); refresh(true);
+        save(LS_PROF,profData); say(""); if(after) after(); render(); refresh(true);
       }).catch(function(){ say("No se pudo armar el ejemplo ahora. Probá de nuevo en un rato."); })
       .then(function(){ btn.disabled=false; });
-  });
+  }
   // <ibkr-core>
   function parseCsv(text){
     var rows=[], row=[], f="", q=false, i=0, n=text.length;
