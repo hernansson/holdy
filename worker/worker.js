@@ -52,7 +52,7 @@ export default {
 
     const url = new URL(request.url);
     if (url.pathname.startsWith("/p/")) return profile(request, env, url, cors);
-    if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr") || url.pathname.startsWith("/me/push")) return account(request, env, url, cors);
+    if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr") || url.pathname.startsWith("/me/push") || url.pathname === "/me/ask") return account(request, env, url, cors);
     if (url.pathname === "/push/inbox" && request.method === "POST") return pushInbox(request, env, cors);
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
     if (url.pathname === "/history") return history(url, cors);
@@ -328,6 +328,7 @@ async function account(request, env, url, cors) {
 
   if (url.pathname === "/me/ibkr" || url.pathname === "/me/ibkr/sync") return ibkr(request, env, url, user, nostore);
   if (url.pathname.startsWith("/me/push")) return pushMe(request, env, url, user, nostore);
+  if (url.pathname === "/me/ask" && request.method === "POST") return ask(request, env, nostore);
 
   if (url.pathname === "/me/data") {
     const key = "u:" + user.sub;
@@ -896,3 +897,30 @@ async function pushClose(env) {
   }
 }
 function ibCount(csv) { let t = 0, d = 0; String(csv || "").split("\n").forEach((l) => { if (/"(BUY|SELL)"/.test(l) && /"STK"/.test(l)) t++; if (/Dividends/.test(l) && /"DETAIL"/.test(l)) d++; }); return { t, d }; }
+
+// ---------- Preguntale a tu cartera: la app manda sus números ya calculados y la IA solo los lee y redacta ----------
+const ASK_MODELS = ["@cf/meta/llama-3.1-8b-instruct-fp8", "@cf/meta/llama-3.1-8b-instruct"];
+async function ask(request, env, cors) {
+  if (!env.AI) return json({ error: "ai_not_configured" }, 501, cors);
+  let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: "bad_json" }, 400, cors); }
+  const q = String((b && b.q) || "").trim().slice(0, 500), facts = String((b && b.facts) || "").slice(0, 30000);
+  if (!q) return json({ error: "empty" }, 400, cors);
+  const hist = Array.isArray(b.hist) ? b.hist.slice(-6).filter((m) => m && (m.r === "u" || m.r === "a")).map((m) => ({ role: m.r === "u" ? "user" : "assistant", content: String(m.t || "").slice(0, 1500) })) : [];
+  const sys = "Sos el asistente de Holdy, una app donde un inversor argentino sigue su cartera. Respondé en castellano rioplatense, corto (1 a 4 oraciones) y claro. " +
+    "Usá SOLO los datos de la cartera que siguen: no inventes números, fechas ni operaciones. Si la respuesta no está en los datos, decí que no tenés ese dato. " +
+    "Copiá los montos tal cual aparecen (ya están en la moneda que el usuario eligió). No recomiendes comprar ni vender ni des consejos de inversión. " +
+    "Si te preguntan algo que no es sobre su cartera, decí amablemente que solo podés responder sobre su cartera.\n\nDATOS DE LA CARTERA:\n" + facts;
+  let lastErr = "";
+  for (const model of ASK_MODELS) {
+    try {
+      const r = await env.AI.run(model, { messages: [{ role: "system", content: sys }, ...hist, { role: "user", content: q }], max_tokens: 400, temperature: 0.2 });
+      const txt = String((r && (typeof r.response === "string" ? r.response : "")) || "").trim();
+      if (txt) return json({ a: txt.slice(0, 2500) }, 200, cors);
+    } catch (e) {
+      lastErr = String((e && e.message) || e);
+      // Se terminó la cuota gratis del día (10.000 neuronas): no tiene sentido probar otro modelo.
+      if (/4006|free allocation|neurons|quota|limit/i.test(lastErr)) return json({ error: "limit" }, 429, cors);
+    }
+  }
+  return json({ error: "ai_failed", detail: lastErr.slice(0, 200) }, 502, cors);
+}
