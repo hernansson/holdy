@@ -555,6 +555,9 @@
   .ask-chips{display:flex; flex-wrap:wrap; gap:8px} .ask-chips button{min-height:0; padding:9px 14px; border-radius:999px; background:var(--chip); border:1px solid var(--line); box-shadow:none; color:var(--text); font-size:14px; font-weight:600}
   .ask-bar{position:fixed; left:0; right:0; bottom:0; z-index:5; display:flex; gap:8px; padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:var(--bg); border-top:1px solid var(--line); max-width:860px; margin:0 auto; box-sizing:border-box}
   .ask-bar input{flex:1; min-height:46px; border-radius:999px; padding:0 18px; font-size:16px} .ask-bar button{flex:0 0 46px; min-height:46px; border-radius:50%; padding:0; font-size:20px; font-weight:800}
+  .pi-card{display:grid; gap:4px; background:var(--sh-card,var(--card)); border-radius:14px; padding:14px 16px; margin:4px 0 8px} .pi-big{display:flex; align-items:baseline; gap:8px} .pi-big b{font-size:30px; font-weight:800; color:var(--pos); letter-spacing:-.02em; font-variant-numeric:tabular-nums} .pi-big span{color:var(--muted); font-size:14px}
+  .pi-sub{font-size:13px; color:var(--muted); line-height:1.4} .pi-k{font-size:11.5px; color:var(--muted); font-weight:700; margin-top:10px} .pi-bars{display:flex; align-items:flex-end; gap:10px; height:96px; padding-top:4px}
+  .pi-b{flex:1; display:grid; justify-items:center; align-content:end; gap:3px} .pi-b i{width:100%; max-width:42px; border-radius:6px 6px 2px 2px; background:var(--pos); opacity:.8} .pi-b small{font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums} .pi-b span{font-size:11px; color:var(--muted); font-weight:600}
   .tour-dim{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; opacity:.78; transition:opacity .4s} .tour.intro .tour-dim{opacity:1}
   .tour-card.fin.in{animation:tourUp .4s cubic-bezier(.2,.9,.25,1)} .tour-mr{transition:x .45s cubic-bezier(.2,.9,.2,1),y .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1)}
   .tour-ring{position:absolute; inset:-3px; border-radius:19px; border:3px solid var(--brand); box-shadow:0 0 18px color-mix(in srgb,var(--brand) 70%,transparent)}
@@ -2092,6 +2095,7 @@
         if(nCl) rrow("Ventas",mRs(realized+feeC,ccy),cls(realized+feeC),false,"ganancia de lo que vendiste",false);
         if(feeO+feeC>=0.005) rrow("Comisiones",mRs(-(feeO+feeC),ccy),"neg",false,"lo que cobraron los brokers",false);
         rrow("Total",mRs(tot+realized+cpC+dv0,ccy),cls(tot+realized+cpC+dv0),true);
+        if(ccy==="USD"){ var pi_=passiveInc(); if(pi_.m>0) rrow("Te pagan por mes","≈ "+mR(pi_.m,ccy),"pos",false,"dividendos y cupones de los próximos 12 meses",true); fetchDivQ().then(function(ch){ if(ch) render(); }); }
         var fxAll=gfx+rfx, foot=[];
         if(cashT>0) foot.push("El número grande suma "+mR(cashT,ccy)+" sin invertir.");
         if(foot.length) rc.appendChild(el("div","rfoot",foot.join(" ")));
@@ -3045,7 +3049,20 @@
     (isD?[["dprox","Próximos"],["dv","Cobrados"]]:[["prox","Próximos"],["hist","Cobrados"]]).forEach(function(o){ var b=el("button",cobView===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(cobView===o[0]) return; cobView=o[0]; drawCob(); $("cobBody").scrollTop=0; }); sg.appendChild(b); });
     var bx=$("cobBody"); bx.textContent=""; renderCobros(bx);
   }
+  /* Sueldo pasivo: lo que te pagan tus inversiones (dividendos estimados + cupones de los próximos 12 meses, sin vencimientos), por mes. */
+  function passiveInc(){ var it=cobItems(), cup=it.next.filter(function(x){ return x.k!=="Vencimiento"; }).reduce(function(t,x){ return t+x.a; },0), dv=divNext().reduce(function(t,x){ return t+x.a; },0), yrs={};
+    it.hist.forEach(function(x){ var y=x.d.slice(0,4); yrs[y]=(yrs[y]||0)+x.a; });
+    return {m:(cup+dv)/12,cup:cup,dv:dv,years:Object.keys(yrs).sort().slice(-5).map(function(y){ return [y,yrs[y]]; })}; }
+  function passiveCard(){ var P=passiveInc(); if(!(P.m>0)&&!P.years.length) return null; var M=function(n){ return ui.hide?MASK:mR(n,"USD"); };
+    var c=el("div","pi-card"); c.appendChild(el("div","cob-k","Tu sueldo pasivo"));
+    var big=el("div","pi-big"); big.appendChild(el("b",null,P.m>0?"≈ "+M(P.m):"—")); big.appendChild(el("span",null,"por mes")); c.appendChild(big);
+    c.appendChild(el("div","pi-sub",P.m>0?"Lo que te pagan tus inversiones en los próximos 12 meses: "+[P.dv>0?"dividendos "+M(P.dv):"",P.cup>0?"cupones "+M(P.cup):""].filter(Boolean).join(" y ")+".":"Todavía no hay cobros estimados para los próximos 12 meses."));
+    if(P.years.length>1){ var mx=Math.max.apply(null,P.years.map(function(y){ return y[1]; }))||1, bars=el("div","pi-bars");
+      P.years.forEach(function(y){ var b=el("div","pi-b"); var col=el("i"); col.style.height=Math.max(4,y[1]/mx*56)+"px"; b.appendChild(el("small",null,ui.hide?"":mR(y[1],"USD").replace("US$ ",""))); b.appendChild(col); b.appendChild(el("span",null,y[0]===todayStr().slice(0,4)?y[0]+"*":y[0])); bars.appendChild(b); });
+      c.appendChild(el("div","pi-k","Cobrado por año")); c.appendChild(bars); c.appendChild(el("div","pi-sub","* "+todayStr().slice(0,4)+" hasta hoy.")); }
+    return c; }
   function renderCobros(box){
+    var pc_=passiveCard(); if(pc_) box.appendChild(pc_);
     if(cobView==="dprox") fetchDivQ().then(function(ch){ if(ch&&cobView==="dprox"&&$("dlgCob").open) drawCob(); });
     var isD=cobView==="dv"||cobView==="dprox", pro=cobView==="prox"||cobView==="dprox", it0=cobItems(), yr=todayStr().slice(0,4), MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
     var list=cobView==="prox"?it0.next:(cobView==="dprox"?divNext():it0.hist.filter(function(x){ return (x.k==="Dividendo")===isD; }));
