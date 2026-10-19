@@ -2650,6 +2650,29 @@
   var SH_PER=[["mes","Este mes"],["ytd","Este año"],["all","Desde el inicio"]];
   function shPeriod(){ var keep=rptCfg.per; rptCfg.per=shPer==="mes"?"cur":shPer; try{ return rptPeriod(); } finally{ rptCfg.per=keep; } }
   function shPct(x){ return (x>0?"+":(x<0?"−":""))+Math.abs(x*100).toLocaleString("es-AR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%"; }
+  /* Datos de la imagen: el % sale del mismo cálculo que el ranking (así coinciden), y lo que más subió/bajó incluye lo que vendiste en el período. */
+  function shData(){
+    var d0=perStart(shPer), pr=cur(), PS=pr.positions||[], CL=pr.closed||[];
+    var ok=function(p){ return !p.fi&&!isFci(p)&&p.ccy==="USD"&&p.source!=="manual"; }, tk={};
+    PS.concat(CL).forEach(function(p){ if(ok(p)) tk[p.ticker]=1; });
+    return twrRows([pr],Object.keys(tk)).then(function(R){
+      var row=R.rows.filter(function(r){ return !r.spy; })[0], D={r:null,series:[],movers:[]};
+      if(row){ var b=null; row.pts.forEach(function(p){ if(p[0]<=d0) b=p; }); if(!b) b=row.pts[0]; var e=row.pts[row.pts.length-1];
+        if(b[1]>0){ D.r=e[1]/b[1]-1; D.series=row.pts.filter(function(p){ return p[0]>=b[0]; }).map(function(p){ return p[1]/b[1]; }); } }
+      var H=R.hist, tdn=dayNum(todayStr()), seen={};
+      function hpx(t,d){ var h=H[t]; if(!h) return null; var v=null; h.pts.forEach(function(r){ if(dayNum(r[0])<=d) v=r[1]; }); return v; }
+      function mv(p,closed){ if(!ok(p)||!H[p.ticker]) return;
+        var sd=closed&&p.sold?dayNum(p.sold.d):null; if(closed&&(sd===null||sd<=d0)) return;
+        var lots=(p.lots||[]).filter(function(l){ return l.d; }); if(!lots.length) return;
+        var pre=lots.filter(function(l){ return dayNum(l.d)<=d0; }), inP=lots.filter(function(l){ return dayNum(l.d)>d0; });
+        var q0=pre.reduce(function(a,l){ return a+l.q; },0), p0=q0?hpx(p.ticker,d0):null;
+        var cost=(q0&&p0?q0*p0:0)+inP.reduce(function(a,l){ return a+l.q*l.b; },0), qn=q0+inP.reduce(function(a,l){ return a+l.q; },0);
+        var px=closed?p.sold.p:((prices[p.ticker]&&prices[p.ticker].price)||hpx(p.ticker,tdn)); if(!(cost>0&&px>0&&qn>0)) return;
+        var m=qn*px/cost-1, k=p.ticker; if(seen[k]&&Math.abs(seen[k].m)>=Math.abs(m)) return; seen[k]={t:k,m:m}; }
+      PS.forEach(function(p){ mv(p,false); }); CL.forEach(function(p){ mv(p,true); });
+      D.movers=Object.keys(seen).map(function(k){ return seen[k]; }).sort(function(a,b){ return b.m-a.m; });
+      return D; });
+  }
   function shDraw(P,D){
     var W=1080,H=1350,c=document.createElement("canvas"); c.width=W; c.height=H; var g=c.getContext("2d"), FF=getComputedStyle(document.body).fontFamily||"system-ui,sans-serif";
     var bg=g.createLinearGradient(0,0,W,H); bg.addColorStop(0,"#0b4a44"); bg.addColorStop(.55,"#0a1f22"); bg.addColorStop(1,"#070d10"); g.fillStyle=bg; g.fillRect(0,0,W,H);
@@ -2660,11 +2683,11 @@
     g.fillStyle="#fff"; g.font="800 54px "+FF; g.textBaseline="middle"; g.fillText("Holdy",196,128);
     var lbl=shPer==="mes"?RPT_MES[+todayStr().slice(5,7)-1]+" "+todayStr().slice(0,4):(shPer==="ytd"?"en "+todayStr().slice(0,4):"desde que invierto");
     g.fillStyle="rgba(255,255,255,.72)"; g.font="600 46px "+FF; g.textBaseline="alphabetic"; g.fillText("Mi cartera · "+lbl,80,330);
-    var r=(D.month!==null&&D.base>0)?D.month/D.base:null, up=r!==null&&r>=0, col=r===null?"#fff":(up?"#34d399":"#f87171");
+    var r=D.r, up=r!==null&&r>=0, col=r===null?"#fff":(up?"#34d399":"#f87171");
     g.fillStyle=col; g.font="800 230px "+FF; g.fillText(r===null?"—":shPct(r),70,560);
     g.fillStyle="rgba(255,255,255,.6)"; g.font="500 40px "+FF; g.fillText(r===null?"sin historial suficiente":"de rendimiento",80,630);
     /* curva de la ganancia en el período */
-    var pts=(D.series||[]).map(function(p){ return p[1]-p[2]; });
+    var pts=D.series||[];
     if(pts.length>2){ var x0=80,x1=W-80,y0=720,y1=1010, mn=Math.min.apply(null,pts), mx=Math.max.apply(null,pts); if(mx-mn<1e-9){ mx+=1; mn-=1; }
       var X=function(i){ return x0+(x1-x0)*i/(pts.length-1); }, Y=function(v){ return y1-(v-mn)/(mx-mn)*(y1-y0); };
       var fill=g.createLinearGradient(0,y0,0,y1); fill.addColorStop(0,up?"rgba(52,211,153,.35)":"rgba(248,113,113,.35)"); fill.addColorStop(1,"rgba(0,0,0,0)");
@@ -2689,7 +2712,7 @@
     var go=el("button","primary sh-go","Compartir"); go.type="button"; go.disabled=true; box.appendChild(go);
     if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
     var my=++shSeq, P=shPeriod(); shBlob=null;
-    rptData(P).then(function(D){ if(my!==shSeq) return; var c=shDraw(P,D); c.toBlob(function(b){ if(my!==shSeq) return; shBlob=b; pv.textContent=""; var im=new Image(); im.src=URL.createObjectURL(b); im.alt="Vista previa"; pv.appendChild(im); go.disabled=false; },"image/png"); })
+    shData().then(function(D){ if(my!==shSeq) return; var c=shDraw(P,D); c.toBlob(function(b){ if(my!==shSeq) return; shBlob=b; pv.textContent=""; var im=new Image(); im.src=URL.createObjectURL(b); im.alt="Vista previa"; pv.appendChild(im); go.disabled=false; },"image/png"); })
       .catch(function(){ if(my===shSeq) st.textContent="No se pudo armar la imagen. Revisá tu conexión."; });
     go.addEventListener("click",function(){ if(!shBlob) return; var fn="holdy-"+shPer+".png", file=new File([shBlob],fn,{type:"image/png"});
       if(navigator.canShare&&navigator.canShare({files:[file]})){ navigator.share({files:[file],text:"Mi cartera en Holdy"}).catch(function(){}); }
@@ -4233,23 +4256,31 @@
     if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
     if(rkData&&Date.now()-rkData.t<10*60*1000){ rkDraw(list); return; }
     list.appendChild(el("div","sh-st rk-st","Calculando…"));
-    var my=++rkSeq, ents=[];
-    profData.profiles.forEach(function(pr){ var e=cmpEvents(pr); if(e.used) ents.push({spy:false,name:pr.name,owner:pr.owner||"",friend:!!pr.readOnly,pr:pr,e:e}); });
-    if(!ents.length){ list.textContent=""; list.appendChild(el("div","sh-st rk-st","Para el ranking, tus posiciones necesitan fecha de compra.")); return; }
+    var my=++rkSeq;
+    twrRows(profData.profiles).then(function(R){ if(my!==rkSeq) return;
+      if(!R.rows.some(function(r){ return !r.spy; })){ list.textContent=""; list.appendChild(el("div","sh-st rk-st","Para el ranking, tus posiciones necesitan fecha de compra.")); return; }
+      rkData={t:Date.now(),rows:R.rows}; rkDraw(list);
+    }).catch(function(){ if(my!==rkSeq) return; list.textContent=""; list.appendChild(el("div","sh-st rk-st","No se pudieron traer los precios. Probá de nuevo en un rato.")); });
+  }
+  /* Rendimiento ponderado por tiempo de cada perfil (índice que arranca en 1) + el S&P 500. Lo usan el ranking y la imagen para compartir. */
+  function twrRows(prs,extra){
+    var ents=[]; prs.forEach(function(pr){ var e=cmpEvents(pr); if(e.used) ents.push({spy:false,name:pr.name,owner:pr.owner||"",friend:!!pr.readOnly,pr:pr,e:e}); });
     var from="9999-99-99", tks={SPY:1}, fiMap={};
     ents.forEach(function(x){ Object.keys(x.e.fis).forEach(function(k){ fiMap[k]=x.e.fis[k]; }); x.e.ev.forEach(function(e){ if(e.t==="c") return; if(e.d<from) from=e.d; if(e.tk.indexOf("FI:")!==0) tks[e.tk]=1; }); });
-    var tl=Object.keys(tks).slice(0,120);
-    fetchHistory(tl,from).then(function(j){ if(my!==rkSeq) return;
+    (extra||[]).forEach(function(t){ tks[t]=1; });
+    if(from==="9999-99-99") from=dayStr(dayNum(todayStr())-400);
+    return fetchHistory(Object.keys(tks).slice(0,150),from).then(function(j){
       var hist={}; Object.keys(j.data||{}).forEach(function(tk){ var h=j.data[tk]; if(h&&h.currency==="USD"&&Array.isArray(h.pts)&&h.pts.length>1) hist[tk]=h; });
-      cmpFiHist(ents,fiMap,hist);
+      var raw=Object.assign({},hist); cmpFiHist(ents,fiMap,hist);
       var today=todayStr(), rows=[];
       ents.forEach(function(x){ var c=cmpCurve(x.e.ev,hist,today,false); if(c&&c.pts.length>1) rows.push({n:x.name,o:x.owner,f:x.friend,id:x.pr.id,pts:c.pts.map(function(p){ return [p[0],1+p[1]/100]; })}); });
       if(hist.SPY) rows.push({n:"S&P 500",spy:true,pts:hist.SPY.pts.map(function(r){ return [dayNum(r[0]),(r[2]>0?r[2]:r[1])]; })});
-      rkData={t:Date.now(),rows:rows}; rkDraw(list);
-    }).catch(function(){ if(my!==rkSeq) return; list.textContent=""; list.appendChild(el("div","sh-st rk-st","No se pudieron traer los precios. Probá de nuevo en un rato.")); });
+      return {rows:rows,hist:raw};
+    });
   }
+  function perStart(per){ var t=todayStr(); return per==="mes"?dayNum(t.slice(0,8)+"01")-1:(per==="ytd"?dayNum(t.slice(0,4)+"-01-01")-1:-Infinity); }
   function rkDraw(list){ if(!rkData) return; list.textContent="";
-    var t=todayStr(), d0=rkPer==="mes"?dayNum(t.slice(0,8)+"01")-1:(rkPer==="ytd"?dayNum(t.slice(0,4)+"-01-01")-1:-Infinity);
+    var d0=perStart(rkPer);
     /* "Desde el inicio": el S&P 500 arranca cuando arrancó la primera cartera. */
     var first=Infinity; rkData.rows.forEach(function(r){ if(!r.spy&&r.pts.length&&r.pts[0][0]<first) first=r.pts[0][0]; });
     var out=rkData.rows.map(function(r){ var b=null, e=r.pts[r.pts.length-1], dd=(r.spy&&d0===-Infinity)?first:d0; r.pts.forEach(function(p){ if(p[0]<=dd) b=p; }); if(!b) b=r.pts[0]; return {r:r,v:b[1]>0?e[1]/b[1]-1:null}; })
