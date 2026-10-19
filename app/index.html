@@ -531,6 +531,10 @@
   body.welcome #btnAdd{display:none !important}
   .tour{position:fixed; inset:0; z-index:1000; opacity:0; transition:opacity .25s} .tour.on{opacity:1}
   .tour-hole{position:fixed; border-radius:16px; transition:top .45s cubic-bezier(.2,.9,.2,1),left .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1); pointer-events:none}
+  .tour.notrans .tour-hole,.tour.notrans .tour-mr,.tour.notrans .tour-card,.tour.notrans .tour-arr{transition:none !important}
+  .tour-card.fin{top:auto !important; bottom:0; left:0; right:0; max-width:560px; border-radius:24px 24px 0 0; padding:26px 20px calc(18px + env(safe-area-inset-bottom)); display:grid; gap:4px; text-align:center; animation:tourUp .45s cubic-bezier(.2,.9,.25,1)}
+  .tour-card.fin .wel-ic{margin:0 auto 10px} .tour-card.fin p{margin:2px 0 16px} .tour-card.fin .primary{min-height:52px; border-radius:16px; font-size:16px; font-weight:800} .tour-card.fin .linkbtn{padding:12px; color:var(--muted); font-weight:600}
+  @keyframes tourUp{from{transform:translateY(100%)}to{transform:none}}
   .tour-dim{position:fixed; inset:0; width:100%; height:100%; pointer-events:none} .tour-mr{transition:x .45s cubic-bezier(.2,.9,.2,1),y .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1)}
   .tour-ring{position:absolute; inset:-3px; border-radius:19px; border:3px solid var(--brand); box-shadow:0 0 18px color-mix(in srgb,var(--brand) 70%,transparent)}
   .tour-ring.go{animation:tourRing 1.6s ease-out .35s infinite} @keyframes tourRing{0%{transform:scale(1);opacity:1}70%{transform:scale(1.08);opacity:0}100%{opacity:0}}
@@ -2859,43 +2863,51 @@
   ];
   function tourStart(){
     var steps=TOUR.filter(function(t){ if(!t[0]) return true; var e=document.querySelector(t[0]); return e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=="hidden"; }); if(steps.length<2) return;
-    var ov=el("div","tour"), hole=el("div","tour-hole"), ring=el("i","tour-ring"), card=el("div","tour-card"), arr=el("i","tour-arr");
+    var ov=el("div","tour notrans"), hole=el("div","tour-hole"), ring=el("i","tour-ring"), card=el("div","tour-card"), arr=el("i","tour-arr");
     hole.appendChild(ring);
-    /* Oscurecido con una máscara SVG (más confiable que una sombra gigante): todo oscuro menos el hueco. */
+    /* Oscurecido con una máscara SVG: todo oscuro menos el hueco. */
     var NS="http://www.w3.org/2000/svg", svg=document.createElementNS(NS,"svg"); svg.setAttribute("class","tour-dim");
     svg.innerHTML='<defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><rect class="tour-mr" rx="16" fill="#000"/></mask></defs><rect width="100%" height="100%" fill="rgba(4,10,14,.78)" mask="url(#tourMask)"/>';
     var mr=svg.querySelector(".tour-mr");
     ov.appendChild(svg); ov.appendChild(hole); ov.appendChild(card); ov.appendChild(arr); document.body.appendChild(ov);
-    window.scrollTo(0,0); requestAnimationFrame(function(){ ov.classList.add("on"); });
-    var i=0, tgt=null;
+    window.scrollTo(0,0);
+    var i=0, sel=null, lastR=null;
+    /* El elemento se busca de nuevo cada vez: la lista se vuelve a dibujar cuando llegan los precios. */
+    function rectOf(){ var e=sel&&document.querySelector(sel); if(!e) return lastR; var r=e.getBoundingClientRect(); if(!r.width||!r.height) return lastR; lastR=r; return r; }
     function place(){ var vh=window.innerHeight, vw=window.innerWidth;
-      if(!tgt){ /* cierre: sin resaltado, tarjeta al centro */ var cx=vw/2, cy=vh/2; hole.style.top=cy+"px"; hole.style.left=cx+"px"; hole.style.width="0px"; hole.style.height="0px";
-        mr.style.x=cx+"px"; mr.style.y=cy+"px"; mr.style.width="0px"; mr.style.height="0px"; card.style.top=Math.max(12,(vh-card.offsetHeight)/2)+"px"; arr.style.opacity=0; hole.style.opacity=0; return; }
-      arr.style.opacity=1; hole.style.opacity=1;
-      var r=tgt.getBoundingClientRect(), pad=8;
-      var L=Math.max(6,r.left-pad), W=Math.min(vw-12,r.width+pad*2);
+      if(!sel){ hole.style.opacity=0; arr.style.opacity=0; mr.style.width="0px"; mr.style.height="0px"; return; }
+      var r=rectOf(); if(!r) return; arr.style.opacity=1; hole.style.opacity=1;
+      var pad=8, L=Math.max(6,r.left-pad), W=Math.min(vw-12,r.width+pad*2);
       hole.style.top=(r.top-pad)+"px"; hole.style.left=L+"px"; hole.style.width=W+"px"; hole.style.height=(r.height+pad*2)+"px";
       mr.style.x=L+"px"; mr.style.y=(r.top-pad)+"px"; mr.style.width=W+"px"; mr.style.height=(r.height+pad*2)+"px";
       var ch=card.offsetHeight, below=r.bottom+pad+16, up=!(below+ch<vh-16), top=up?Math.max(12,r.top-pad-16-ch):below;
       card.style.top=top+"px";
       var cx=Math.max(28,Math.min(vw-28,r.left+r.width/2)); arr.style.left=(cx-8)+"px"; arr.style.top=(up?top+ch-1:top-8)+"px"; arr.classList.toggle("up",up); }
-    function show(){ var t=steps[i]; tgt=t[0]?document.querySelector(t[0]):null; card.textContent=""; card.classList.remove("in"); void card.offsetWidth; card.classList.add("in");
+    function show(){ var t=steps[i], last=!t[0]; sel=t[0]; card.textContent=""; card.className="tour-card"+(last?" fin":""); void card.offsetWidth; card.classList.add("in");
       ring.classList.remove("go"); void ring.offsetWidth; ring.classList.add("go");
+      if(last){
+        /* Cierre: hoja desde abajo, sin resaltado. */
+        card.style.top="";
+        var ic=el("div","wel-ic"); ic.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>'; card.appendChild(ic);
+        card.appendChild(el("b",null,"¡Listo, ya la conocés!")); card.appendChild(el("p",null,"Cargá tu cartera y empezá a seguir tus inversiones."));
+        var go=el("button","primary","Cargar mi cartera"); go.type="button"; go.addEventListener("click",function(e){ e.stopPropagation(); end(); var de=$("demoExit"); if(de&&!$("demoBar").hidden) de.click(); }); card.appendChild(go);
+        var st=el("button","linkbtn","Seguir viendo el ejemplo"); st.type="button"; st.addEventListener("click",function(e){ e.stopPropagation(); end(); }); card.appendChild(st);
+        place(); return; }
       card.appendChild(el("b",null,t[1])); card.appendChild(el("p",null,t[2]));
-      var bt=el("div","tour-bt"), dots=el("div","tour-dots"); steps.forEach(function(_,k){ dots.appendChild(el("i",k===i?"on":(k<i?"done":""))); }); bt.appendChild(dots);
-      var last=i===steps.length-1, nx=el("button","primary",last?"Salir del ejemplo":"Siguiente"); nx.type="button";
-      nx.addEventListener("click",function(e){ e.stopPropagation(); if(last){ end(); var de=$("demoExit"); if(de&&!$("demoBar").hidden) de.click(); } else next(); });
-      if(last) dots.style.display="none"; var sk=el("button","linkbtn",last?"Seguir mirando":"Saltar"); sk.type="button"; sk.addEventListener("click",function(e){ e.stopPropagation(); end(); }); bt.appendChild(sk);
-      bt.appendChild(nx); card.appendChild(bt);
+      var bt=el("div","tour-bt"), dots=el("div","tour-dots"); steps.forEach(function(_,k){ if(steps[k][0]) dots.appendChild(el("i",k===i?"on":(k<i?"done":""))); }); bt.appendChild(dots);
+      var sk=el("button","linkbtn","Saltar"); sk.type="button"; sk.addEventListener("click",function(e){ e.stopPropagation(); end(); }); bt.appendChild(sk);
+      var nx=el("button","primary","Siguiente"); nx.type="button"; nx.addEventListener("click",function(e){ e.stopPropagation(); next(); }); bt.appendChild(nx); card.appendChild(bt);
       /* Solo se mueve la vista si lo que hay que mostrar no está en pantalla. */
-      if(tgt){ var r=tgt.getBoundingClientRect(); if(r.top<50||r.bottom>window.innerHeight-10) window.scrollTo({top:window.scrollY+r.top-150,behavior:"smooth"}); }
+      var r=rectOf(); if(r&&(r.top<50||r.bottom>window.innerHeight-10)) window.scrollTo({top:window.scrollY+r.top-150,behavior:"smooth"});
       place(); setTimeout(place,380); }
     function next(){ if(i<steps.length-1){ i++; show(); } }
     var tick=setInterval(place,250);
     function end(){ clearInterval(tick); window.removeEventListener("scroll",place); window.removeEventListener("resize",place); ov.classList.remove("on"); setTimeout(function(){ ov.remove(); },250); }
-    ov.addEventListener("click",function(e){ if(e.target===ov) next(); }); /* tocar afuera también avanza */
+    ov.addEventListener("click",function(e){ if(e.target===ov&&sel) next(); }); /* tocar afuera también avanza */
     window.addEventListener("scroll",place,{passive:true}); window.addEventListener("resize",place);
     show();
+    /* La primera posición se pone sin animar (si no, el resaltado "vuela" desde la esquina); después se anima. */
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.classList.remove("notrans"); ov.classList.add("on"); }); });
   }
   /* Primera vez: bienvenida con tres caminos para arrancar. */
   function welcomeCard(){
