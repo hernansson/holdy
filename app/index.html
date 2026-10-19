@@ -226,7 +226,9 @@
   
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
   .sim-bar::before{content:""; position:absolute; left:-17px; right:-17px; top:-9px; height:9px; background:var(--bg)}
-  .sim-q{padding:12px 16px 0} .sim-sum{align-items:center} .sim-sum .pe-t{font-size:14.5px} .sim-edit{flex:0 0 auto; font-size:13px; font-weight:700; color:var(--brand); background:var(--chip); border-radius:999px; padding:7px 12px}
+  .sim-q{padding:12px 16px 0} .sim-sum{align-items:center} .sim-sum .pe-t{font-size:14.5px} .sim-edit{flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:800; color:var(--brand-ink,#fff); background:var(--brand); border-radius:999px; padding:10px 16px; box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  .pe-grp:has(> .sim-sum){border:2px solid var(--brand)} .sim-sum{cursor:pointer}
+  .sim-edit.pulse{animation:simPulse 1.6s ease-out infinite} @keyframes simPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--brand) 55%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
   #dlgSimA.sim-live{max-height:60dvh} .sim-big-n{font-size:15px !important; line-height:1.5; color:var(--text) !important} .sim-stk{display:flex; height:12px; border-radius:6px; overflow:hidden; background:var(--line)} .sim-stk i{display:block; height:100%} .sim-stk .a,.sim-lg i.a{background:var(--brand); opacity:.45} .sim-stk .b,.sim-lg i.b{background:var(--brand)}
   .sim-lg{display:grid; gap:4px; font-size:13.5px; color:var(--muted)} .sim-lg div{display:flex; align-items:center; gap:8px} .sim-lg i{width:10px; height:10px; border-radius:3px; flex:0 0 10px} .sim-lg b{color:var(--text)} .sim-tl{padding:8px 0 4px} .sim-tlt{position:relative; height:6px; margin:40px 16px 22px; border-radius:3px; background:var(--line); touch-action:none}
   .sim-tls{position:absolute; top:0; height:100%; border-radius:3px} .sim-tls.a{background:var(--brand)} .sim-tls.b{background:var(--brand); opacity:.35}
@@ -2401,7 +2403,7 @@
     else l1+=" · Querés gastar "+simM(+simIn.live||0)+"/mes";
     var capM=simIn.mode==="need"&&simIn.goal==="cap";
     var t=el("span","pe-t",l1); t.appendChild(el("small",null,capM?"En "+Math.round(simIn.ret-simIn.age)+" años · "+(A?A.n.replace("S&P 500 · ",""):"Personalizado")+" "+simPctTxt(simNom(+simIn.r)).replace(" por año","/año"):Math.round(simIn.age)+" → "+Math.round(simIn.ret)+" → "+(simIn.end>=100?"∞":Math.round(simIn.end))+" años · "+(A?A.n.replace("S&P 500 · ",""):"Personalizado")+" "+simPctTxt(simNom(+simIn.r)).replace(" por año","/año")));
-    sb.appendChild(t); sb.appendChild(el("span","sim-edit","Ajustar")); }
+    sb.appendChild(t); var e=el("span","sim-edit"+(simIn.adjSeen?"":" pulse")); e.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>'; e.appendChild(document.createTextNode("Ajustar")); sb.appendChild(e); }
   function simNom(r){ return ((1+r/100)*(1+(+simIn.inf||0)/100)-1)*100; }
   function simPctTxt(v){ return "≈ "+v.toLocaleString("es-AR",{maximumFractionDigits:1})+"% por año"; }
   /* Hoja "Ajustar": barras para deslizar; el resultado de arriba (fijo) cambia en el momento. Solo se rearma cuando cambia la estructura. */
@@ -2434,6 +2436,7 @@
     tr.addEventListener("pointerdown",function(e){ if(e.target.closest(".sim-tlk")) return; var v=val(e), best=0, d=1e9; keys.forEach(function(k,ix){ var dd=Math.abs(+simIn[k]-v); if(dd<d){ d=dd; best=ix; } }); setV(best,v); });
     parent.appendChild(w); draw(); requestAnimationFrame(draw); }
   function simOpenA(){
+    if(!simIn.adjSeen){ simIn.adjSeen=1; simSave(); var pe=document.querySelector(".sim-edit.pulse"); if(pe) pe.classList.remove("pulse"); }
     var box=$("simABody"), d=$("dlgSimA"), st=box.scrollTop; box.textContent=""; d.querySelector("h3").textContent="Ajustar"; d.classList.add("sim-live");
     function seg(parent,opts,key){ var r=el("div","sim-sg"), sg=el("div","seg sm vw-seg");
       opts.forEach(function(o){ var b=el("button",String(simIn[key])===String(o[0])?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(String(simIn[key])===String(o[0])) return; simIn[key]=o[0]; simSave(); simCalcNow(); simSumUpd(); simOpenA(); }); sg.appendChild(b); });
