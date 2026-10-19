@@ -485,12 +485,12 @@
   .scr[hidden]{display:none}
   @keyframes scrIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
   @keyframes scrOut{from{transform:none}to{transform:translateX(100%)}}
-  @keyframes mainBack{from{opacity:.35;transform:translateX(-18px)}to{opacity:1;transform:none}}
+  @keyframes mainBack{from{transform:translateX(-24px)}to{transform:none}}
   @keyframes vinR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
   @keyframes vinL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
   .vin-r{animation:vinR .26s cubic-bezier(.2,.8,.2,1)} .vin-l{animation:vinL .26s cubic-bezier(.2,.8,.2,1)}
   .scr.enter,#cmpView.enter,#rptView.enter,#simView.enter,#pushView.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
-  .scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
+  .scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave{position:fixed;top:0;left:0;right:0;bottom:auto;min-height:100vh;align-content:start;box-shadow:-8px 0 24px rgba(0,0,0,.18);z-index:4;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
   main.enter-back{animation:mainBack .28s cubic-bezier(.2,.8,.2,1)}
   @media (prefers-reduced-motion:reduce){.scr.enter,main.enter-back,.vin-r,.vin-l{animation:none}.scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave{animation:none;display:none}}
   .scr .cmphdr{padding:0 16px}
@@ -529,6 +529,13 @@
   .lotline{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
   .note{font-size:12px; color:var(--muted); margin-top:6px}
   body.welcome #btnAdd{display:none !important}
+  .imp-pick,.imp-how{display:grid; gap:10px} .imp-pick[hidden],.imp-how[hidden]{display:none} .imp-q{font-size:17px; font-weight:700; padding:2px 2px 4px}
+  .imp-bk{display:flex; align-items:center; justify-content:space-between; font-size:17px} .linkbtn{background:none; border:0; box-shadow:none; color:var(--brand); font-weight:700; padding:6px 4px; min-height:0}
+  .imp-steps{margin:0; padding:14px 16px 14px 34px; background:var(--card); border:1px solid var(--line); border-radius:14px; display:grid; gap:10px; font-size:15px; line-height:1.45}
+  .imp-file{background:var(--brand); color:var(--brand-ink); display:flex; align-items:center; justify-content:center; min-height:50px; border-radius:14px; font-weight:800; font-size:16px; cursor:pointer; position:relative; overflow:hidden}
+  .imp-file input{position:absolute; inset:0; opacity:0; cursor:pointer} .imp-paste summary{color:var(--muted); font-size:14px; padding:6px 2px; cursor:pointer} .imp-paste[open]{display:grid; gap:8px} .imp-paste[hidden]{display:none}
+  .demobar{display:flex; align-items:center; gap:10px; justify-content:space-between; margin:10px 0 0; padding:10px 12px 10px 14px; border-radius:14px; background:color-mix(in srgb,var(--brand) 14%,var(--card)); border:1px solid color-mix(in srgb,var(--brand) 40%,transparent); font-size:14px} .demobar[hidden]{display:none}
+  .demobar button{flex:0 0 auto; min-height:0; padding:8px 12px; border-radius:999px; background:var(--brand); color:var(--brand-ink); border:0; font-weight:700; font-size:13.5px}
   .wel{display:grid; gap:10px; padding:26px 18px 18px; background:var(--card); border:1px solid var(--line); border-radius:18px; text-align:center}
   .wel-ic{width:56px; height:56px; margin:0 auto 4px; border-radius:16px; display:grid; place-items:center; background:var(--brand); color:var(--brand-ink)}
   .wel h2{margin:0; font-size:22px} .wel p{margin:0 0 8px; color:var(--muted); font-size:15px; line-height:1.45}
@@ -894,6 +901,7 @@
 
 <div id="ptr" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></div>
 <main>
+  <div class="demobar" id="demoBar" hidden><span>Estás viendo un <b>ejemplo</b> con datos ficticios.</span><button type="button" id="demoExit">Salir del ejemplo</button></div>
   <div id="banners"></div>
   <div id="notice"></div>
   <div id="notice2"></div>
@@ -1215,10 +1223,21 @@
     </div>
 
     <div id="pvImp" style="display:grid;gap:12px" hidden>
-      <div class="help">IBKR: el CSV de un Flex Query con la sección Trades (IBKR da hasta 1 año por archivo: si tenés más, elegí todos los CSV juntos). Balanz: el Excel “Resultados por info completa”. IOL: el Excel de “Operaciones finalizadas” (pedilo desde el inicio de tu cuenta; las cauciones se ignoran). Se cargan tus compras y ventas con sus fechas.</div>
-      <input type="file" id="ibFile" multiple accept=".csv,.xlsx,.xls,.html,.htm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Archivo de IBKR, Balanz o IOL">
-      <textarea id="ibText" rows="3" placeholder="…o pegá acá el contenido del CSV" aria-label="Contenido del CSV"></textarea>
-      <button type="button" id="ibRead">Leer lo pegado</button>
+      <div id="ibPick" class="imp-pick">
+        <div class="imp-q">¿De qué broker?</div>
+        <button type="button" class="wel-b" data-bk="IBKR"><span class="pe-t">Interactive Brokers<small>IBKR · archivo CSV</small></span><span class="go">›</span></button>
+        <button type="button" class="wel-b" data-bk="Balanz"><span class="pe-t">Balanz<small>Archivo Excel</small></span><span class="go">›</span></button>
+        <button type="button" class="wel-b" data-bk="IOL"><span class="pe-t">InvertirOnline<small>IOL · archivo Excel</small></span><span class="go">›</span></button>
+      </div>
+      <div id="ibHow" class="imp-how" hidden>
+        <div class="imp-bk"><b id="ibBkName"></b><button type="button" id="ibBkChg" class="linkbtn">Cambiar</button></div>
+        <ol id="ibSteps" class="imp-steps"></ol>
+        <label class="primary imp-file">Elegir archivo<input type="file" id="ibFile" multiple accept=".csv,.xlsx,.xls,.html,.htm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Archivo de IBKR, Balanz o IOL"></label>
+        <details class="imp-paste" id="ibPaste"><summary>O pegá el contenido del CSV</summary>
+          <textarea id="ibText" rows="3" placeholder="Pegá acá el contenido del CSV" aria-label="Contenido del CSV"></textarea>
+          <button type="button" id="ibRead">Leer lo pegado</button>
+        </details>
+      </div>
       <div class="help" id="ibMsg" role="status" aria-live="polite" hidden></div>
       <div id="ibAct" hidden style="display:grid;gap:8px">
         <div class="inrow"><input id="ibName" maxlength="40" value="IBKR" aria-label="Nombre del perfil nuevo"><button type="button" id="ibCreate" class="primary">Guardar</button></div>
@@ -1386,6 +1405,8 @@
     return {active:"main",tomb:{},profiles:[{id:"main",name:"Mis acciones",positions:Array.isArray(old)?old:[],readOnly:false,mod:0}]};
   }
   var profData=initProfiles();
+  /* Ejemplos creados antes de que existiera "Salir del ejemplo": se reconocen por la nota de sus posiciones. */
+  profData.profiles.forEach(function(pr){ if(!pr.demo&&pr.name==="Ejemplo"&&!pr.readOnly&&pr.positions&&pr.positions.length&&pr.positions.every(function(p){ return p.note==="Datos ficticios de ejemplo"; })) pr.demo=1; });
   function cur(){ return profData.profiles.filter(function(x){return x.id===profData.active;})[0]; }
   var positions=cur().positions;
   function isRO(){ return !!cur().readOnly; }
@@ -1784,6 +1805,7 @@
     }
     $("profInfo").textContent=info;
     $("profbar").hidden=!(c.readOnly||info);
+    $("demoBar").hidden=!c.demo;
     $("btnAdd").hidden=!!c.readOnly||cmpOpen;
     $("btnCmp").hidden=!profData.profiles.length;
     $("menuUser").textContent=auth?((auth.name?auth.name+" · ":"")+auth.email):"";
@@ -2821,7 +2843,7 @@
     w.appendChild(el("h2",null,"Bienvenido a Holdy"));
     w.appendChild(el("p",null,"Toda tu cartera en un solo lugar: acciones, bonos y fondos de todos tus brokers, en dólares."));
     var opts=[
-      ["Importar de mi broker","IBKR, Balanz o IOL: subís el archivo y listo",function(){ ibTargetId=profData.active; ibReset(); renderProfList(); pvShow("imp"); dlgProf.showModal(); },1],
+      ["Importar de mi broker","IBKR, Balanz o IOL: subís el archivo y listo",function(){ ibTargetId=profData.active; ibReset(); renderProfList(); pvShow("imp"); pvDirect=true; dlgProf.showModal(); },1],
       ["Cargar a mano","Ticker, cantidad y precio de compra",function(){ $("btnAdd").click(); }],
       ["Ver un ejemplo","Probá la app con una cartera de muestra",function(){ renderProfList(); pvShow("new"); dlgProf.showModal(); $("pfDemo").click(); }]
     ];
@@ -3949,7 +3971,7 @@
   var dlgProf=$("dlgProf"), dlgSet=$("dlgSet");
   var rptView=$("rptView"), simView=$("simView"), pushView=$("pushView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView,simView,pushView];
   function setScr(el){
-    var prev=SCREENS.filter(function(x){ return !x.hidden; })[0]||null;
+    var prev=SCREENS.filter(function(x){ return !x.hidden; })[0]||null, prevTop=prev?prev.getBoundingClientRect().top:0;
     SCREENS.forEach(function(x){ x.hidden=x!==el; x.classList.remove("enter","leave"); });
     cmpOpen=!!el;
     var mainEl=document.querySelector("main");
@@ -3959,8 +3981,8 @@
     // Transiciones: al entrar la pantalla llega desde la derecha; al volver sale hacia la derecha y la principal vuelve.
     if(el&&el!==prev){ void el.offsetWidth; el.classList.add("enter"); }
     else if(!el&&prev&&!mainEl.hidden){
-      prev.hidden=false; prev.classList.add("leave"); mainEl.classList.remove("enter-back"); void mainEl.offsetWidth; mainEl.classList.add("enter-back");
-      setTimeout(function(){ if(prev.classList.contains("leave")){ prev.hidden=true; prev.classList.remove("leave"); } mainEl.classList.remove("enter-back"); },270);
+      prev.hidden=false; prev.style.top=prevTop+"px"; prev.classList.add("leave"); mainEl.classList.remove("enter-back"); void mainEl.offsetWidth; mainEl.classList.add("enter-back");
+      setTimeout(function(){ if(prev.classList.contains("leave")){ prev.hidden=true; prev.classList.remove("leave"); } prev.style.top=""; mainEl.classList.remove("enter-back"); },270);
     }
   }
   function setCmp(on){ setScr(on?cmpView:null); }
@@ -4306,6 +4328,13 @@
   var dlgShare=$("dlgShare");
   [dlgShare].forEach(function(d){ d.addEventListener("click",function(e){ if(e.target===d) d.close(); }); });
 
+  /* Salir del ejemplo: se borra ese perfil y volvés al que tenías. */
+  $("demoExit").addEventListener("click",function(){ var pr=cur(); if(!pr||!pr.demo) return;
+    var back=pr.back; profData.tomb[pr.id]=Date.now();
+    profData.profiles=profData.profiles.filter(function(x){ return x!==pr; });
+    if(!profData.profiles.length) profData.profiles.push({id:"main",name:"Mis acciones",positions:[],readOnly:false,mod:Date.now()});
+    profData.active=profData.profiles.some(function(x){ return x.id===back; })?back:profData.profiles[0].id;
+    positions=cur().positions; openId=null; save(LS_PROF,profData); render(); refresh(false); });
   function setActive(id){
     if(!profData.profiles.some(function(x){return x.id===id;})) return;
     cur().positions=positions;
@@ -4729,8 +4758,10 @@
     box.appendChild(m);
     dlgPick.showModal();
   });
-  $("btnProfAdm").addEventListener("click",function(){ $("shareBox").hidden=true; renderProfList(); pvShow("list"); dlgProf.showModal(); });
+  var pvDirect=false;
+  $("btnProfAdm").addEventListener("click",function(){ pvDirect=false; $("shareBox").hidden=true; renderProfList(); pvShow("list"); dlgProf.showModal(); });
   $("pfClose").addEventListener("click",function(){
+    if(pvDirect){ pvDirect=false; dlgProf.close(); return; }
     if(pvMode==="imp"){ if(ibTargetId==="new") pvShow("new"); else { var p=profData.profiles.filter(function(x){return x.id===ibTargetId;})[0]; if(p) openProfEdit(p); else pvShow("list"); } }
     else if(pvMode==="viewer"){ pvShow("share"); loadViewers(pvProf); }
     else if(pvMode==="share"){ openProfEdit(pvProf); }
@@ -4781,7 +4812,7 @@
         });
         if(!pos.length) throw new Error("vacio");
         cur().positions=positions;
-        var np={id:rid(),name:"Ejemplo",positions:pos,closed:closed,readOnly:false,mod:Date.now()};
+        var np={id:rid(),name:"Ejemplo",positions:pos,closed:closed,readOnly:false,mod:Date.now(),demo:1,back:profData.active};
         profData.profiles.push(np); profData.active=np.id; positions=np.positions; openId=null;
         save(LS_PROF,profData); say(""); dlgProf.close(); render(); refresh(true);
       }).catch(function(){ say("No se pudo armar el ejemplo ahora. Probá de nuevo en un rato."); })
@@ -5427,7 +5458,19 @@
     function uniq(x){ var o={}; x.forEach(function(t){ o[t]=1; }); return Object.keys(o); }
     return {newN:nw.length,newT:uniq(nw),goneN:gone.length,goneT:uniq(gone),same:same};
   }
-  function ibReset(){ ibState=null; $("ibAct").hidden=true; $("ibText").value=""; $("ibFile").value=""; ibMsg(""); }
+  function ibReset(){ ibState=null; $("ibAct").hidden=true; $("ibText").value=""; $("ibFile").value=""; ibMsg(""); ibPickBk(null); }
+  /* Importar: primero elegís el broker y después ves solo sus pasos. El archivo se reconoce solo igual. */
+  var IB_STEPS={
+    IBKR:["Entrá a IBKR desde la compu y buscá <b>Flex Queries</b> (en Rendimiento e informes).","Creá una <b>Activity Flex Query</b> con la sección <b>Trades</b>, en formato <b>CSV</b>. Sumá <b>Cash Transactions</b> si querés los dividendos.","Ejecutala y descargá el archivo. IBKR da hasta 1 año por archivo: si tenés más, bajá uno por año y elegilos todos juntos.","Subilo acá. Después podés activar <b>IBKR automático</b> en tu perfil para no repetir esto."],
+    Balanz:["En Balanz, descargá el Excel <b>“Resultados por info completa”</b>.","Elegí desde que abriste la cuenta hasta hoy, así entran todas tus operaciones.","Subilo acá."],
+    IOL:["En InvertirOnline, descargá el Excel de <b>“Operaciones finalizadas”</b>.","Pedilo desde el inicio de tu cuenta hasta hoy. Las cauciones se ignoran.","Subilo acá."]
+  };
+  function ibPickBk(bk){ $("ibPick").hidden=!!bk; $("ibHow").hidden=!bk; if(!bk) return;
+    $("ibBkName").textContent=bk==="IBKR"?"Interactive Brokers":(bk==="IOL"?"InvertirOnline":"Balanz");
+    var ol=$("ibSteps"); ol.textContent=""; IB_STEPS[bk].forEach(function(t){ var li=document.createElement("li"); li.innerHTML=t; ol.appendChild(li); });
+    $("ibPaste").hidden=bk!=="IBKR"; }
+  [].forEach.call(document.querySelectorAll("#ibPick [data-bk]"),function(b){ b.addEventListener("click",function(){ ibPickBk(b.getAttribute("data-bk")); window.scrollTo(0,0); }); });
+  $("ibBkChg").addEventListener("click",function(){ ibMsg(""); $("ibAct").hidden=true; ibPickBk(null); });
   function ibShowAct(){
     var nw=ibTargetId==="new", n=$("ibNote");
     $("ibName").hidden=!nw; $("ibName").value=ibState.broker==="Balanz"?"Balanz":(ibState.broker==="IOL"?"IOL":"IBKR");
@@ -5519,7 +5562,7 @@
     return o;
   }
   function docFromLocal(){
-    var ps=profData.profiles.filter(function(pr){return !isDisposable(pr);}).map(serProfile).sort(function(a,b){return a.id<b.id?-1:(a.id>b.id?1:0);});
+    var ps=profData.profiles.filter(function(pr){return !isDisposable(pr)&&!pr.demo;}).map(serProfile).sort(function(a,b){return a.id<b.id?-1:(a.id>b.id?1:0);});
     var tomb={}; Object.keys(profData.tomb||{}).sort().forEach(function(k){ tomb[k]=profData.tomb[k]; });
     return {profiles:ps,tomb:tomb};
   }
