@@ -2848,13 +2848,13 @@
     if(cobView==="prox"&&nm.length) box.appendChild(el("div","cob-note","Sin tasa o vencimiento para calcular: "+nm.join(", ")+" (cargalos en Editar)."));
   }
   /* Guía: oscurece la pantalla y resalta dónde tocar, paso a paso. */
-  /* De arriba hacia abajo, con la pantalla quieta; el cierre es una tarjeta al centro. */
+  /* Primero lo tuyo de arriba hacia abajo (cartera, inversiones, cargar); después los extras (amigos y menú); cierre al centro. */
   var TOUR=[
-    ["#profSel","Tu cartera y la de tus amigos","Si alguien te comparte la suya, la ves acá y la comparás con la tuya."],
-    ["#btnMenu","Más en el menú","Proyectá cuánto vas a tener a futuro y armá reportes en PDF."],
     [".sum-card","Tu cartera de un vistazo","Cuánto vale todo hoy y cuánto ganaste."],
     ["#list .acc","Tocá cualquier inversión","Ves el detalle y por qué subió o bajó."],
     ["#btnAdd","Cargá tus inversiones","Una por una desde acá, o todas juntas subiendo el archivo de tu broker (Menú → Perfiles → Importar)."],
+    ["#profSel","La cartera de tus amigos","Si alguien te comparte la suya, la ves acá y la comparás con la tuya."],
+    ["#btnMenu","Y más en el menú","Proyectá cuánto vas a tener a futuro y armá reportes en PDF."],
     [null,"Ahora te toca a vos","Salí del ejemplo y cargá tu propia cartera."]
   ];
   function tourStart(){
