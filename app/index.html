@@ -2848,11 +2848,12 @@
     if(cobView==="prox"&&nm.length) box.appendChild(el("div","cob-note","Sin tasa o vencimiento para calcular: "+nm.join(", ")+" (cargalos en Editar)."));
   }
   /* Guía: oscurece la pantalla y resalta dónde tocar, paso a paso. */
+  /* En orden de la pantalla quieta (arriba de todo): solo se mueve el resaltado, no la vista. */
   var TOUR=[
     [".sum-card","Tu cartera de un vistazo","Cuánto vale todo hoy y cuánto ganaste."],
     ["#list .acc","Tocá cualquier inversión","Ves el detalle y por qué subió o bajó."],
-    ["#profSel","La cartera de tus amigos","Si alguien te comparte la suya, la ves acá y la comparás con la tuya."],
     ["#btnAdd","Cargá tus inversiones","Una por una desde acá, o todas juntas subiendo el archivo de tu broker (Menú → Perfiles → Importar)."],
+    ["#profSel","La cartera de tus amigos","Si alguien te comparte la suya, la ves acá y la comparás con la tuya."],
     ["#btnMenu","Más en el menú","Proyectá cuánto vas a tener a futuro y armá reportes en PDF."],
     ["#demoBar","Ahora te toca a vos","Salí del ejemplo y cargá tu propia cartera."]
   ];
@@ -2865,7 +2866,7 @@
     svg.innerHTML='<defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><rect class="tour-mr" rx="16" fill="#000"/></mask></defs><rect width="100%" height="100%" fill="rgba(4,10,14,.78)" mask="url(#tourMask)"/>';
     var mr=svg.querySelector(".tour-mr");
     ov.appendChild(svg); ov.appendChild(hole); ov.appendChild(card); ov.appendChild(arr); document.body.appendChild(ov);
-    requestAnimationFrame(function(){ ov.classList.add("on"); });
+    window.scrollTo(0,0); requestAnimationFrame(function(){ ov.classList.add("on"); });
     var i=0, tgt=null;
     function place(){ if(!tgt) return; var r=tgt.getBoundingClientRect(), pad=8, vh=window.innerHeight, vw=window.innerWidth;
       var L=Math.max(6,r.left-pad), W=Math.min(vw-12,r.width+pad*2);
@@ -2881,7 +2882,8 @@
       var last=i===steps.length-1, nx=el("button","primary",last?"¡Dale!":"Siguiente"); nx.type="button"; nx.addEventListener("click",function(e){ e.stopPropagation(); next(); });
       if(!last){ var sk=el("button","linkbtn","Saltar"); sk.type="button"; sk.addEventListener("click",function(e){ e.stopPropagation(); end(); }); bt.appendChild(sk); }
       bt.appendChild(nx); card.appendChild(bt);
-      var cs=getComputedStyle(tgt).position; if(cs!=="fixed"&&cs!=="sticky"&&!tgt.closest("header")){ var r=tgt.getBoundingClientRect(); if(r.top<90||r.bottom>window.innerHeight-220) window.scrollTo({top:window.scrollY+r.top-150,behavior:"smooth"}); }
+      /* Solo se mueve la vista si lo que hay que mostrar no está en pantalla. */
+      var r=tgt.getBoundingClientRect(); if(r.top<50||r.bottom>window.innerHeight-10) window.scrollTo({top:window.scrollY+r.top-150,behavior:"smooth"});
       place(); setTimeout(place,380); }
     function next(){ if(i<steps.length-1){ i++; show(); } else end(); }
     function end(){ window.removeEventListener("scroll",place); window.removeEventListener("resize",place); ov.classList.remove("on"); setTimeout(function(){ ov.remove(); },250); }
