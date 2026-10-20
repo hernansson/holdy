@@ -582,7 +582,7 @@
   .fx-cm.un{color:var(--brand)}
   .fx-h{justify-self:start; display:inline-block; margin:2px 0 3px; padding:1px 8px; border-radius:999px; font-size:11.5px; font-weight:800; background:color-mix(in srgb,currentColor 14%,transparent)} .fx-h.pos{color:var(--pos)} .fx-h.neg{color:var(--neg)} .fx-h.sm{margin:0; padding:0 6px; font-size:11px; vertical-align:1px}
   .fx-hc{justify-self:start; min-height:0; padding:5px 12px; border-radius:999px; background:transparent; border:1px dashed var(--line); box-shadow:none; color:var(--muted); font-size:13px; font-weight:600} .fx-hc.on{border-style:solid; border-color:var(--brand); color:var(--text)} .fx-hc b.pos{color:var(--pos)} .fx-hc b.neg{color:var(--neg)}
-  .fx-c.me{flex-direction:row-reverse} .fx-c.me .fx-ct{background:color-mix(in srgb,var(--brand) 18%,var(--sh-card,var(--chip))); border-top-left-radius:14px; border-top-right-radius:4px} .fx-ch{display:flex; gap:8px; align-items:baseline} .fx-ch small{color:var(--muted); font-size:11.5px}
+  .fx-c.me{flex-direction:row-reverse} .fx-c.me .fx-ch{justify-content:flex-end} .fx-ch.end{margin-top:2px} .fx-c.me .fx-ct{background:color-mix(in srgb,var(--brand) 18%,var(--sh-card,var(--chip))); border-top-left-radius:14px; border-top-right-radius:4px} .fx-ch{display:flex; gap:8px; align-items:baseline} .fx-ch small{color:var(--muted); font-size:11.5px}
   .fx-form{display:grid; gap:8px; padding:10px 0 calc(14px + env(safe-area-inset-bottom)); flex:0 0 auto} .fx-fr{display:flex; gap:8px} .fx-form input{flex:1; min-height:46px; border-radius:999px; padding:0 16px; font-size:16px} .fx-fr button{flex:0 0 46px; min-height:46px; border-radius:50%; padding:0; font-size:20px; font-weight:800}
   .feed-c{display:grid; gap:8px; padding:14px 14px 12px} .fc-hd{display:flex; align-items:center; gap:10px} .fc-hd .feed-av{flex:0 0 36px; height:36px; font-size:15px} .fc-nm{display:grid; gap:1px} .fc-nm b{font-size:15px} .fc-nm small{font-size:12px; color:var(--muted)}
   .fc-bd{font-size:17px; line-height:1.35} .fc-bd b{font-weight:800} .fc-pc{justify-self:start; font-size:13px; color:var(--muted); padding:4px 10px; border-radius:999px; background:var(--chip)} .fc-pc b{font-weight:800; margin-right:2px} .fc-pc.pos b{color:var(--pos)} .fc-pc.neg b{color:var(--neg)}
@@ -2986,7 +2986,7 @@
   function myPctIn(tk){ var v=0, c=0; profData.profiles.forEach(function(pr){ if(pr.readOnly||pr.demo) return; (pr.positions||[]).forEach(function(p){ if(p.ticker!==tk||p.fi||p.ccy!=="USD"||!(p.qty>0)||!(p.buy>0)) return; var px=currentPrice(p); if(px===null) return; v+=p.qty*px; c+=p.qty*p.buy; }); });
     return c>0?v/c-1:null; }
   var LS_FXH="cartera.fxh.v1", fxShowH=load(LS_FXH,true)!==false;
-  function fxHTag(c,tk){ if(!(typeof c.h==="number")) return null; var t=el("span","fx-h "+(c.h>=0?"pos":"neg")); t.textContent="La tiene · "+fmtPct(c.h); if(c.me) t.textContent="La tenés · "+fmtPct(c.h); t.title=(c.me?"Tu":"Su")+" resultado en "+tk; return t; }
+  function fxHTag(c,tk){ if(!(typeof c.h==="number")) return null; var t=el("span","fx-h "+(c.h>=0?"pos":"neg")); t.textContent=(c.me?"La tenés · ":"La tiene · ")+fmtPct(c.h); t.title=(c.me?"Tu":"Su")+" resultado en "+tk; return t; }
   function fxIsOwner(x){ return x.mine||!!(fxUs[x.code]&&fxUs[x.code].owner); }
   function fxThread(x,keep,focus){ var d=$("dlgSimA"), box=$("simABody"), f=fxOf(x); if(d._fx!==x){ d._fxShow=20; d._fxRead=fxSeenAt(x); d._fxRp=null; d._fxDel=null; } d._fx=x; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
     d.querySelector("h3").textContent=(x.mine?"Tu "+(x.k==="s"?"venta":"compra"):(x.k==="s"?"Venta":"Compra"))+" de "+x.t; var st0=box.scrollTop; box.textContent="";
@@ -2996,10 +2996,10 @@
     if(hidden_){ var older=el("button","fc-more","Ver mensajes anteriores ("+hidden_+")"); older.type="button"; older.addEventListener("click",function(){ d._fxShow=(d._fxShow||20)+20; var h0=box.scrollHeight; fxThread(x,true); box.scrollTop=box.scrollHeight-h0; }); box.appendChild(older); }
     f.c.slice(hidden_).forEach(function(c){
       if(!newShown&&!c.me&&c.a>d._fxRead){ newShown=true; box.appendChild(el("div","fx-new","Nuevos")); }
-      var r=el("div","fx-c"+(c.me?" me":"")); r.appendChild(cAv(x.code,c,"sm"));
-      var col=el("div","fx-col"), t=el("div","fx-ct"); var h=el("div","fx-ch"); h.appendChild(el("b",null,c.me?"Vos":((fxUser(x.code,c.u)||{}).n||c.n).split(" ")[0])); h.appendChild(el("small",null,fxWhen(c.a))); t.appendChild(h); var ht=fxHTag(c,x.t); if(ht) t.appendChild(ht);
+      var r=el("div","fx-c"+(c.me?" me":"")); if(!c.me) r.appendChild(cAv(x.code,c,"sm")); /* lo tuyo: a la derecha y en verde, sin nombre ni foto (como WhatsApp) */
+      var col=el("div","fx-col"), t=el("div","fx-ct"); var h=el("div","fx-ch"); if(!c.me) h.appendChild(el("b",null,((fxUser(x.code,c.u)||{}).n||c.n).split(" ")[0])); h.appendChild(el("small",null,fxWhen(c.a))); t.appendChild(h); var ht=fxHTag(c,x.t); if(ht) t.appendChild(ht);
       if(c.rp){ var q=el("div","fx-q"); q.appendChild(el("b",null,c.rp.me?"Vos":String(c.rp.n||"").split(" ")[0])); q.appendChild(el("span",null,c.rp.t)); t.appendChild(q); }
-      t.appendChild(el("div",null,c.t)); col.appendChild(t);
+      t.appendChild(el("div",null,c.t)); if(c.me){ t.appendChild(h); h.classList.add("end"); } col.appendChild(t);
       if(c.i){ var ac=el("div","fx-ac");
         var lk=el("button","fx-lk"+(c.lk&&c.lk[1]?" on":""),"❤️"+(c.lk?" "+c.lk[0]:"")); lk.type="button"; lk.setAttribute("aria-label","Me gusta");
         lk.addEventListener("click",function(){ var v=c.lk||[0,0]; c.lk=v[1]?(v[0]>1?[v[0]-1,0]:null):[v[0]+1,1]; if(!c.lk) delete c.lk; fxThread(x,true); fxPaint(); fxSend(x,{lk:c.i}); }); ac.appendChild(lk);
