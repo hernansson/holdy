@@ -4319,13 +4319,13 @@
     x.showModal=function(){ setScr(x); try{ history.pushState({scr:1},""); }catch(e){} };
     x.close=function(){ if(x.hidden) return; if(history.state&&history.state.scr){ x._closing=true; history.back(); } else setScr(null); };
   });
-  var SPY_ID="__spy", SPY_NAME="S&P 500";
+  var SPY_ID="__spy", SPY_NAME="S&P 500", IDX={"__spy":{tk:"SPY",n:"S&P 500"},"__qqq":{tk:"QQQ",n:"Nasdaq 100"}};
   var cmpStart="common";
   function openCmp(){
     var a=$("cmpA"), b=$("cmpB"); a.textContent=""; b.textContent="";
     function opt(sel,v,t){ var o=document.createElement("option"); o.value=v; o.textContent=t; sel.appendChild(o); }
     profData.profiles.forEach(function(pr){ [a,b].forEach(function(sel){ opt(sel,pr.id,pr.name+(pr.owner?" ("+pr.owner+")":"")); }); });
-    opt(a,SPY_ID,SPY_NAME+" · índice"); opt(b,SPY_ID,SPY_NAME+" · índice");
+    Object.keys(IDX).forEach(function(k){ opt(a,k,IDX[k].n+" · índice"); opt(b,k,IDX[k].n+" · índice"); });
     a.value=profData.active; b.value=SPY_ID;
     cmpRange="Todo"; cmpStart="common"; setCmp(true);
     try{ history.pushState({scr:1},""); }catch(e){}
@@ -4354,17 +4354,19 @@
     function find(id){ return profData.profiles.filter(function(x){return x.id===id;})[0]; }
     if(ia===ib){ st.textContent="Elegí dos perfiles distintos."; return; }
     var ents=[ia,ib].map(function(id){
-      if(id===SPY_ID) return {spy:true,name:SPY_NAME};
+      if(IDX[id]) return {spy:true,tk:IDX[id].tk,name:IDX[id].n};
       var pr=find(id); if(!pr) return null;
       return {spy:false,name:pr.name,pr:pr,e:cmpEvents(pr)};
     });
     if(!ents[0]||!ents[1]) return;
+    if(ents[0].spy&&ents[1].spy){ st.textContent="Elegí al menos uno de tus perfiles para comparar."; return; }
     var bad=ents.filter(function(x){ return !x.spy&&!x.e.used; });
     if(bad.length){
       st.textContent="Para comparar, las posiciones de cada perfil necesitan fecha de compra (y en USD). "+bad.map(function(x){ return "“"+x.name+"” no tiene ninguna."; }).join(" ");
       return;
     }
     var from="9999-99-99", tks={SPY:1};
+    ents.forEach(function(x){ if(x.spy) tks[x.tk]=1; });
     var fiMap={};
     ents.forEach(function(x){ if(!x.spy){ Object.keys(x.e.fis).forEach(function(k){ fiMap[k]=x.e.fis[k]; }); x.e.ev.forEach(function(e){ if(e.t==="c") return; if(e.d<from) from=e.d; if(e.tk.indexOf("FI:")!==0) tks[e.tk]=1; }); } });
     var list=Object.keys(tks);
@@ -4423,7 +4425,7 @@
   /* Rendimiento ponderado por tiempo de cada perfil (índice que arranca en 1) + el S&P 500. Lo usan el ranking y la imagen para compartir. */
   function twrRows(prs,extra){
     var ents=[]; prs.forEach(function(pr){ var e=cmpEvents(pr); if(e.used) ents.push({spy:false,name:pr.name,owner:pr.owner||"",friend:!!pr.readOnly,pr:pr,e:e}); });
-    var from="9999-99-99", tks={SPY:1}, fiMap={};
+    var from="9999-99-99", tks={SPY:1,QQQ:1}, fiMap={};
     ents.forEach(function(x){ Object.keys(x.e.fis).forEach(function(k){ fiMap[k]=x.e.fis[k]; }); x.e.ev.forEach(function(e){ if(e.t==="c") return; if(e.d<from) from=e.d; if(e.tk.indexOf("FI:")!==0) tks[e.tk]=1; }); });
     (extra||[]).forEach(function(t){ tks[t]=1; });
     if(from==="9999-99-99") from=dayStr(dayNum(todayStr())-400);
@@ -4432,7 +4434,7 @@
       var raw=Object.assign({},hist); cmpFiHist(ents,fiMap,hist);
       var today=todayStr(), rows=[];
       ents.forEach(function(x){ var c=cmpCurve(x.e.ev,hist,today,false); if(c&&c.pts.length>1) rows.push({n:x.name,o:x.owner,f:x.friend,id:x.pr.id,pts:c.pts.map(function(p){ return [p[0],1+p[1]/100]; })}); });
-      if(hist.SPY) rows.push({n:"S&P 500",spy:true,pts:hist.SPY.pts.map(function(r){ return [dayNum(r[0]),(r[2]>0?r[2]:r[1])]; })});
+      [["SPY","S&P 500"],["QQQ","Nasdaq 100"]].forEach(function(ix){ var h=hist[ix[0]]; if(h) rows.push({n:ix[1],spy:true,pts:h.pts.map(function(r){ return [dayNum(r[0]),(r[2]>0?r[2]:r[1])]; })}); });
       return {rows:rows,hist:raw,full:hist};
     });
   }
@@ -4487,7 +4489,10 @@
     if(csMin<cap){ csMin=cap; capped=true; } if(csMax<cap) csMax=cap;
     var last=null, i=0, pts=hist.SPY.pts.map(function(r){return [dayNum(r[0]),(r[2]>0?r[2]:r[1])];}), sp=[];
     for(var d=csMin; d<=tn; d++){ while(i<pts.length&&pts[i][0]<=d){ last=pts[i][1]; i++; } if(last===null) continue; sp.push([d,last]); }
-    ents.forEach(function(x){ if(x.spy) x.pxs=sp; });
+    ents.forEach(function(x){ if(!x.spy) return; if(x.tk==="SPY"){ x.pxs=sp; return; }
+      var h=hist[x.tk], q=h?h.pts.map(function(r){return [dayNum(r[0]),(r[2]>0?r[2]:r[1])];}):[], j2=0, l2=null, o2=[];
+      for(var d2=csMin; d2<=tn; d2++){ while(j2<q.length&&q[j2][0]<=d2){ l2=q[j2][1]; j2++; } if(l2===null) continue; o2.push([d2,l2]); } x.pxs=o2; });
+    if(ents.some(function(x){ return x.spy&&!(x.pxs&&x.pxs.length); })){ st.textContent="No se pudo traer el índice. Probá de nuevo en un rato."; return; }
     cmpData={ents:ents,sp:sp,csMin:csMin,csMax:csMax,tn:tn};
     var real=ents.filter(function(x){return !x.spy;});
     var hasFi=real.some(function(x){ return Object.keys(x.e.fis).length>0; });
@@ -4572,7 +4577,7 @@
     var why=[];
     if(!bothReal){
       var real=E[0].x.spy?E[1]:E[0], spyE=E[0].x.spy?E[0]:E[1], dm=real.t-spyE.t;
-      $("cmpVerd").textContent=(dm>=0?real.n+" le gana al S&P 500 por "+diff+" puntos: ":real.n+" queda por debajo del S&P 500 por "+diff+" puntos: ")+pctTxt(real.t)+" contra "+pctTxt(spyE.t)+".";
+      $("cmpVerd").textContent=(dm>=0?real.n+" le gana al "+spyE.n+" por "+diff+" puntos: ":real.n+" queda por debajo del "+spyE.n+" por "+diff+" puntos: ")+pctTxt(real.t)+" contra "+pctTxt(spyE.t)+".";
       var s=real.x.stats;
       if(s.topC) why.push("Lo que más aportó: "+s.topC.tk+" ("+fmtPct(s.topC.contrib/100)+" a tu cartera; la acción rindió "+fmtPct(s.topC.pct)+(s.topC.closed?", ya vendida":"")+").");
       if(s.botC&&s.rows.length>1) why.push((s.botC.contrib<0?"Lo que más le restó: ":"Lo que menos aportó: ")+s.botC.tk+" ("+fmtPct(s.botC.contrib/100)+" a tu cartera; la acción rindió "+fmtPct(s.botC.pct)+(s.botC.closed?", ya vendida":"")+").");
