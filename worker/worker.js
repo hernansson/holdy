@@ -1003,11 +1003,13 @@ async function social(request, env, url, cors, ctx) {
   const fk = "fx:" + code, doc = (await env.HOLDY_KV.get(fk, "json")) || { k: {} };
   // Nombre y foto actuales de cada persona (dueño y quienes comentaron), con un id opaco en vez del de Google.
   const out = async () => { const o = {}, subs = new Set(); if (stored.o) subs.add(stored.o.s);
-    Object.values(doc.k).forEach((v) => (v.c || []).forEach((c) => subs.add(c.s)));
+    Object.values(doc.k).forEach((v) => (v.c || []).forEach((c) => { subs.add(c.s); if (c.rp) subs.add(c.rp.s); }));
     const ids = {}, users = {};
     await Promise.all([...subs].map(async (s) => { const p = await getPf(env, s), id = await uid(s); ids[s] = id; users[id] = { n: p.n || "", v: p.ph ? p.pv || "1" : "" }; }));
     for (const [k, v] of Object.entries(doc.k)) o[k] = { r: Object.fromEntries(Object.entries(v.r || {}).filter(([, a]) => a.length).map(([e, a]) => [e, [a.length, a.includes(u.sub) ? 1 : 0]])),
-      c: (v.c || []).map((c) => ({ i: c.i, n: (users[ids[c.s]] && users[ids[c.s]].n) || c.n, u: ids[c.s], t: c.t, a: c.a, me: c.s === u.sub ? 1 : 0, o: stored.o && c.s === stored.o.s ? 1 : 0 })) };
+      c: (v.c || []).map((c) => ({ i: c.i, n: (users[ids[c.s]] && users[ids[c.s]].n) || c.n, u: ids[c.s], t: c.t, a: c.a, me: c.s === u.sub ? 1 : 0, o: stored.o && c.s === stored.o.s ? 1 : 0,
+        ...(c.rp ? { rp: { n: (users[ids[c.rp.s]] && users[ids[c.rp.s]].n) || c.rp.n, t: c.rp.t, me: c.rp.s === u.sub ? 1 : 0 } } : {}),
+        ...(c.lk && c.lk.length ? { lk: [c.lk.length, c.lk.includes(u.sub) ? 1 : 0] } : {}) })) };
     return json({ k: o, owner: isOwner ? 1 : 0, ow: stored.o ? ids[stored.o.s] : "", us: users }, 200, nostore); };
   if (request.method === "GET") return out();
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, nostore);
@@ -1016,22 +1018,33 @@ async function social(request, env, url, cors, ctx) {
   if (!/^[bs]\|[A-Za-z0-9.^=_-]{1,20}\|\d{4}-\d{2}-\d{2}$/.test(key)) return json({ error: "bad_key" }, 400, nostore);
   const it = doc.k[key] || (doc.k[key] = { r: {}, c: [], at: 0 });
   const [kind, tk] = key.split("|"), what = (kind === "s" ? "venta de " : "compra de ") + tk;
+  // Link del aviso: abre directo esta conversación.
+  const deep = "#feed/" + encodeURIComponent(code) + "/" + encodeURIComponent(key);
   const myName = await dispName(env, u), me = myName.split(" ")[0];
   let notify = [], msg = null;
-  if (b.re) {
+  if (b.del || b.lk) {
+    // Borrar: el que lo escribió o el dueño de la cartera. Me gusta en un comentario: sin aviso (ahorra escrituras).
+    const id = String(b.del || b.lk), ci = it.c.findIndex((c) => c.i === id);
+    if (ci < 0) return out();
+    const c = it.c[ci];
+    if (b.del) { if (c.s !== u.sub && !isOwner) return json({ error: "forbidden" }, 403, nostore); it.c.splice(ci, 1); }
+    else { const l = c.lk || (c.lk = []), j = l.indexOf(u.sub); if (j >= 0) l.splice(j, 1); else l.push(u.sub); if (!l.length) delete c.lk; }
+  } else if (b.re) {
     if (!FX_EMO.includes(b.re)) return json({ error: "bad_emoji" }, 400, nostore);
     const a = it.r[b.re] || (it.r[b.re] = []), i = a.indexOf(u.sub);
-    if (i >= 0) a.splice(i, 1); else { a.push(u.sub); if (stored.o && stored.o.s !== u.sub) { notify = [stored.o.s]; msg = { title: me, body: "Reaccionó " + b.re + " a tu " + what, tag: "fx-" + code + key, u: "#feed" }; } }
+    if (i >= 0) a.splice(i, 1); else { a.push(u.sub); if (stored.o && stored.o.s !== u.sub) { notify = [stored.o.s]; msg = { title: me, body: "Reaccionó " + b.re + " a tu " + what, tag: "fx-" + code + key, u: deep }; } }
   } else {
     const t = String(b.t || "").trim().slice(0, 300); if (!t) return json({ error: "empty" }, 400, nostore);
-    it.c.push({ i: Math.random().toString(36).slice(2, 10), s: u.sub, n: myName, t, a: Date.now() }); it.c = it.c.slice(-60);
+    const to = b.rp ? it.c.find((c) => c.i === String(b.rp)) : null;
+    it.c.push({ i: Math.random().toString(36).slice(2, 10), s: u.sub, n: myName, t, a: Date.now(), ...(to ? { rp: { s: to.s, n: to.n, t: to.t.slice(0, 80) } } : {}) }); it.c = it.c.slice(-60);
     const subs = new Set(it.c.map((c) => c.s)); if (stored.o) subs.add(stored.o.s); subs.delete(u.sub);
     notify = [...subs].filter((s) => (stored.o && s === stored.o.s) || (pv.v[s] && !(pv.b || []).includes(s)));
-    msg = { title: me + " comentó", body: "“" + t.slice(0, 90) + "” · en " + (isOwner ? "su " : (stored.o && notify[0] === stored.o.s ? "tu " : "la ")) + what, tag: "fx-" + code + key, u: "#feed" };
+    msg = { title: me + " comentó", body: "“" + t.slice(0, 90) + "” · en " + (isOwner ? "su " : (stored.o && notify[0] === stored.o.s ? "tu " : "la ")) + what, tag: "fx-" + code + key, u: deep };
   }
   it.at = Date.now();
   const keys = Object.keys(doc.k); if (keys.length > 200) keys.sort((x, y) => doc.k[x].at - doc.k[y].at).slice(0, keys.length - 200).forEach((k) => delete doc.k[k]);
   await env.HOLDY_KV.put(fk, JSON.stringify(doc), { expirationTtl: TTL_PROFILE });
-  if (msg && notify.length && ctx) ctx.waitUntil(Promise.all(notify.map((s) => pushTo(env, s, "fr", msg).catch(() => 0))));
+  const last = it.c[it.c.length - 1], rpTo = !b.re && !b.del && !b.lk && last && last.s === u.sub && last.rp ? last.rp.s : null;
+  if (msg && notify.length && ctx) ctx.waitUntil(Promise.all(notify.map((s) => pushTo(env, s, "fr", s === rpTo ? { ...msg, title: me + " te respondió" } : msg).catch(() => 0))));
   return out();
 }
