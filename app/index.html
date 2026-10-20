@@ -580,10 +580,7 @@
   .fx-rq button{flex:0 0 32px; min-height:32px; padding:0; border-radius:50%; background:transparent; border:0; box-shadow:none; color:var(--muted)}
   .fx-new{display:flex; align-items:center; gap:10px; color:var(--brand); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; padding:8px 0} .fx-new::before,.fx-new::after{content:""; flex:1; height:1px; background:color-mix(in srgb,var(--brand) 45%,transparent)}
   .fx-cm.un{color:var(--brand)}
-  .fc-ntw[hidden],.fc-cm[hidden]{display:none} .feed-f{margin:2px 0 0} .fc-ps{display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; font-size:12.5px; color:var(--muted)} .fc-p b{font-weight:800} .fc-p b.pos{color:var(--pos)} .fc-p b.neg{color:var(--neg)} .fc-ps small{font-size:12px}
-  .fc-ntw{padding-left:44px; display:grid; gap:6px} .fc-nt{font-size:14px; line-height:1.4; font-style:italic; padding:6px 10px; border-left:3px solid var(--brand); border-radius:6px; background:color-mix(in srgb,var(--brand) 8%,transparent)} .fc-nt.ed{cursor:pointer}
-  #simABody .fc-nt{margin:0 0 8px} .fc-ntb{justify-self:start; min-height:0; padding:2px 0; background:none; border:0; box-shadow:none; color:var(--muted); font-size:12.5px; font-weight:700}
-  .fc-ntw textarea{width:100%; font:inherit; font-size:15px; padding:8px 10px; border-radius:10px; resize:none} .fc-ntact{display:flex; gap:8px; justify-content:flex-end} .fc-ntact button{min-height:34px; padding:0 14px; font-size:13.5px}
+  .fc-cm[hidden]{display:none} .fc-ps{display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; font-size:12.5px; color:var(--muted)} .fc-p b{font-weight:800} .fc-p b.pos{color:var(--pos)} .fc-p b.neg{color:var(--neg)} .fc-ps small{font-size:12px}
   .tap{cursor:pointer} .feed-av.big{flex:0 0 56px; height:56px; font-size:22px}
   .fr-hd{display:flex; gap:12px; align-items:center; padding:2px 0 12px} .fr-hd>div{display:grid; gap:2px} .fr-hd b{font-size:17px} .fr-hd small{color:var(--muted); font-size:13px}
   .fr-perf{display:grid; grid-template-columns:repeat(3,1fr); gap:8px} .fr-k{display:grid; gap:2px; padding:10px; border-radius:12px; background:var(--chip); text-align:center} .fr-k small{color:var(--muted); font-size:12px} .fr-k b{font-size:17px; font-weight:800} .fr-k b.pos{color:var(--pos)} .fr-k b.neg{color:var(--neg)}
@@ -2940,16 +2937,12 @@
     items.forEach(function(x){ var k=x.code+"|"+x.k+"|"+x.d; if(!by[k]){ by[k]={items:[]}; out.push(by[k]); } by[k].items.push(x); });
     return out.map(function(g){ var its=g.items.slice().sort(function(a,b){ return a.t<b.t?-1:(a.t>b.t?1:0); }); return Object.assign({},its[0],{items:its}); }); }
   function feedNew_(g){ return (g.items||[g]).some(isNewF); }
-  var LS_FEEDF="cartera.feedf.v1", feedF=load(LS_FEEDF,"all")||"all";
   function feedRender(){ var box=$("feedBody"); box.textContent=""; var items=feedItems(); ensureFeedPx(items);
     var friends=profData.profiles.filter(function(p){ return p.readOnly&&p.syncCode; });
     if(!friends.length){ var e=el("div","feed-empty"); e.appendChild(el("b",null,"Todavía no seguís a nadie")); e.appendChild(el("span",null,"Cuando un amigo te comparta su cartera (Menú → Perfiles → agregar con su código), acá vas a ver lo que compra y vende.")); box.appendChild(e); return; }
-    var seg=el("div","seg feed-f"); [["all","Todos"],["fr","Amigos"],["me","Míos"]].forEach(function(o){ var b=el("button",feedF===o[0]?"on":null,o[1]); b.type="button"; b.setAttribute("aria-pressed",feedF===o[0]?"true":"false");
-      b.addEventListener("click",function(){ if(feedF===o[0]) return; feedF=o[0]; save(LS_FEEDF,feedF); feedRender(); }); seg.appendChild(b); }); box.appendChild(seg);
-    var vis=items.filter(function(x){ return feedF==="all"||(feedF==="me")===!!x.mine; });
-    if(!vis.length){ box.appendChild(el("div","feed-empty",null)).appendChild(el("span",null,feedF==="me"?"No hiciste movimientos en tus carteras compartidas en los últimos 4 meses.":"Tus amigos no compraron ni vendieron nada en los últimos 4 meses.")); return; }
+    if(!items.length){ box.appendChild(el("div","feed-empty",null)).appendChild(el("span",null,"Tus amigos no compraron ni vendieron nada en los últimos 4 meses.")); return; }
     var lastG="";
-    feedGroups(vis).forEach(function(x){ var n=dayNum(todayStr())-dayNum(x.d), g=n<=7?"Esta semana":(n<=31?"Este mes":"Antes");
+    feedGroups(items).forEach(function(x){ var n=dayNum(todayStr())-dayNum(x.d), g=n<=7?"Esta semana":(n<=31?"Este mes":"Antes");
       if(g!==lastG){ lastG=g; box.appendChild(el("div","feed-g",g)); }
       box.appendChild(feedCard(x)); });
     fxLoad(items);
@@ -2959,20 +2952,6 @@
   function feedVerb(x){ var its=x.items||[x], allF=its.every(function(i){ return i.first; }), noF=its.every(function(i){ return !i.first; });
     if(x.k==="s") return x.mine?"Vendiste ":"Vendió ";
     return x.mine?(allF?"Compraste por primera vez ":(noF?"Sumaste más ":"Compraste ")):(allF?"Compró por primera vez ":(noF?"Sumó más ":"Compró ")); }
-  /* "Por qué lo hice": nota del dueño del movimiento, arriba de las reacciones. */
-  function fxNote(x){ var f=fxOf(x), w=el("div","fc-ntw"); w._x=x;
-    if(f.nt&&f.nt.t){ var q=el("div","fc-nt"); q.appendChild(el("span",null,"“"+f.nt.t+"”")); if(x.mine){ q.classList.add("ed"); q.title="Editar"; q.addEventListener("click",function(){ fxNoteEdit(x,w); }); } w.appendChild(q); }
-    else if(x.mine&&auth){ var b=el("button","fc-ntb","✏️ Contá por qué"); b.type="button"; b.addEventListener("click",function(){ fxNoteEdit(x,w); }); w.appendChild(b); }
-    else w.hidden=true;
-    return w; }
-  function fxNoteEdit(x,w){ var f=fxOf(x); w.textContent=""; w.hidden=false; w.classList.add("editing");
-    var ta=document.createElement("textarea"); ta.maxLength=200; ta.rows=2; ta.placeholder=x.k==="s"?"Ej.: llegó a mi precio objetivo":"Ej.: creo que la IA recién arranca"; ta.value=(f.nt&&f.nt.t)||""; w.appendChild(ta);
-    var bs=el("div","fc-ntact"), ok=el("button","primary","Guardar"), no=el("button",null,"Cancelar"); ok.type=no.type="button"; bs.appendChild(no); bs.appendChild(ok); w.appendChild(bs);
-    function done(){ w.classList.remove("editing"); w.replaceWith(fxNote(x)); }
-    no.addEventListener("click",done);
-    ok.addEventListener("click",function(){ var t=ta.value.replace(/\s+/g," ").trim(); if(!fxData[x.code]) fxData[x.code]={}; var it=fxData[x.code][fxKey(x)]=fxOf(x); if(t) it.nt={t:t,a:Date.now()}; else delete it.nt; done(); fxSend(x,{nt:t}); });
-    setTimeout(function(){ ta.focus(); },30); }
-  /* Tarjeta estilo red social: quién y cuándo arriba, qué hizo en grande, el % aparte, reacciones y los últimos comentarios. */
   function feedCard(x){ var its=x.items||[x], card=el("div","feed-c"+(feedNew_(x)?" new":"")); card._x=x; var ow=ownerOf(x);
     var hd=el("div","fc-hd"); var av=avEl(ow.n,ow.ph); av._x=x; av.classList.add("fc-ow"); hd.appendChild(av);
     var nm=el("div","fc-nm"), l1=el("div"); if(!x.mine){ var who=el("span","fc-who",ow.n.split(" ")[0]+" "); l1.appendChild(who); }
@@ -2985,7 +2964,7 @@
       ps.appendChild(el("small",null,x.k==="s"?"de resultado":(x.mine?"desde que compraste":"desde que compró"))); nm.appendChild(ps); }
     hd.appendChild(nm); card.appendChild(hd);
     if(!x.mine){ [av,who].forEach(function(e_){ if(!e_) return; e_.classList.add("tap"); e_.addEventListener("click",function(){ frOpen(x); }); }); }
-    card.appendChild(fxNote(x)); card.appendChild(fxBar(x)); var pv=fxPreview(x); if(pv) card.appendChild(pv); return card; }
+    card.appendChild(fxBar(x)); var pv=fxPreview(x); if(pv) card.appendChild(pv); return card; }
   /* Debajo de cada movimiento: los 2 últimos comentarios; si hay más, "Ver los N comentarios anteriores" (como en Facebook). */
   var fcOpen={};
   function fxPreview(x){ var f=fxOf(x), w=el("div","fc-cm"); w._x=x; if(!f.c.length){ w.hidden=true; return w; }
@@ -3004,8 +2983,7 @@
   function fxLoad(items){ if(!auth||!navigator.onLine) return; var codes={}; items.forEach(function(x){ codes[x.code]=1; });
     Object.keys(codes).forEach(function(c){ if(fxT[c]&&Date.now()-fxT[c]<20000) return; fxT[c]=Date.now();
       api("GET","/fx/"+encodeURIComponent(c)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; fxData[c]=j.k||{}; fxUs[c]={us:j.us||{},ow:j.ow||"",owner:j.owner}; if(!feedView.hidden) fxPaint(); }).catch(function(){}); }); }
-  function fxPaint(){ [].forEach.call(document.querySelectorAll(".feed-c .fx-bar"),function(b){ var x=b._x; if(x) b.replaceWith(fxBar(x)); }); [].forEach.call(document.querySelectorAll(".fc-cm"),function(b){ var x=b._x; if(x) b.replaceWith(fxPreview(x)); }); [].forEach.call(document.querySelectorAll(".fc-ow"),function(a){ var x=a._x, o=ownerOf(x); if(!o.ph&&!a.querySelector("img")) return; var n=avEl(o.n,o.ph,"fc-ow"); n._x=x; if(!x.mine){ n.classList.add("tap"); n.addEventListener("click",function(){ frOpen(x); }); } a.replaceWith(n); });
-    [].forEach.call(document.querySelectorAll(".fc-ntw:not(.editing)"),function(w){ var x=w._x; if(x) w.replaceWith(fxNote(x)); }); var o=$("dlgSimA"); if(o.open&&o._fx) fxThread(o._fx,true); }
+  function fxPaint(){ [].forEach.call(document.querySelectorAll(".feed-c .fx-bar"),function(b){ var x=b._x; if(x) b.replaceWith(fxBar(x)); }); [].forEach.call(document.querySelectorAll(".fc-cm"),function(b){ var x=b._x; if(x) b.replaceWith(fxPreview(x)); }); [].forEach.call(document.querySelectorAll(".fc-ow"),function(a){ var x=a._x, o=ownerOf(x); if(!o.ph&&!a.querySelector("img")) return; var n=avEl(o.n,o.ph,"fc-ow"); n._x=x; if(!x.mine){ n.classList.add("tap"); n.addEventListener("click",function(){ frOpen(x); }); } a.replaceWith(n); }); var o=$("dlgSimA"); if(o.open&&o._fx) fxThread(o._fx,true); }
   function fxOf(x){ return (fxData[x.code]||{})[fxKey(x)]||{r:{},c:[]}; }
   function fxSend(x,body){ if(!auth){ alert("Para reaccionar o comentar tenés que entrar con tu cuenta de Google."); return Promise.resolve(); }
     return api("POST","/fx/"+encodeURIComponent(x.code),Object.assign({key:fxKey(x)},body)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j){ fxData[x.code]=j.k||{}; fxUs[x.code]={us:j.us||{},ow:j.ow||"",owner:j.owner}; fxPaint(); } }).catch(function(){}); }
@@ -3053,7 +3031,6 @@
   function fxThread(x,keep,focus){ var d=$("dlgSimA"), box=$("simABody"), f=fxOf(x); if(d._fx!==x){ d._fxShow=20; d._fxRead=fxSeenAt(x); d._fxRp=null; d._fxDel=null; } d._fx=x; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
     var its_=(x.items||[x]).map(function(i){ return i.t; }), pl=its_.length>1; d.querySelector("h3").textContent=(x.mine?(pl?"Tus ":"Tu ")+(x.k==="s"?(pl?"ventas":"venta"):(pl?"compras":"compra")):(x.k==="s"?(pl?"Ventas":"Venta"):(pl?"Compras":"Compra")))+" de "+tkList(its_); var st0=box.scrollTop; box.textContent="";
     box.appendChild(el("div","fx-sub",(x.mine?"Vos":ownerOf(x).n)+" · "+x.d.split("-").reverse().join("/")));
-    if(f.nt&&f.nt.t){ var nq=el("div","fc-nt"); nq.appendChild(el("span",null,"“"+f.nt.t+"”")); box.appendChild(nq); }
     if(!f.c.length) box.appendChild(el("div","fx-none","Todavía no hay comentarios. ¡Sé el primero!"));
     var hidden_=Math.max(0,f.c.length-(d._fxShow||20)), newShown=false;
     if(hidden_){ var older=el("button","fc-more","Ver mensajes anteriores ("+hidden_+")"); older.type="button"; older.addEventListener("click",function(){ d._fxShow=(d._fxShow||20)+20; var h0=box.scrollHeight; fxThread(x,true); box.scrollTop=box.scrollHeight-h0; }); box.appendChild(older); }
@@ -3101,7 +3078,6 @@
       /* Aviso de un comentario: abre directo esa conversación. */
       if(code){ var x=feedGroups(feedItems()).filter(function(y){ return y.code===code&&(fxKey(y)===key||y.items.some(function(i){ return fxKey(i)===key; })); })[0]; if(!x) return; var d=$("dlgSimA"); if(d.open) d.close();
         fxThread(x); api("GET","/fx/"+encodeURIComponent(code)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; fxData[code]=j.k||{}; fxUs[code]={us:j.us||{},ow:j.ow||"",owner:j.owner}; if(d.open&&d._fx===x) fxThread(x); fxPaint(); }).catch(function(){}); } },300); }
-  window.addEventListener("hashchange",feedFromHash);
   window.addEventListener("hashchange",feedFromHash); setTimeout(feedFromHash,800);
   $("btnMenu").addEventListener("click",feedBadge);
   $("feedBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
