@@ -1009,6 +1009,7 @@ async function social(request, env, url, cors, ctx) {
     for (const [k, v] of Object.entries(doc.k)) o[k] = { r: Object.fromEntries(Object.entries(v.r || {}).filter(([, a]) => a.length).map(([e, a]) => [e, [a.length, a.includes(u.sub) ? 1 : 0]])),
       c: (v.c || []).map((c) => ({ i: c.i, n: (users[ids[c.s]] && users[ids[c.s]].n) || c.n, u: ids[c.s], t: c.t, a: c.a, me: c.s === u.sub ? 1 : 0, o: stored.o && c.s === stored.o.s ? 1 : 0,
         ...(c.rp ? { rp: { n: (users[ids[c.rp.s]] && users[ids[c.rp.s]].n) || c.rp.n, t: c.rp.t, me: c.rp.s === u.sub ? 1 : 0 } } : {}),
+        ...(Number.isFinite(c.h) ? { h: c.h } : {}),
         ...(c.lk && c.lk.length ? { lk: [c.lk.length, c.lk.includes(u.sub) ? 1 : 0] } : {}) })) };
     return json({ k: o, owner: isOwner ? 1 : 0, ow: stored.o ? ids[stored.o.s] : "", us: users }, 200, nostore); };
   if (request.method === "GET") return out();
@@ -1036,7 +1037,7 @@ async function social(request, env, url, cors, ctx) {
   } else {
     const t = String(b.t || "").trim().slice(0, 300); if (!t) return json({ error: "empty" }, 400, nostore);
     const to = b.rp ? it.c.find((c) => c.i === String(b.rp)) : null;
-    it.c.push({ i: Math.random().toString(36).slice(2, 10), s: u.sub, n: myName, t, a: Date.now(), ...(to ? { rp: { s: to.s, n: to.n, t: to.t.slice(0, 80) } } : {}) }); it.c = it.c.slice(-60);
+    it.c.push({ i: Math.random().toString(36).slice(2, 10), s: u.sub, n: myName, t, a: Date.now(), ...(to ? { rp: { s: to.s, n: to.n, t: to.t.slice(0, 80) } } : {}), ...(Number.isFinite(b.h) ? { h: Math.round(Math.max(-0.99, Math.min(50, b.h)) * 1000) / 1000 } : {}) }); it.c = it.c.slice(-60);
     const subs = new Set(it.c.map((c) => c.s)); if (stored.o) subs.add(stored.o.s); subs.delete(u.sub);
     notify = [...subs].filter((s) => (stored.o && s === stored.o.s) || (pv.v[s] && !(pv.b || []).includes(s)));
     msg = { title: me + " comentó", body: "“" + t.slice(0, 90) + "” · en " + (isOwner ? "su " : (stored.o && notify[0] === stored.o.s ? "tu " : "la ")) + what, tag: "fx-" + code + key, u: deep };
