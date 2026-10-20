@@ -577,7 +577,17 @@
   .feed-c{display:grid; gap:8px; padding:14px 14px 12px} .fc-hd{display:flex; align-items:center; gap:10px} .fc-hd .feed-av{flex:0 0 36px; height:36px; font-size:15px} .fc-nm{display:grid; gap:1px} .fc-nm b{font-size:15px} .fc-nm small{font-size:12px; color:var(--muted)}
   .fc-bd{font-size:17px; line-height:1.35} .fc-bd b{font-weight:800} .fc-pc{justify-self:start; font-size:13px; color:var(--muted); padding:4px 10px; border-radius:999px; background:var(--chip)} .fc-pc b{font-weight:800; margin-right:2px} .fc-pc.pos b{color:var(--pos)} .fc-pc.neg b{color:var(--neg)}
   .feed-c .fx-bar{padding:2px 0 0} .fc-cm{display:grid; gap:6px; border-top:1px solid var(--line); padding-top:10px} .fc-more{justify-self:start; min-height:0; padding:2px 0; background:none; border:0; box-shadow:none; color:var(--muted); font-weight:700; font-size:13.5px}
-  .fc-c{display:grid; gap:2px} .fc-ct{font-size:14.5px; line-height:1.4; background:var(--chip); border-radius:14px; padding:7px 12px; justify-self:start; max-width:100%; word-break:break-word} .fc-ct.clamp{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+  /* Versión compacta del movimiento */
+  .feed-c{gap:6px; padding:10px 12px} .fc-hd{align-items:flex-start} .fc-hd .feed-av{flex:0 0 34px; height:34px; font-size:14px; margin-top:1px} .fc-nm{gap:2px; font-size:15px; line-height:1.3} .fc-nm b{font-size:inherit; font-weight:800} .fc-nm .fc-who{font-weight:700}
+  .fc-meta{font-size:12.5px; color:var(--muted)} .fc-meta b{font-weight:800} .fc-meta b.pos{color:var(--pos)} .fc-meta b.neg{color:var(--neg)}
+  .feed-c .fx-bar{padding:0 0 0 44px; gap:5px} .feed-c .fx-e{padding:2px 8px; font-size:14px} .feed-c .fx-add{padding:2px 8px; font-size:12.5px} .feed-c .fx-cm{font-size:12.5px; padding:2px 4px}
+  .fc-cm{gap:5px; padding:6px 0 0 44px; border-top:0} .fc-ct{font-size:14px; padding:5px 10px} .fc-in{min-height:32px; font-size:13.5px; padding:0 12px} .fc-more{font-size:12.5px}
+  .fc-c{display:flex; gap:6px; align-items:flex-start} .fc-c .feed-av{flex:0 0 24px; height:24px; font-size:11px; margin-top:2px}
+  .feed-av{overflow:hidden} .feed-av img{width:100%; height:100%; object-fit:cover; display:block}
+  .me-row{display:flex; gap:14px; align-items:center} .me-ph{flex:0 0 72px; height:72px; border-radius:50%; overflow:hidden; display:grid; place-items:center; color:#fff; font-weight:800; font-size:28px; cursor:pointer; position:relative}
+  .me-ph img{width:100%; height:100%; object-fit:cover} .me-ph::after{content:"📷"; position:absolute; right:0; bottom:0; width:24px; height:24px; border-radius:50%; background:var(--card); border:1px solid var(--line); font-size:12px; display:grid; place-items:center}
+  .me-f{flex:1; display:grid; gap:4px} .me-act{display:flex; gap:14px; align-items:center; flex-wrap:wrap} .me-act .help{font-size:12.5px}
+  .fc-c{} .fc-ct{font-size:14.5px; line-height:1.4; background:var(--chip); border-radius:14px; padding:7px 12px; justify-self:start; max-width:100%; word-break:break-word} .fc-ct.clamp{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
   .fc-vm{display:inline; min-height:0; padding:0; background:none; border:0; box-shadow:none; color:var(--muted); font-size:12.5px; font-weight:700}
   .fc-in{min-height:40px; text-align:left; padding:0 14px; border-radius:999px; background:var(--chip); border:1px solid var(--line); box-shadow:none; color:var(--muted); font-size:14px; font-weight:400}
   .tour-dim{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; opacity:.78; transition:opacity .4s} .tour.intro .tour-dim{opacity:1}
@@ -929,7 +939,7 @@
     <div class="dr-k">Ajustes</div>
     <button type="button" class="dr-item" id="btnPush"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Avisos</span></button>
     <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Perfiles</span></button>
-    <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Cuenta y respaldo</span></button>
+    <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Tu cuenta</span></button>
     <div class="dr-sep"></div>
     <button type="button" class="dr-item danger" id="menuOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></svg><span>Cerrar sesión</span></button>
     <div class="dr-ver" id="drVer"></div>
@@ -1340,9 +1350,15 @@
 </dialog>
 
 <section id="dlgSet" class="scr" hidden>
-  <div class="cmphdr"><button type="button" id="sClose" aria-label="Volver">←</button><h2>Cuenta y respaldo</h2></div>
+  <div class="cmphdr"><button type="button" id="sClose" aria-label="Volver">←</button><h2>Tu cuenta</h2></div>
   <div id="formSet" style="padding:8px 16px 18px;display:grid;gap:12px">
-    <div class="sec" id="acctSec" style="border-top:0;padding-top:0" hidden>
+    <div class="sec" id="meSec" style="border-top:0;padding-top:0" hidden>
+      <div class="sec-t">Tu perfil</div>
+      <div class="me-row"><label class="me-ph" id="mePh" title="Cambiar foto"><input type="file" id="meFile" accept="image/*" hidden></label>
+        <div class="me-f"><label for="meName" class="help" style="font-size:12.5px">Nombre que ven tus amigos</label><input id="meName" maxlength="40" autocomplete="nickname" placeholder="Tu nombre"></div></div>
+      <div class="me-act"><button type="button" class="linkbtn" id="mePick">Cambiar foto</button><button type="button" class="linkbtn" id="meDel" hidden>Quitar foto</button><span class="help" id="meSt" role="status" aria-live="polite"></span></div>
+    </div>
+    <div class="sec" id="acctSec" hidden>
       <div class="sec-t">Cuenta</div>
       <div class="help" id="acctInfo"></div>
       <div id="gBtn"></div>
@@ -2892,6 +2908,10 @@
     feedBusy=fetchHistory(need.slice(0,60),dayStr(dayNum(todayStr())-10)).then(function(j){ Object.keys(j.data||{}).forEach(function(t){ var h=j.data[t]; if(h&&h.currency==="USD"&&h.pts&&h.pts.length) feedPx[t]=h.pts[h.pts.length-1][1]; }); })
       .catch(function(){}).then(function(){ feedBusy=null; feedPxT=Date.now(); if(!feedView.hidden) feedRender(); }); }
   function ago(d){ var n=dayNum(todayStr())-dayNum(d); return n<=0?"hoy":(n===1?"ayer":(n<7?"hace "+n+" días":(n<14?"hace una semana":(n<60?"hace "+Math.round(n/7)+" semanas":"hace "+Math.round(n/30)+" meses")))); }
+  /* Foto de perfil o, si no hay, la inicial con un color fijo por nombre. */
+  function avEl(name,ph,cls){ var a=el("span","feed-av"+(cls?" "+cls:"")); if(ph){ var im=document.createElement("img"); im.src=ph; im.alt=""; im.loading="lazy"; a.appendChild(im); } else { a.textContent=(name||"?").trim().charAt(0).toUpperCase(); a.style.background=avColor(name||""); } return a; }
+  var meProf=load("cartera.me.v1",{n:"",ph:""})||{n:"",ph:""};
+  function meName(){ return meProf.n||(auth&&auth.name)||"Vos"; }
   function avColor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return "hsl("+h+",55%,45%)"; }
   function feedRender(){ var box=$("feedBody"); box.textContent=""; var items=feedItems(); ensureFeedPx(items);
     var friends=profData.profiles.filter(function(p){ return p.readOnly&&p.syncCode; });
@@ -2904,54 +2924,57 @@
     fxLoad(items);
     box.appendChild(el("div","help","Solo se ven porcentajes, nunca montos ni cantidades.")); }
   /* Tarjeta estilo red social: quién y cuándo arriba, qué hizo en grande, el % aparte, reacciones y los últimos comentarios. */
-  function feedCard(x){ var card=el("div","feed-c"+(isNewF(x)?" new":"")); card._x=x;
-    var hd=el("div","fc-hd"); var av=el("span","feed-av",(x.who||"?").trim().charAt(0).toUpperCase()); av.style.background=avColor(x.who||""); hd.appendChild(av);
-    var nm=el("div","fc-nm"); nm.appendChild(el("b",null,x.who)); nm.appendChild(el("small",null,ago(x.d)+" · "+x.d.split("-").reverse().join("/"))); hd.appendChild(nm); card.appendChild(hd);
-    var verb=x.mine?(x.k==="s"?"Vendiste ":(x.first?"Compraste por primera vez ":"Sumaste más ")):(x.k==="s"?"Vendió ":(x.first?"Compró por primera vez ":"Sumó más "));
-    var bd=el("div","fc-bd"); bd.appendChild(document.createTextNode(verb)); bd.appendChild(el("b",null,x.t)); card.appendChild(bd);
+  function feedCard(x){ var card=el("div","feed-c"+(isNewF(x)?" new":"")); card._x=x; var ow=ownerOf(x);
+    var hd=el("div","fc-hd"); var av=avEl(ow.n,ow.ph); av._x=x; av.classList.add("fc-ow"); hd.appendChild(av);
+    var verb=x.mine?(x.k==="s"?" vendiste ":(x.first?" compraste por primera vez ":" sumaste más ")):(x.k==="s"?" vendió ":(x.first?" compró por primera vez ":" sumó más "));
+    var nm=el("div","fc-nm"), l1=el("div"); l1.appendChild(el("span","fc-who",x.mine?"Vos":ow.n.split(" ")[0])); l1.appendChild(document.createTextNode(verb)); l1.appendChild(el("b",null,x.t)); nm.appendChild(l1);
     var pct=null, lbl=""; if(x.k==="s"){ pct=x.pct; lbl="de resultado"; } else if(!x.fi&&x.ccy==="USD"){ var px=(prices[x.t]&&prices[x.t].price)||feedPx[x.t]; if(px>0&&x.b>0){ pct=px/x.b-1; lbl="desde que compró"; } }
-    if(pct!==null){ var ch=el("div","fc-pc "+(pct>=0?"pos":"neg")); ch.appendChild(el("b",null,fmtPct(pct))); ch.appendChild(document.createTextNode(" "+lbl)); card.appendChild(ch); }
-    card.appendChild(fxBar(x)); card.appendChild(fxPreview(x)); return card; }
+    var mt=el("div","fc-meta"); mt.appendChild(document.createTextNode(ago(x.d))); if(pct!==null){ mt.appendChild(document.createTextNode(" · ")); mt.appendChild(el("b",pct>=0?"pos":"neg",fmtPct(pct))); mt.appendChild(document.createTextNode(" "+lbl)); } nm.appendChild(mt);
+    hd.appendChild(nm); card.appendChild(hd);
+    card.appendChild(fxBar(x)); var pv=fxPreview(x); if(pv) card.appendChild(pv); return card; }
   /* Debajo de cada movimiento: los 2 últimos comentarios; si hay más, "Ver los N comentarios anteriores" (como en Facebook). */
   var fcOpen={};
-  function fxPreview(x){ var f=fxOf(x), w=el("div","fc-cm"); w._x=x;
+  function fxPreview(x){ var f=fxOf(x), w=el("div","fc-cm"); w._x=x; if(!f.c.length){ w.hidden=true; return w; }
     if(f.c.length>2){ var more=el("button","fc-more","Ver "+(f.c.length-2===1?"1 comentario anterior":"los "+(f.c.length-2)+" comentarios anteriores")); more.type="button"; more.addEventListener("click",function(){ fxThread(x); }); w.appendChild(more); }
-    f.c.slice(-2).forEach(function(c){ var r=el("div","fc-c"); var t=el("div","fc-ct"); t.appendChild(el("b",null,(c.me?"Vos":c.n.split(" ")[0])+" ")); var tx=el("span","fc-tx",c.t); t.appendChild(tx); r.appendChild(t);
+    f.c.slice(-2).forEach(function(c){ var r=el("div","fc-c"); r.appendChild(cAv(x.code,c)); var t=el("div","fc-ct"); t.appendChild(el("b",null,(c.me?"Vos":((fxUser(x.code,c.u)||{}).n||c.n).split(" ")[0])+" ")); var tx=el("span","fc-tx",c.t); t.appendChild(tx);
       var ck=c.i+"|"+c.a; if(c.t.length>140&&!fcOpen[ck]){ tx.textContent=c.t.slice(0,c.t.lastIndexOf(" ",130)>80?c.t.lastIndexOf(" ",130):130)+"… "; var vm=el("button","fc-vm","Ver más"); vm.type="button"; vm.addEventListener("click",function(){ fcOpen[ck]=1; tx.textContent=c.t; vm.remove(); }); t.appendChild(vm); }
-      w.appendChild(r); });
-    var fake=el("button","fc-in",f.c.length?"Responder…":"Escribí un comentario…"); fake.type="button"; fake.addEventListener("click",function(){ fxThread(x,false,true); }); w.appendChild(fake);
+      var wrap=el("div"); wrap.style.minWidth="0"; wrap.appendChild(t); r.appendChild(wrap); w.appendChild(r); });
+    var fake=el("button","fc-in","Responder…"); fake.type="button"; fake.addEventListener("click",function(){ fxThread(x,false,true); }); w.appendChild(fake);
     return w; }
   /* Reacciones y comentarios (en el servidor, por cartera compartida). */
+  var fxUs={}; function fxUser(code,id){ var u=fxUs[code]; return (u&&u.us&&u.us[id])||null; }
+  function ownerOf(x){ if(x.mine) return {n:meName(),ph:meProf.ph}; var u=fxUs[x.code], o=u&&u.us[u.ow]; return {n:(o&&o.n)||x.who,ph:(o&&o.ph)||""}; }
+  function cAv(code,c,cls){ if(c.me) return avEl(meName(),meProf.ph,cls); var u=fxUser(code,c.u)||{}; return avEl(u.n||c.n,u.ph,cls); }
   var fxData={}, fxT={}, FX_EMO=["🔥","👏","😬","🤔","😂"];
   function fxKey(x){ return x.k+"|"+x.t+"|"+x.d; }
   function fxLoad(items){ if(!auth||!navigator.onLine) return; var codes={}; items.forEach(function(x){ codes[x.code]=1; });
     Object.keys(codes).forEach(function(c){ if(fxT[c]&&Date.now()-fxT[c]<20000) return; fxT[c]=Date.now();
-      api("GET","/fx/"+encodeURIComponent(c)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; fxData[c]=j.k||{}; if(!feedView.hidden) fxPaint(); }).catch(function(){}); }); }
-  function fxPaint(){ [].forEach.call(document.querySelectorAll(".feed-c .fx-bar"),function(b){ var x=b._x; if(x) b.replaceWith(fxBar(x)); }); [].forEach.call(document.querySelectorAll(".fc-cm"),function(b){ var x=b._x; if(x) b.replaceWith(fxPreview(x)); }); var o=$("dlgSimA"); if(o.open&&o._fx) fxThread(o._fx,true); }
+      api("GET","/fx/"+encodeURIComponent(c)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; fxData[c]=j.k||{}; fxUs[c]={us:j.us||{},ow:j.ow||""}; if(!feedView.hidden) fxPaint(); }).catch(function(){}); }); }
+  function fxPaint(){ [].forEach.call(document.querySelectorAll(".feed-c .fx-bar"),function(b){ var x=b._x; if(x) b.replaceWith(fxBar(x)); }); [].forEach.call(document.querySelectorAll(".fc-cm"),function(b){ var x=b._x; if(x) b.replaceWith(fxPreview(x)); }); [].forEach.call(document.querySelectorAll(".fc-ow"),function(a){ var x=a._x, o=ownerOf(x); if(!o.ph&&!a.querySelector("img")) return; var n=avEl(o.n,o.ph,"fc-ow"); n._x=x; a.replaceWith(n); }); var o=$("dlgSimA"); if(o.open&&o._fx) fxThread(o._fx,true); }
   function fxOf(x){ return (fxData[x.code]||{})[fxKey(x)]||{r:{},c:[]}; }
   function fxSend(x,body){ if(!auth){ alert("Para reaccionar o comentar tenés que entrar con tu cuenta de Google."); return Promise.resolve(); }
-    return api("POST","/fx/"+encodeURIComponent(x.code),Object.assign({key:fxKey(x)},body)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j){ fxData[x.code]=j.k||{}; fxPaint(); } }).catch(function(){}); }
+    return api("POST","/fx/"+encodeURIComponent(x.code),Object.assign({key:fxKey(x)},body)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j){ fxData[x.code]=j.k||{}; fxUs[x.code]={us:j.us||{},ow:j.ow||""}; fxPaint(); } }).catch(function(){}); }
   function fxBar(x){ var f=fxOf(x), bar=el("div","fx-bar"); bar._x=x;
     FX_EMO.forEach(function(e){ var v=f.r[e]; if(!v&&!bar._open) return; var b=el("button","fx-e"+(v&&v[1]?" on":"")); b.type="button"; b.appendChild(document.createTextNode(e)); if(v) b.appendChild(el("i",null,String(v[0])));
       b.addEventListener("click",function(){ /* reacción optimista */ var r=fxOf(x).r, cur_=r[e]||[0,0]; r[e]=[cur_[0]+(cur_[1]?-1:1),cur_[1]?0:1]; if(!fxData[x.code]) fxData[x.code]={}; fxData[x.code][fxKey(x)]=fxOf(x); fxData[x.code][fxKey(x)].r=r; fxPaint(); fxSend(x,{re:e}); }); bar.appendChild(b); });
     var add=el("button","fx-add","☺+"); add.type="button"; add.title="Reaccionar"; add.addEventListener("click",function(){ var nb=fxBarAll(x); bar.replaceWith(nb); }); if(FX_EMO.some(function(e){ return !f.r[e]; })) bar.appendChild(add);
-    if(f.c.length){ var cm=el("button","fx-cm","💬 "+f.c.length); cm.type="button"; cm.addEventListener("click",function(){ fxThread(x); }); bar.appendChild(cm); }
+    var cm=el("button","fx-cm",f.c.length?"💬 "+f.c.length:"💬 Comentar"); cm.type="button"; cm.addEventListener("click",function(){ fxThread(x,false,!f.c.length); }); bar.appendChild(cm);
     return bar; }
   function fxBarAll(x){ var bar=el("div","fx-bar"); bar._x=x; var f=fxOf(x);
     FX_EMO.forEach(function(e){ var v=f.r[e], b=el("button","fx-e big"+(v&&v[1]?" on":"")); b.type="button"; b.textContent=e; b.addEventListener("click",function(){ var r=f.r, cur_=r[e]||[0,0]; r[e]=[cur_[0]+(cur_[1]?-1:1),cur_[1]?0:1]; if(!fxData[x.code]) fxData[x.code]={}; fxData[x.code][fxKey(x)]=f; fxPaint(); fxSend(x,{re:e}); }); bar.appendChild(b); });
     return bar; }
   function fxThread(x,keep,focus){ var d=$("dlgSimA"), box=$("simABody"), f=fxOf(x); if(d._fx!==x) d._fxShow=20; d._fx=x; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
     d.querySelector("h3").textContent=(x.mine?"Tu "+(x.k==="s"?"venta":"compra"):(x.k==="s"?"Venta":"Compra"))+" de "+x.t; box.textContent="";
-    box.appendChild(el("div","fx-sub",(x.mine?"Vos":x.who)+" · "+x.d.split("-").reverse().join("/")));
+    box.appendChild(el("div","fx-sub",(x.mine?"Vos":ownerOf(x).n)+" · "+x.d.split("-").reverse().join("/")));
     if(!f.c.length) box.appendChild(el("div","fx-none","Todavía no hay comentarios. ¡Sé el primero!"));
     var hidden_=Math.max(0,f.c.length-(d._fxShow||20));
     if(hidden_){ var older=el("button","fc-more","Ver mensajes anteriores ("+hidden_+")"); older.type="button"; older.addEventListener("click",function(){ d._fxShow=(d._fxShow||20)+20; var h0=box.scrollHeight; fxThread(x,true); box.scrollTop=box.scrollHeight-h0; }); box.appendChild(older); }
-    f.c.slice(hidden_).forEach(function(c){ var r=el("div","fx-c"+(c.me?" me":"")); var av=el("span","feed-av sm",(c.n||"?").charAt(0).toUpperCase()); av.style.background=avColor(c.n||""); r.appendChild(av);
-      var t=el("div","fx-ct"); var h=el("div","fx-ch"); h.appendChild(el("b",null,c.me?"Vos":c.n.split(" ")[0])); h.appendChild(el("small",null,ago(new Date(c.a).toISOString().slice(0,10)))); t.appendChild(h); t.appendChild(el("div",null,c.t)); r.appendChild(t); box.appendChild(r); });
+    f.c.slice(hidden_).forEach(function(c){ var r=el("div","fx-c"+(c.me?" me":"")); r.appendChild(cAv(x.code,c,"sm"));
+      var t=el("div","fx-ct"); var h=el("div","fx-ch"); h.appendChild(el("b",null,c.me?"Vos":((fxUser(x.code,c.u)||{}).n||c.n).split(" ")[0])); h.appendChild(el("small",null,ago(new Date(c.a).toISOString().slice(0,10)))); t.appendChild(h); t.appendChild(el("div",null,c.t)); r.appendChild(t); box.appendChild(r); });
     var old=d.querySelector(".fx-form"), keepTxt=old?old.querySelector("input").value:"", hadFocus=old&&document.activeElement===old.querySelector("input"); if(old) old.remove();
     var fm=document.createElement("form"); fm.className="fx-form"; var inp=document.createElement("input"); inp.maxLength=300; inp.placeholder="Escribí un comentario…"; var sb=el("button","primary","↑"); sb.type="submit"; fm.appendChild(inp); fm.appendChild(sb);
     fm.addEventListener("submit",function(e){ e.preventDefault(); var t=inp.value.trim(); if(!t) return; inp.value=""; sb.disabled=true;
-      var me_=(auth&&auth.name)||"Vos"; f.c.push({n:me_,t:t,a:Date.now(),me:1}); if(!fxData[x.code]) fxData[x.code]={}; fxData[x.code][fxKey(x)]=f; fxThread(x,true);
+      var me_=meName(); f.c.push({n:me_,t:t,a:Date.now(),me:1}); if(!fxData[x.code]) fxData[x.code]={}; fxData[x.code][fxKey(x)]=f; fxThread(x,true);
       fxSend(x,{t:t}).then(function(){ sb.disabled=false; }); });
     box.parentNode.appendChild(fm); inp.value=keepTxt; if(hadFocus||focus) setTimeout(function(){ inp.focus(); },focus?350:0);
     if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
@@ -4779,7 +4802,27 @@
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
   // ---------- Ajustes ----------
-  function openSettings(){ renderAccount(); mountGoogleButton(); try{ lockRender(); }catch(e){} dlgSet.showModal(); }
+  function openSettings(){ renderAccount(); mountGoogleButton(); try{ lockRender(); }catch(e){} meRender(); meFetch(); dlgSet.showModal(); }
+  /* Tu perfil: nombre y foto que ven tus amigos en el feed y en los comentarios. La foto se achica a 160×160 antes de subirla. */
+  function meRender(){ var sec=$("meSec"); sec.hidden=!auth; if(!auth) return; var ph=$("mePh"), f=$("meFile"); ph.textContent=""; ph.appendChild(f);
+    if(meProf.ph){ var im=document.createElement("img"); im.src=meProf.ph; im.alt="Tu foto"; ph.appendChild(im); ph.style.background=""; } else { ph.appendChild(document.createTextNode(meName().charAt(0).toUpperCase())); ph.style.background=avColor(meName()); }
+    $("meDel").hidden=!meProf.ph; if(document.activeElement!==$("meName")) $("meName").value=meProf.n||(auth&&auth.name)||""; }
+  function meSet(p){ meProf={n:p.n||"",ph:p.ph||""}; save("cartera.me.v1",meProf); meRender(); if(!feedView.hidden) feedRender(); }
+  function meFetch(){ if(!auth||!navigator.onLine) return; api("GET","/me/profile").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j) meSet(j); }).catch(function(){}); }
+  function mePut(p,msg){ var st=$("meSt"); st.textContent="Guardando…"; var prev=meProf; meSet(Object.assign({},meProf,p));
+    return api("PUT","/me/profile",{n:meProf.n,ph:meProf.ph}).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(j){ meSet(j); st.textContent=msg||"Guardado ✓"; setTimeout(function(){ st.textContent=""; },2500); })
+      .catch(function(){ meSet(prev); st.textContent="No se pudo guardar. Probá de nuevo."; }); }
+  function meShrink(file){ return new Promise(function(ok,ko){ var url=URL.createObjectURL(file), im=new Image();
+    im.onload=function(){ var S=160, c=document.createElement("canvas"); c.width=c.height=S; var g=c.getContext("2d"), m=Math.min(im.naturalWidth,im.naturalHeight);
+      g.drawImage(im,(im.naturalWidth-m)/2,(im.naturalHeight-m)/2,m,m,0,0,S,S); URL.revokeObjectURL(url); ok(c.toDataURL("image/jpeg",0.82)); };
+    im.onerror=function(){ URL.revokeObjectURL(url); ko(); }; im.src=url; }); }
+  $("mePick").addEventListener("click",function(){ $("meFile").click(); });
+  $("meFile").addEventListener("change",function(){ var fl=this.files&&this.files[0]; this.value=""; if(!fl) return;
+    meShrink(fl).then(function(d){ mePut({ph:d},"Foto actualizada ✓"); }).catch(function(){ $("meSt").textContent="No se pudo leer esa imagen."; }); });
+  $("meDel").addEventListener("click",function(){ mePut({ph:""},"Foto quitada"); });
+  (function(){ var t; $("meName").addEventListener("input",function(){ clearTimeout(t); var v=this.value.replace(/\s+/g," ").trim(); t=setTimeout(function(){ if(v&&v!==meProf.n) mePut({n:v}); },900); });
+    $("meName").addEventListener("blur",function(){ if(!this.value.trim()) this.value=meName(); }); })();
+  setTimeout(meFetch,4000);
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
   $("sClose").addEventListener("click",function(){ dlgSet.close(); });
   function doExport(){

@@ -53,7 +53,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/p/")) return profile(request, env, url, cors, ctx);
     if (url.pathname.startsWith("/fx/")) return social(request, env, url, cors, ctx);
-    if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr") || url.pathname.startsWith("/me/push") || url.pathname === "/me/ask") return account(request, env, url, cors);
+    if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr") || url.pathname.startsWith("/me/push") || url.pathname === "/me/ask" || url.pathname === "/me/profile") return account(request, env, url, cors);
     if (url.pathname === "/push/inbox" && request.method === "POST") return pushInbox(request, env, cors);
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
     if (url.pathname === "/history") return history(url, cors);
@@ -235,7 +235,7 @@ async function profile(request, env, url, cors, ctx) {
     const updated = Date.now();
     // Dueño: si sube con sesión de Holdy se guarda quién es (para avisarle de comentarios y reacciones).
     const u = await sessionUser(request, env);
-    const o = u ? { s: u.sub, n: u.name || "" } : (stored && stored.o) || null;
+    const o = u ? { s: u.sub, n: await dispName(env, u) } : (stored && stored.o) || null;
     await env.HOLDY_KV.put(key, JSON.stringify({ secretHash: hash, data, updated, o }), { expirationTtl: TTL_PROFILE });
     // Movimientos nuevos (compras/ventas de los últimos 10 días que antes no estaban): aviso a quienes miran esta cartera.
     if (stored && stored.data && ctx) ctx.waitUntil(notifyMoves(env, code, stored.data, data, o).catch(() => {}));
@@ -335,6 +335,7 @@ async function account(request, env, url, cors) {
   if (url.pathname === "/me/ibkr" || url.pathname === "/me/ibkr/sync") return ibkr(request, env, url, user, nostore);
   if (url.pathname.startsWith("/me/push")) return pushMe(request, env, url, user, nostore);
   if (url.pathname === "/me/ask" && request.method === "POST") return ask(request, env, nostore);
+  if (url.pathname === "/me/profile") return meProfile(request, env, user, nostore);
 
   if (url.pathname === "/me/data") {
     const key = "u:" + user.sub;
@@ -956,6 +957,25 @@ async function notifyMoves(env, code, oldData, newData, owner) {
   }
 }
 const FX_EMO = ["🔥", "👏", "😬", "🤔", "😂"];
+// Perfil público de cada usuario (nombre que eligió y foto chiquita). Se cachea en memoria 5 minutos para no leer KV en cada consulta del chat.
+const PF = new Map();
+async function getPf(env, sub) {
+  const c = PF.get(sub); if (c && Date.now() - c.t < 300000) return c.v;
+  const v = (await env.HOLDY_KV.get("pf:" + sub, "json")) || {}; PF.set(sub, { v, t: Date.now() }); if (PF.size > 2000) PF.clear(); return v;
+}
+async function dispName(env, u) { const p = await getPf(env, u.sub); return p.n || u.name || "Alguien"; }
+async function uid(sub) { return (await sha256("u|" + sub)).slice(0, 12); }
+async function meProfile(request, env, user, h) {
+  if (request.method === "GET") { const p = await getPf(env, user.sub); return json({ n: p.n || "", ph: p.ph || "", g: user.name || "" }, 200, h); }
+  if (request.method !== "PUT") return json({ error: "method_not_allowed" }, 405, h);
+  const text = await request.text(); if (text.length > 40000) return json({ error: "too_large" }, 413, h);
+  let b; try { b = JSON.parse(text); } catch (e) { return json({ error: "bad_json" }, 400, h); }
+  const n = String((b && b.n) || "").replace(/\s+/g, " ").trim().slice(0, 40), ph = String((b && b.ph) || "");
+  if (ph && !/^data:image\/(jpeg|webp|png);base64,[A-Za-z0-9+/=]+$/.test(ph)) return json({ error: "bad_photo" }, 400, h);
+  const v = {}; if (n) v.n = n; if (ph) v.ph = ph;
+  await env.HOLDY_KV.put("pf:" + user.sub, JSON.stringify(v)); PF.set(user.sub, { v, t: Date.now() });
+  return json({ n: v.n || "", ph: v.ph || "", g: user.name || "" }, 200, h);
+}
 // GET /fx/<code>: reacciones y comentarios de los movimientos de esa cartera · POST {key, re} reacciona (o saca) · POST {key, t} comenta
 async function social(request, env, url, cors, ctx) {
   const nostore = { ...cors, "Cache-Control": "no-store" };
@@ -968,10 +988,14 @@ async function social(request, env, url, cors, ctx) {
   const isOwner = !!(stored.o && stored.o.s === u.sub), view = pv.v && pv.v[u.sub];
   if (!isOwner && (!view || (pv.b || []).includes(u.sub))) return json({ error: "forbidden" }, 403, nostore);
   const fk = "fx:" + code, doc = (await env.HOLDY_KV.get(fk, "json")) || { k: {} };
-  const out = () => { const o = {};
+  // Nombre y foto actuales de cada persona (dueño y quienes comentaron), con un id opaco en vez del de Google.
+  const out = async () => { const o = {}, subs = new Set(); if (stored.o) subs.add(stored.o.s);
+    Object.values(doc.k).forEach((v) => (v.c || []).forEach((c) => subs.add(c.s)));
+    const ids = {}, users = {};
+    await Promise.all([...subs].map(async (s) => { const p = await getPf(env, s), id = await uid(s); ids[s] = id; users[id] = { n: p.n || "", ph: p.ph || "" }; }));
     for (const [k, v] of Object.entries(doc.k)) o[k] = { r: Object.fromEntries(Object.entries(v.r || {}).filter(([, a]) => a.length).map(([e, a]) => [e, [a.length, a.includes(u.sub) ? 1 : 0]])),
-      c: (v.c || []).map((c) => ({ i: c.i, n: c.n, t: c.t, a: c.a, me: c.s === u.sub ? 1 : 0, o: stored.o && c.s === stored.o.s ? 1 : 0 })) };
-    return json({ k: o, owner: isOwner ? 1 : 0 }, 200, nostore); };
+      c: (v.c || []).map((c) => ({ i: c.i, n: (users[ids[c.s]] && users[ids[c.s]].n) || c.n, u: ids[c.s], t: c.t, a: c.a, me: c.s === u.sub ? 1 : 0, o: stored.o && c.s === stored.o.s ? 1 : 0 })) };
+    return json({ k: o, owner: isOwner ? 1 : 0, ow: stored.o ? ids[stored.o.s] : "", us: users }, 200, nostore); };
   if (request.method === "GET") return out();
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, nostore);
   let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: "bad_json" }, 400, nostore); }
@@ -979,7 +1003,7 @@ async function social(request, env, url, cors, ctx) {
   if (!/^[bs]\|[A-Za-z0-9.^=_-]{1,20}\|\d{4}-\d{2}-\d{2}$/.test(key)) return json({ error: "bad_key" }, 400, nostore);
   const it = doc.k[key] || (doc.k[key] = { r: {}, c: [], at: 0 });
   const [kind, tk] = key.split("|"), what = (kind === "s" ? "venta de " : "compra de ") + tk;
-  const me = (u.name || "Alguien").split(" ")[0];
+  const myName = await dispName(env, u), me = myName.split(" ")[0];
   let notify = [], msg = null;
   if (b.re) {
     if (!FX_EMO.includes(b.re)) return json({ error: "bad_emoji" }, 400, nostore);
@@ -987,7 +1011,7 @@ async function social(request, env, url, cors, ctx) {
     if (i >= 0) a.splice(i, 1); else { a.push(u.sub); if (stored.o && stored.o.s !== u.sub) { notify = [stored.o.s]; msg = { title: me, body: "Reaccionó " + b.re + " a tu " + what, tag: "fx-" + code + key, u: "#feed" }; } }
   } else {
     const t = String(b.t || "").trim().slice(0, 300); if (!t) return json({ error: "empty" }, 400, nostore);
-    it.c.push({ i: Math.random().toString(36).slice(2, 10), s: u.sub, n: u.name || "Alguien", t, a: Date.now() }); it.c = it.c.slice(-60);
+    it.c.push({ i: Math.random().toString(36).slice(2, 10), s: u.sub, n: myName, t, a: Date.now() }); it.c = it.c.slice(-60);
     const subs = new Set(it.c.map((c) => c.s)); if (stored.o) subs.add(stored.o.s); subs.delete(u.sub);
     notify = [...subs].filter((s) => (stored.o && s === stored.o.s) || (pv.v[s] && !(pv.b || []).includes(s)));
     msg = { title: me + " comentó", body: "“" + t.slice(0, 90) + "” · en " + (isOwner ? "su " : (stored.o && notify[0] === stored.o.s ? "tu " : "la ")) + what, tag: "fx-" + code + key, u: "#feed" };
