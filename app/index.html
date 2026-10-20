@@ -566,6 +566,14 @@
   .feed-p{display:grid; text-align:right; gap:1px} .feed-p b{font-size:16px; font-weight:800; font-variant-numeric:tabular-nums} .feed-p b.pos{color:var(--pos)} .feed-p b.neg{color:var(--neg)} .feed-p small{font-size:11px; color:var(--muted); white-space:nowrap}
   .feed-empty{display:grid; gap:6px; padding:22px 18px; border-radius:16px; background:var(--card); border:1px dashed var(--line); text-align:center} .feed-empty span{color:var(--muted); font-size:14.5px; line-height:1.45}
   .dr-badge{margin-left:auto; min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--brand); color:var(--brand-ink); font-style:normal; font-size:12px; font-weight:800; display:grid; place-items:center} .dr-badge[hidden]{display:none}
+  .feed-c{border-radius:16px; background:var(--card); border:1px solid var(--line); overflow:hidden} .feed-c.new{border-color:color-mix(in srgb,var(--brand) 55%,transparent)} .feed-c .feed-r{border:0; border-radius:0; background:transparent; padding-bottom:6px}
+  .fx-bar{display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:0 14px 12px 66px} .fx-e{min-height:0; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:999px; background:var(--chip); border:1px solid transparent; box-shadow:none; font-size:15px; color:var(--text)} .fx-e i{font-style:normal; font-size:12.5px; font-weight:700}
+  .fx-e.on{border-color:var(--brand); background:color-mix(in srgb,var(--brand) 14%,var(--chip))} .fx-e.big{font-size:22px; padding:6px 10px} .fx-add{min-height:0; padding:4px 10px; border-radius:999px; background:transparent; border:1px dashed var(--line); box-shadow:none; color:var(--muted); font-size:13px}
+  .fx-cm{min-height:0; margin-left:auto; padding:4px 6px; background:transparent; border:0; box-shadow:none; color:var(--muted); font-size:13px; font-weight:600}
+  .fx-sub{color:var(--muted); font-size:13.5px; padding:0 2px 6px} .fx-none{color:var(--muted); text-align:center; padding:22px 8px; font-size:14.5px}
+  .fx-c{display:flex; gap:10px; align-items:flex-start; padding:6px 0} .feed-av.sm{flex:0 0 32px; height:32px; font-size:14px} .fx-ct{background:var(--sh-card,var(--chip)); border-radius:14px; border-top-left-radius:4px; padding:8px 12px; font-size:15px; line-height:1.4; max-width:85%}
+  .fx-c.me{flex-direction:row-reverse} .fx-c.me .fx-ct{background:color-mix(in srgb,var(--brand) 18%,var(--sh-card,var(--chip))); border-top-left-radius:14px; border-top-right-radius:4px} .fx-ch{display:flex; gap:8px; align-items:baseline} .fx-ch small{color:var(--muted); font-size:11.5px}
+  .fx-form{display:flex; gap:8px; padding:10px 0 calc(14px + env(safe-area-inset-bottom)); flex:0 0 auto} .fx-form input{flex:1; min-height:46px; border-radius:999px; padding:0 16px; font-size:16px} .fx-form button{flex:0 0 46px; min-height:46px; border-radius:50%; padding:0; font-size:20px; font-weight:800}
   .tour-dim{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; opacity:.78; transition:opacity .4s} .tour.intro .tour-dim{opacity:1}
   .tour-card.fin.in{animation:tourUp .4s cubic-bezier(.2,.9,.25,1)} .tour-mr{transition:x .45s cubic-bezier(.2,.9,.2,1),y .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1)}
   .tour-ring{position:absolute; inset:-3px; border-radius:19px; border:3px solid var(--brand); box-shadow:0 0 18px color-mix(in srgb,var(--brand) 70%,transparent)}
@@ -2414,7 +2422,7 @@
   $("xlsBtn").addEventListener("click",exportXlsx);
 
   // ---------- Avisos al celu (Web Push): cierre del mercado, cobros del día e IBKR ----------
-  var LS_PUSH="cartera.push.v1", pushA=load(LS_PUSH,null)||{on:0,prefs:{close:1,cob:1,ib:1},h:""};
+  var LS_PUSH="cartera.push.v1", pushA=load(LS_PUSH,null)||{on:0,prefs:{close:1,cob:1,ib:1,fr:1},h:""}; if(pushA.prefs.fr===undefined) pushA.prefs.fr=1;
   function pushSupported(){ return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
   function isIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1); }
   function isStandalone(){ return (window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true; }
@@ -2453,7 +2461,7 @@
     box.appendChild(b);
     box.appendChild(el("div","pe-k","Qué avisos"));
     var g=el("div","pe-grp vw-g"); box.appendChild(g);
-    [["close","Cierre del mercado","Lun a vie, 18:35: cuánto ganaron o perdieron hoy tus acciones y cuál subió y bajó más"],["cob","Cobros del día","9:00: el día que cobrás un cupón, un vencimiento o un dividendo (estimado)"],["ib","IBKR","Cuando llegan operaciones o dividendos nuevos, o si el token vence"]].forEach(function(o){
+    [["fr","Amigos","Cuando un amigo compra o vende, y cuando comentan o reaccionan a tus movimientos"],["close","Cierre del mercado","Lun a vie, 18:35: cuánto ganaron o perdieron hoy tus acciones y cuál subió y bajó más"],["cob","Cobros del día","9:00: el día que cobrás un cupón, un vencimiento o un dividendo (estimado)"],["ib","IBKR","Cuando llegan operaciones o dividendos nuevos, o si el token vence"]].forEach(function(o){
       var l=el("label","vw-r vw-t"), t=el("span","pe-t",o[1]); t.appendChild(el("small",null,o[2])); l.appendChild(t);
       var i=document.createElement("input"); i.type="checkbox"; i.className="sw"; i.checked=!!pushA.prefs[o[0]];
       i.addEventListener("change",function(){ pushA.prefs[o[0]]=i.checked?1:0; save(LS_PUSH,pushA); if(auth) api("PUT","/me/push",{prefs:pushA.prefs}).catch(function(){}); }); l.appendChild(i); g.appendChild(l); });
@@ -2858,16 +2866,18 @@
   /* ---------- Movimientos de amigos: compras y ventas de las carteras que te compartieron (solo %, nunca montos) ---------- */
   var LS_FEED="cartera.feed.v2", feedSeen=load(LS_FEED,null), feedPx={}, feedPxT=0, feedBusy=null;
   function feedItems(){ var out=[], tn=dayNum(todayStr());
-    profData.profiles.filter(function(p){ return p.readOnly; }).forEach(function(pr){ var who=pr.owner||pr.name, all=(pr.positions||[]).concat(pr.closed||[]);
+    profData.profiles.filter(function(p){ return (p.readOnly&&p.syncCode)||(!p.readOnly&&p.sync&&p.sync.code); }).forEach(function(pr){ var mine=!pr.readOnly, code=mine?pr.sync.code:pr.syncCode, who=mine?"Vos":(pr.owner||pr.name), all=(pr.positions||[]).concat(pr.closed||[]);
       var first={}; all.forEach(function(p){ (p.lots||[]).forEach(function(l){ if(l.d&&(!first[p.ticker]||l.d<first[p.ticker])) first[p.ticker]=l.d; }); });
       all.forEach(function(p){ var byDay={};
         (p.lots||[]).forEach(function(l){ if(!l.d||tn-dayNum(l.d)>120) return; var k=l.d; (byDay[k]||(byDay[k]={q:0,c:0})); byDay[k].q+=l.q; byDay[k].c+=l.q*l.b; });
-        Object.keys(byDay).forEach(function(d){ out.push({who:who,pid:pr.id,t:p.ticker,k:"b",d:d,first:first[p.ticker]===d,b:byDay[d].c/byDay[d].q,ccy:p.ccy,fi:!!p.fi,sold:!!p.sold}); });
-        if(p.sold&&p.sold.d&&tn-dayNum(p.sold.d)<=120){ var c=pCost(p), g=pProceeds(p)-c; out.push({who:who,pid:pr.id,t:p.ticker,k:"s",d:p.sold.d,pct:c>0?g/c:null}); } }); });
+        Object.keys(byDay).forEach(function(d){ out.push({who:who,mine:mine,code:code,pid:pr.id,t:p.ticker,k:"b",d:d,first:first[p.ticker]===d,b:byDay[d].c/byDay[d].q,ccy:p.ccy,fi:!!p.fi,sold:!!p.sold}); });
+        if(p.sold&&p.sold.d&&tn-dayNum(p.sold.d)<=120){ var c=pCost(p), g=pProceeds(p)-c; out.push({who:who,mine:mine,code:code,pid:pr.id,t:p.ticker,k:"s",d:p.sold.d,pct:c>0?g/c:null}); } }); });
+    /* el mismo movimiento puede venir dos veces (dos posiciones del mismo ticker): queda uno */
+    var seenK={}; out=out.filter(function(x){ var k=x.code+"|"+x.k+"|"+x.t+"|"+x.d; if(seenK[k]) return false; seenK[k]=1; return true; });
     return out.sort(function(a,b){ return a.d<b.d?1:(a.d>b.d?-1:(a.k==="s"?-1:1)); }); }
   /* "Nuevo" = movimiento que todavía no viste (se guarda qué viste, no la fecha: así cuenta lo que llega tarde al sincronizar). */
   function feedKey(x){ return x.pid+"|"+x.t+"|"+x.k+"|"+x.d; }
-  function isNewF(x){ return !!feedSeen&&feedSeen.indexOf(feedKey(x))<0; }
+  function isNewF(x){ return !x.mine&&!!feedSeen&&feedSeen.indexOf(feedKey(x))<0; }
   function feedMarkSeen(){ feedSeen=feedItems().map(feedKey).slice(0,400); save(LS_FEED,feedSeen); }
   function feedNew(){ return feedItems().filter(isNewF).length; }
   function feedBadge(){ var n=feedNew(), b=$("feedBadge"); if(!b) return; b.hidden=!n; b.textContent=n>9?"9+":String(n); }
@@ -2878,7 +2888,7 @@
   function ago(d){ var n=dayNum(todayStr())-dayNum(d); return n<=0?"hoy":(n===1?"ayer":(n<7?"hace "+n+" días":(n<14?"hace una semana":(n<60?"hace "+Math.round(n/7)+" semanas":"hace "+Math.round(n/30)+" meses")))); }
   function avColor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return "hsl("+h+",55%,45%)"; }
   function feedRender(){ var box=$("feedBody"); box.textContent=""; var items=feedItems(); ensureFeedPx(items);
-    var friends=profData.profiles.filter(function(p){ return p.readOnly; });
+    var friends=profData.profiles.filter(function(p){ return p.readOnly&&p.syncCode; });
     if(!friends.length){ var e=el("div","feed-empty"); e.appendChild(el("b",null,"Todavía no seguís a nadie")); e.appendChild(el("span",null,"Cuando un amigo te comparta su cartera (Menú → Perfiles → agregar con su código), acá vas a ver lo que compra y vende.")); box.appendChild(e); return; }
     if(!items.length){ box.appendChild(el("div","feed-empty",null)).appendChild(el("span",null,"Tus amigos no compraron ni vendieron nada en los últimos 4 meses.")); return; }
     var lastG="";
@@ -2886,14 +2896,52 @@
       if(g!==lastG){ lastG=g; box.appendChild(el("div","feed-g",g)); }
       var row=el("div","feed-r"+(isNewF(x)?" new":""));
       var av=el("span","feed-av",(x.who||"?").trim().charAt(0).toUpperCase()); av.style.background=avColor(x.who||""); row.appendChild(av);
-      var mid=el("span","feed-t"); var l1=el("span"); l1.appendChild(el("b",null,x.who)); l1.appendChild(document.createTextNode(x.k==="s"?" vendió ":(x.first?" compró por primera vez ":" sumó más "))); l1.appendChild(el("b",null,x.t)); mid.appendChild(l1);
+      var mid=el("span","feed-t"); var l1=el("span"); l1.appendChild(el("b",null,x.who)); l1.appendChild(document.createTextNode(x.mine?(x.k==="s"?" vendiste ":(x.first?" compraste por primera vez ":" sumaste más ")):(x.k==="s"?" vendió ":(x.first?" compró por primera vez ":" sumó más ")))); l1.appendChild(el("b",null,x.t)); mid.appendChild(l1);
       mid.appendChild(el("small",null,ago(x.d)+" · "+x.d.split("-").reverse().join("/"))); row.appendChild(mid);
       var pct=null, lbl=""; if(x.k==="s"){ pct=x.pct; lbl="resultado"; } else if(!x.fi&&x.ccy==="USD"){ var px=(prices[x.t]&&prices[x.t].price)||feedPx[x.t]; if(px>0&&x.b>0){ pct=px/x.b-1; lbl="desde que compró"; } }
       var rt=el("span","feed-p"); if(pct!==null){ rt.appendChild(el("b",pct>=0?"pos":"neg",fmtPct(pct))); rt.appendChild(el("small",null,lbl)); } row.appendChild(rt);
-      box.appendChild(row); });
+      var card=el("div","feed-c"+(isNewF(x)?" new":"")); row.className="feed-r"; card.appendChild(row); card.appendChild(fxBar(x)); box.appendChild(card); });
+    fxLoad(items);
     box.appendChild(el("div","help","Solo se ven porcentajes, nunca montos ni cantidades.")); }
+  /* Reacciones y comentarios (en el servidor, por cartera compartida). */
+  var fxData={}, fxT={}, FX_EMO=["🔥","👏","😬","🤔","😂"];
+  function fxKey(x){ return x.k+"|"+x.t+"|"+x.d; }
+  function fxLoad(items){ if(!auth||!navigator.onLine) return; var codes={}; items.forEach(function(x){ codes[x.code]=1; });
+    Object.keys(codes).forEach(function(c){ if(fxT[c]&&Date.now()-fxT[c]<20000) return; fxT[c]=Date.now();
+      api("GET","/fx/"+encodeURIComponent(c)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; fxData[c]=j.k||{}; if(!feedView.hidden) fxPaint(); }).catch(function(){}); }); }
+  function fxPaint(){ [].forEach.call(document.querySelectorAll(".fx-bar"),function(b){ var x=b._x; if(x) b.replaceWith(fxBar(x)); }); var o=$("dlgSimA"); if(o.open&&o._fx) fxThread(o._fx,true); }
+  function fxOf(x){ return (fxData[x.code]||{})[fxKey(x)]||{r:{},c:[]}; }
+  function fxSend(x,body){ if(!auth){ alert("Para reaccionar o comentar tenés que entrar con tu cuenta de Google."); return Promise.resolve(); }
+    return api("POST","/fx/"+encodeURIComponent(x.code),Object.assign({key:fxKey(x)},body)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j){ fxData[x.code]=j.k||{}; fxPaint(); } }).catch(function(){}); }
+  function fxBar(x){ var f=fxOf(x), bar=el("div","fx-bar"); bar._x=x;
+    FX_EMO.forEach(function(e){ var v=f.r[e]; if(!v&&!bar._open) return; var b=el("button","fx-e"+(v&&v[1]?" on":"")); b.type="button"; b.appendChild(document.createTextNode(e)); if(v) b.appendChild(el("i",null,String(v[0])));
+      b.addEventListener("click",function(){ /* reacción optimista */ var r=fxOf(x).r, cur_=r[e]||[0,0]; r[e]=[cur_[0]+(cur_[1]?-1:1),cur_[1]?0:1]; if(!fxData[x.code]) fxData[x.code]={}; fxData[x.code][fxKey(x)]=fxOf(x); fxData[x.code][fxKey(x)].r=r; fxPaint(); fxSend(x,{re:e}); }); bar.appendChild(b); });
+    var add=el("button","fx-add","☺+"); add.type="button"; add.title="Reaccionar"; add.addEventListener("click",function(){ var nb=fxBarAll(x); bar.replaceWith(nb); }); if(FX_EMO.some(function(e){ return !f.r[e]; })) bar.appendChild(add);
+    var cm=el("button","fx-cm","💬 "+(f.c.length?f.c.length+" comentario"+(f.c.length>1?"s":""):"Comentar")); cm.type="button"; cm.addEventListener("click",function(){ fxThread(x); }); bar.appendChild(cm);
+    return bar; }
+  function fxBarAll(x){ var bar=el("div","fx-bar"); bar._x=x; var f=fxOf(x);
+    FX_EMO.forEach(function(e){ var v=f.r[e], b=el("button","fx-e big"+(v&&v[1]?" on":"")); b.type="button"; b.textContent=e; b.addEventListener("click",function(){ var r=f.r, cur_=r[e]||[0,0]; r[e]=[cur_[0]+(cur_[1]?-1:1),cur_[1]?0:1]; if(!fxData[x.code]) fxData[x.code]={}; fxData[x.code][fxKey(x)]=f; fxPaint(); fxSend(x,{re:e}); }); bar.appendChild(b); });
+    return bar; }
+  function fxThread(x,keep){ var d=$("dlgSimA"), box=$("simABody"), f=fxOf(x); d._fx=x; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
+    d.querySelector("h3").textContent=(x.mine?"Tu "+(x.k==="s"?"venta":"compra"):(x.k==="s"?"Venta":"Compra"))+" de "+x.t; box.textContent="";
+    box.appendChild(el("div","fx-sub",(x.mine?"Vos":x.who)+" · "+x.d.split("-").reverse().join("/")));
+    if(!f.c.length) box.appendChild(el("div","fx-none","Todavía no hay comentarios. ¡Sé el primero!"));
+    f.c.forEach(function(c){ var r=el("div","fx-c"+(c.me?" me":"")); var av=el("span","feed-av sm",(c.n||"?").charAt(0).toUpperCase()); av.style.background=avColor(c.n||""); r.appendChild(av);
+      var t=el("div","fx-ct"); var h=el("div","fx-ch"); h.appendChild(el("b",null,c.me?"Vos":c.n.split(" ")[0])); h.appendChild(el("small",null,ago(new Date(c.a).toISOString().slice(0,10)))); t.appendChild(h); t.appendChild(el("div",null,c.t)); r.appendChild(t); box.appendChild(r); });
+    var old=d.querySelector(".fx-form"); if(old) old.remove();
+    var fm=document.createElement("form"); fm.className="fx-form"; var inp=document.createElement("input"); inp.maxLength=300; inp.placeholder="Escribí un comentario…"; var sb=el("button","primary","↑"); sb.type="submit"; fm.appendChild(inp); fm.appendChild(sb);
+    fm.addEventListener("submit",function(e){ e.preventDefault(); var t=inp.value.trim(); if(!t) return; inp.value=""; sb.disabled=true;
+      var me_=(auth&&auth.name)||"Vos"; f.c.push({n:me_,t:t,a:Date.now(),me:1}); if(!fxData[x.code]) fxData[x.code]={}; fxData[x.code][fxKey(x)]=f; fxThread(x,true);
+      fxSend(x,{t:t}).then(function(){ sb.disabled=false; }); });
+    box.parentNode.appendChild(fm);
+    if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
+    setTimeout(function(){ box.scrollTop=box.scrollHeight; },30); }
+  $("dlgSimA").addEventListener("close",function(){ var fm=this.querySelector(".fx-form"); if(fm) fm.remove(); this._fx=null; });
   function openFeed(){ setScr(feedView); try{ history.pushState({scr:1},""); }catch(e){} feedRender(); feedMarkSeen(); feedBadge(); }
   $("btnFeed").addEventListener("click",openFeed);
+  /* Al tocar un aviso de amigos la app abre en #feed. */
+  function feedFromHash(){ if(location.hash==="#feed"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} setTimeout(function(){ if(typeof pullFollowers==="function") pullFollowers().then(function(){ if(!feedView.hidden) feedRender(); }).catch(function(){}); openFeed(); },300); } }
+  window.addEventListener("hashchange",feedFromHash); setTimeout(feedFromHash,800);
   $("btnMenu").addEventListener("click",feedBadge);
   $("feedBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   if(!feedSeen) feedMarkSeen(); /* la primera vez no hay nada "nuevo" */
@@ -4898,7 +4946,7 @@
   function pushSync(pr){
     if(!pr.sync || !SYNC_BASE) return Promise.resolve(false);
     var body=JSON.stringify(buildPayload(pr));
-    return fetch(SYNC_BASE+"/p/"+pr.sync.code,{method:"PUT",headers:{"Content-Type":"application/json","X-Holdy-Secret":pr.sync.secret},body:body})
+    return fetch(SYNC_BASE+"/p/"+pr.sync.code,{method:"PUT",headers:Object.assign({"Content-Type":"application/json","X-Holdy-Secret":pr.sync.secret},authH()),body:body})
       .then(function(r){
         if(!r.ok){ syncMsg[pr.id]={ok:false,err:syncErr(r.status)}; return false; }
         pr.syncDirty=false; save(LS_PROF,profData); syncMsg[pr.id]={ok:true,at:Date.now()}; return true;

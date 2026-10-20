@@ -40,13 +40,14 @@ self.addEventListener("push", (e) => {
       if (sub) { const r = await fetch(PUSH_BASE + "/push/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ep: sub.endpoint }) }); const j = await r.json(); msgs = j.msgs || []; }
     } catch (err) { /* sin conexión */ }
     if (!msgs.length) msgs = [{ title: "Holdy", body: "Tenés un aviso nuevo." }];
-    await Promise.all(msgs.slice(-3).map((m) => self.registration.showNotification(m.title || "Holdy", { body: m.body || "", tag: m.tag || undefined, renotify: !!m.tag, silent: false, vibrate: [180, 90, 180], icon: "icon-192.png", badge: "badge-96.png", data: { url: "./" } })));
+    await Promise.all(msgs.slice(-3).map((m) => self.registration.showNotification(m.title || "Holdy", { body: m.body || "", tag: m.tag || undefined, renotify: !!m.tag, silent: false, vibrate: [180, 90, 180], icon: "icon-192.png", badge: "badge-96.png", data: { url: "./" + (m.u || "") } })));
   })());
 });
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-    for (const c of list) { if ("focus" in c) return c.focus(); }
-    return self.clients.openWindow("./");
+    const url = (e.notification.data && e.notification.data.url) || "./";
+    for (const c of list) { if ("focus" in c) { if (url !== "./" && "navigate" in c) return c.navigate(url).then((w) => (w || c).focus()).catch(() => c.focus()); return c.focus(); } }
+    return self.clients.openWindow(url);
   }));
 });

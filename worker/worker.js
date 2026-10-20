@@ -31,7 +31,7 @@ export default {
     if (h === 12) ctx.waitUntil(pushCobros(env));
     if (h === 21 && wd >= 1 && wd <= 5) ctx.waitUntil(pushClose(env)); // 18:35 de Argentina: ya cerró Wall Street todo el año
   },
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin");
     const originOk = !origin || ALLOWED_ORIGINS.includes(origin);
     const cors = { Vary: "Origin" };
@@ -51,7 +51,8 @@ export default {
     if (!originOk) return json({ error: "origin_not_allowed" }, 403, cors);
 
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/p/")) return profile(request, env, url, cors);
+    if (url.pathname.startsWith("/p/")) return profile(request, env, url, cors, ctx);
+    if (url.pathname.startsWith("/fx/")) return social(request, env, url, cors, ctx);
     if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr") || url.pathname.startsWith("/me/push") || url.pathname === "/me/ask") return account(request, env, url, cors);
     if (url.pathname === "/push/inbox" && request.method === "POST") return pushInbox(request, env, cors);
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
@@ -152,7 +153,7 @@ async function sha256(text) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function profile(request, env, url, cors) {
+async function profile(request, env, url, cors, ctx) {
   if (!env.HOLDY_KV) return json({ error: "sync_not_configured" }, 501, cors);
   const parts = url.pathname.slice(3).split("/"), code = decodeURIComponent(parts[0] || ""), sub = parts[1] || "";
   if (!/^[A-Za-z0-9_-]{8,40}$/.test(code)) return json({ error: "bad_code" }, 400, cors);
@@ -232,7 +233,12 @@ async function profile(request, env, url, cors) {
     try { data = JSON.parse(text); } catch (e) { return json({ error: "bad_json" }, 400, cors); }
     if (!data || data.v !== 2 || !Array.isArray(data.p) || data.p.length > 300) return json({ error: "bad_data" }, 400, cors);
     const updated = Date.now();
-    await env.HOLDY_KV.put(key, JSON.stringify({ secretHash: hash, data, updated }), { expirationTtl: TTL_PROFILE });
+    // Dueño: si sube con sesión de Holdy se guarda quién es (para avisarle de comentarios y reacciones).
+    const u = await sessionUser(request, env);
+    const o = u ? { s: u.sub, n: u.name || "" } : (stored && stored.o) || null;
+    await env.HOLDY_KV.put(key, JSON.stringify({ secretHash: hash, data, updated, o }), { expirationTtl: TTL_PROFILE });
+    // Movimientos nuevos (compras/ventas de los últimos 10 días que antes no estaban): aviso a quienes miran esta cartera.
+    if (stored && stored.data && ctx) ctx.waitUntil(notifyMoves(env, code, stored.data, data, o).catch(() => {}));
     return json({ ok: true, updated }, 200, cors);
   }
   return json({ error: "method_not_allowed" }, 405, cors);
@@ -819,7 +825,7 @@ async function vapidAuth(env, endpoint) {
 // once: clave para no repetir el mismo aviso (con ttl en segundos).
 async function pushTo(env, sub, kind, msg, once, ttl) {
   const rec = await env.HOLDY_KV.get("push:" + sub, "json");
-  if (!rec || !rec.subs || !rec.subs.length || !(rec.prefs && rec.prefs[kind])) return 0;
+  if (!rec || !rec.subs || !rec.subs.length || !(rec.prefs && (rec.prefs[kind] || (kind === "fr" && rec.prefs.fr === undefined)))) return 0;
   if (once) { const ok = await env.HOLDY_KV.get("pushonce:" + sub + ":" + once); if (ok) return 0; await env.HOLDY_KV.put("pushonce:" + sub + ":" + once, "1", { expirationTtl: ttl || 86400 * 2 }); }
   let sent = 0; const keep = [];
   for (const s of rec.subs) {
@@ -854,7 +860,7 @@ async function pushMe(request, env, url, user, h) {
   if (request.method === "DELETE") { const ep = String(b.ep || ""); rec.subs = rec.subs.filter((s) => s.ep !== ep); await env.HOLDY_KV.put(key, JSON.stringify(rec)); return json({ ok: true }, 200, h); }
   if (request.method === "PUT") {
     if (b.sub && /^https:\/\//.test(b.sub.endpoint || "") && b.sub.endpoint.length < 1000) { if (!rec.subs.some((s) => s.ep === b.sub.endpoint)) rec.subs = rec.subs.concat({ ep: b.sub.endpoint, at: Date.now() }).slice(-5); }
-    if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, test: 1 };
+    if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, fr: b.prefs.fr === 0 ? 0 : 1, test: 1 };
     rec.prefs.test = 1;
     if (Array.isArray(b.agenda)) rec.agenda = b.agenda.slice(0, 60).map((x) => ({ d: String(x.d || "").slice(0, 10), t: String(x.t || "").slice(0, 16), k: String(x.k || "").slice(0, 20), a: Math.round((+x.a || 0) * 100) / 100, cy: String(x.cy || "US$").slice(0, 4) })).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.d));
     if (Array.isArray(b.pos)) rec.pos = b.pos.slice(0, 200).map((x) => ({ t: String(x.t || "").toUpperCase().slice(0, 12), q: +x.q || 0 })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && x.q > 0);
@@ -923,4 +929,72 @@ async function ask(request, env, cors) {
     }
   }
   return json({ error: "ai_failed", detail: lastErr.slice(0, 200) }, 502, cors);
+}
+
+// ---------- Movimientos de amigos: avisos, comentarios y reacciones ----------
+function movesOf(data, keepRow) {
+  const out = new Map(), lim = Date.now() - 10 * 86400000;
+  const add = (r, k, d) => { if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d) || Date.parse(d) < lim) return; out.set(k + "|" + r[2] + "|" + d, { k, t: r[2], d, r }); };
+  for (const r of (data && data.p) || []) { if (!Array.isArray(r) || (keepRow && !keepRow(r))) continue; for (const l of Array.isArray(r[8]) ? r[8] : []) add(r, "b", l && l[2]); }
+  for (const r of (data && data.c) || []) { if (!Array.isArray(r) || (keepRow && !keepRow(r))) continue; for (const l of Array.isArray(r[8]) ? r[8] : []) add(r, "b", l && l[2]); if (Array.isArray(r[9])) add(r, "s", r[9][0]); }
+  return out;
+}
+async function notifyMoves(env, code, oldData, newData, owner) {
+  const before = movesOf(oldData), fresh = [...movesOf(newData).entries()].filter(([k]) => !before.has(k)).map(([, v]) => v);
+  if (!fresh.length) return;
+  const pv = (await env.HOLDY_KV.get("pv:" + code, "json")) || { v: {}, b: [] };
+  const who = (owner && owner.n) || String(newData.n || "Un amigo");
+  for (const sub of Object.keys(pv.v || {})) {
+    if ((pv.b || []).includes(sub) || (owner && owner.s === sub)) continue;
+    const c = cleanCfg(pv.v[sub].c || pv.d || {});
+    if (c.x && Date.now() > c.x) continue;
+    const isFi = (r) => !!(r[10] && Array.isArray(r[10])) || /\{fci:[PD]\}/.test(String(r[7] || ""));
+    const vis = fresh.filter((m) => (c.b < 0 || m.r[0] === c.b) && (c.t === "all" || (c.t === "fi") === isFi(m.r)) && (m.k === "b" || c.s));
+    if (!vis.length) continue;
+    const txt = vis.slice(0, 3).map((m) => (m.k === "s" ? "vendió " : "compró ") + m.t).join(", ") + (vis.length > 3 ? " y " + (vis.length - 3) + " más" : "");
+    await pushTo(env, sub, "fr", { title: who.split(" ")[0], body: txt.charAt(0).toUpperCase() + txt.slice(1), tag: "fr-" + code, u: "#feed" }, "fr:" + code + ":" + vis.map((m) => m.k + m.t + m.d).join(","), 20 * 86400);
+  }
+}
+const FX_EMO = ["🔥", "👏", "😬", "🤔", "😂"];
+// GET /fx/<code>: reacciones y comentarios de los movimientos de esa cartera · POST {key, re} reacciona (o saca) · POST {key, t} comenta
+async function social(request, env, url, cors, ctx) {
+  const nostore = { ...cors, "Cache-Control": "no-store" };
+  if (!env.HOLDY_KV) return json({ error: "sync_not_configured" }, 501, nostore);
+  const code = decodeURIComponent(url.pathname.slice(4).split("/")[0] || "");
+  if (!/^[A-Za-z0-9_-]{8,40}$/.test(code)) return json({ error: "bad_code" }, 400, nostore);
+  const u = await sessionUser(request, env); if (!u) return json({ error: "unauthorized" }, 401, nostore);
+  const stored = await env.HOLDY_KV.get("p:" + code, "json"); if (!stored) return json({ error: "not_found" }, 404, nostore);
+  const pv = (await env.HOLDY_KV.get("pv:" + code, "json")) || { v: {}, b: [] };
+  const isOwner = !!(stored.o && stored.o.s === u.sub), view = pv.v && pv.v[u.sub];
+  if (!isOwner && (!view || (pv.b || []).includes(u.sub))) return json({ error: "forbidden" }, 403, nostore);
+  const fk = "fx:" + code, doc = (await env.HOLDY_KV.get(fk, "json")) || { k: {} };
+  const out = () => { const o = {};
+    for (const [k, v] of Object.entries(doc.k)) o[k] = { r: Object.fromEntries(Object.entries(v.r || {}).filter(([, a]) => a.length).map(([e, a]) => [e, [a.length, a.includes(u.sub) ? 1 : 0]])),
+      c: (v.c || []).map((c) => ({ i: c.i, n: c.n, t: c.t, a: c.a, me: c.s === u.sub ? 1 : 0, o: stored.o && c.s === stored.o.s ? 1 : 0 })) };
+    return json({ k: o, owner: isOwner ? 1 : 0 }, 200, nostore); };
+  if (request.method === "GET") return out();
+  if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, nostore);
+  let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: "bad_json" }, 400, nostore); }
+  const key = String((b && b.key) || "");
+  if (!/^[bs]\|[A-Za-z0-9.^=_-]{1,20}\|\d{4}-\d{2}-\d{2}$/.test(key)) return json({ error: "bad_key" }, 400, nostore);
+  const it = doc.k[key] || (doc.k[key] = { r: {}, c: [], at: 0 });
+  const [kind, tk] = key.split("|"), what = (kind === "s" ? "venta de " : "compra de ") + tk;
+  const me = (u.name || "Alguien").split(" ")[0];
+  let notify = [], msg = null;
+  if (b.re) {
+    if (!FX_EMO.includes(b.re)) return json({ error: "bad_emoji" }, 400, nostore);
+    const a = it.r[b.re] || (it.r[b.re] = []), i = a.indexOf(u.sub);
+    if (i >= 0) a.splice(i, 1); else { a.push(u.sub); if (stored.o && stored.o.s !== u.sub) { notify = [stored.o.s]; msg = { title: me, body: "Reaccionó " + b.re + " a tu " + what, tag: "fx-" + code + key, u: "#feed" }; } }
+  } else {
+    const t = String(b.t || "").trim().slice(0, 300); if (!t) return json({ error: "empty" }, 400, nostore);
+    it.c.push({ i: Math.random().toString(36).slice(2, 10), s: u.sub, n: u.name || "Alguien", t, a: Date.now() }); it.c = it.c.slice(-60);
+    const subs = new Set(it.c.map((c) => c.s)); if (stored.o) subs.add(stored.o.s); subs.delete(u.sub);
+    notify = [...subs].filter((s) => (stored.o && s === stored.o.s) || (pv.v[s] && !(pv.b || []).includes(s)));
+    msg = { title: me + " comentó", body: "“" + t.slice(0, 90) + "” · en " + (isOwner ? "su " : (stored.o && notify[0] === stored.o.s ? "tu " : "la ")) + what, tag: "fx-" + code + key, u: "#feed" };
+  }
+  it.at = Date.now();
+  const keys = Object.keys(doc.k); if (keys.length > 200) keys.sort((x, y) => doc.k[x].at - doc.k[y].at).slice(0, keys.length - 200).forEach((k) => delete doc.k[k]);
+  await env.HOLDY_KV.put(fk, JSON.stringify(doc), { expirationTtl: TTL_PROFILE });
+  if (msg && notify.length && ctx) ctx.waitUntil(Promise.all(notify.map((s) => pushTo(env, s, "fr", msg).catch(() => 0))));
+  return out();
 }
