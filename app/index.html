@@ -2496,10 +2496,11 @@
 
   // ---------- Proyección: cuánto tendrías al retirarte y cuánto podrías gastar por mes ----------
   /* Rendimientos REALES (ya sin inflación de EE.UU.) en dólares, de largo plazo; σ = volatilidad anual.
-     S&P 500 1926–2024 ≈ 6,9% real anual compuesto. SPY: dividendos (~1,3%) con 30% de retención → −0,4%; VUAA (Irlanda): 15% → −0,2% y comisión 0,07%. */
+     S&P 500 1926–2024 ≈ 6,9% real anual compuesto. Nasdaq 100 (desde 1985) ≈ 10% real, pero con una sola era tecnológica de historia: se usa 7,5% con σ 24%. SPY: dividendos (~1,3%) con 30% de retención → −0,4%; VUAA (Irlanda): 15% → −0,2% y comisión 0,07%. */
   var SIM_ASSETS={
     spy:{n:"S&P 500 · SPY",r:0.065,v:0.17,s:"Paga dividendos: te retienen 30%",h:"Las 500 empresas más grandes de EE.UU. Al cobrar los dividendos te retienen 30%."},
     vuaa:{n:"S&P 500 · VUAA",r:0.067,v:0.17,s:"Reinvierte los dividendos",h:"El mismo índice, pero el fondo reinvierte los dividendos y solo le retienen 15%: rinde un poco más."},
+    qqq:{n:"Nasdaq 100 · QQQ",r:0.075,v:0.24,s:"Tecnológicas: más crecimiento, más sube y baja",h:"Las 100 empresas más grandes del Nasdaq, sobre todo tecnológicas. Históricamente rindió más que el S&P 500, pero con caídas más fuertes (−80% en 2000–2002) y menos historia para confiar."},
     cons:{n:"Conservadora · bonos",r:0.02,v:0.06,s:"Bonos de EE.UU., muy estable",h:"Bonos del Tesoro de EE.UU. Muy estable; apenas le gana a la inflación."}
   };
   var LS_SIM="cartera.sim.v1", simIn=Object.assign({liveNom:0,cap:null,ap:0,age:35,ret:60,end:85,a:"vuaa",gasto:0,mode:"have",goal:"cap",goalAmt:1000000,goalNom:1,live:3000,livePlan:"end",r:null,v:null,inf:2.5},load(LS_SIM,{})||{});
@@ -2611,7 +2612,7 @@
     /* En qué invertís: botones chicos. */
     var gi=el("div","pe-grp vw-g sim-adj"); box.appendChild(gi); gi.appendChild(el("div","sim-slt",null)).appendChild(el("span",null,"Invertís en"));
     var ch=el("div","sim-chips"); gi.appendChild(ch);
-    Object.keys(SIM_ASSETS).concat(["custom"]).forEach(function(k){ var A=SIM_ASSETS[k], b=el("button","sim-chip"+(simIn.a===k?" on":""),A?A.n.replace("S&P 500 · ","").replace(" · bonos",""):"Personalizado"); b.type="button";
+    Object.keys(SIM_ASSETS).concat(["custom"]).forEach(function(k){ var A=SIM_ASSETS[k], b=el("button","sim-chip"+(simIn.a===k?" on":""),A?A.n.replace("S&P 500 · ","").replace(" · bonos","").replace(" · QQQ",""):"Personalizado"); b.type="button";
       b.addEventListener("click",function(){ if(simIn.a===k) return; simIn.a=k; if(A){ simIn.r=A.r*100; simIn.v=A.v*100; } simSave(); simCalcNow(); simSumUpd(); simOpenA(); }); ch.appendChild(b); });
     var A=SIM_ASSETS[simIn.a]; gi.appendChild(el("div","sim-hint",A?simPctTxt(simNom(A.r*100))+" · "+A.s:"Referencia S&P 500: rinde ~10% por año, sube y baja ~17%, inflación ~3%."));
     if(simIn.a==="custom"){ var er=el("div","vw-r sim-ages"); gi.appendChild(er);
