@@ -2928,14 +2928,19 @@
     if(!f.c.length) box.appendChild(el("div","fx-none","Todavía no hay comentarios. ¡Sé el primero!"));
     f.c.forEach(function(c){ var r=el("div","fx-c"+(c.me?" me":"")); var av=el("span","feed-av sm",(c.n||"?").charAt(0).toUpperCase()); av.style.background=avColor(c.n||""); r.appendChild(av);
       var t=el("div","fx-ct"); var h=el("div","fx-ch"); h.appendChild(el("b",null,c.me?"Vos":c.n.split(" ")[0])); h.appendChild(el("small",null,ago(new Date(c.a).toISOString().slice(0,10)))); t.appendChild(h); t.appendChild(el("div",null,c.t)); r.appendChild(t); box.appendChild(r); });
-    var old=d.querySelector(".fx-form"); if(old) old.remove();
+    var old=d.querySelector(".fx-form"), keepTxt=old?old.querySelector("input").value:"", hadFocus=old&&document.activeElement===old.querySelector("input"); if(old) old.remove();
     var fm=document.createElement("form"); fm.className="fx-form"; var inp=document.createElement("input"); inp.maxLength=300; inp.placeholder="Escribí un comentario…"; var sb=el("button","primary","↑"); sb.type="submit"; fm.appendChild(inp); fm.appendChild(sb);
     fm.addEventListener("submit",function(e){ e.preventDefault(); var t=inp.value.trim(); if(!t) return; inp.value=""; sb.disabled=true;
       var me_=(auth&&auth.name)||"Vos"; f.c.push({n:me_,t:t,a:Date.now(),me:1}); if(!fxData[x.code]) fxData[x.code]={}; fxData[x.code][fxKey(x)]=f; fxThread(x,true);
       fxSend(x,{t:t}).then(function(){ sb.disabled=false; }); });
-    box.parentNode.appendChild(fm);
+    box.parentNode.appendChild(fm); inp.value=keepTxt; if(hadFocus) inp.focus();
     if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
-    setTimeout(function(){ box.scrollTop=box.scrollHeight; },30); }
+    var n_=f.c.length; if(!keep||n_!==d._fxN) setTimeout(function(){ box.scrollTop=box.scrollHeight; },30); d._fxN=n_; }
+  /* "Casi tiempo real": con un chat abierto se consulta cada 4 segundos; con el feed abierto, cada 15. Se frena si la app no está a la vista. */
+  setInterval(function(){ if(document.hidden||!auth||!navigator.onLine) return; var d=$("dlgSimA"), x=d.open&&d._fx;
+    if(x){ api("GET","/fx/"+encodeURIComponent(x.code)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j||!d.open||d._fx!==x) return;
+      var before=JSON.stringify(fxOf(x)); fxData[x.code]=j.k||{}; if(JSON.stringify(fxOf(x))!==before) fxPaint(); }).catch(function(){}); return; }
+    if(!feedView.hidden){ var now=Date.now(); if(now-(fxT._feed||0)<15000) return; fxT._feed=now; fxT={_feed:now}; fxLoad(feedItems()); } },4000);
   $("dlgSimA").addEventListener("close",function(){ var fm=this.querySelector(".fx-form"); if(fm) fm.remove(); this._fx=null; });
   function openFeed(){ setScr(feedView); try{ history.pushState({scr:1},""); }catch(e){} feedRender(); feedMarkSeen(); feedBadge(); }
   $("btnFeed").addEventListener("click",openFeed);
