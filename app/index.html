@@ -48,6 +48,7 @@
   header button{background:transparent; color:inherit; border:1px solid currentColor; opacity:.95}
   header .eye svg{width:20px; height:20px} header .eye{color:var(--muted)} header .eye[aria-pressed="true"]{color:var(--brand)}
   header .burger{border:0; padding:6px 8px; min-height:40px; border-radius:10px; display:grid; place-items:center}
+  header .burger[hidden]{display:none} #btnFr{position:relative} .hb-dot{position:absolute; top:7px; right:5px; width:9px; height:9px; border-radius:50%; background:var(--brand); box-shadow:0 0 0 2px var(--bg)} .hb-dot[hidden]{display:none}
   dialog.drawer{margin:0 0 0 auto; width:min(300px,86vw); height:100%; max-height:100%; border:0; border-radius:0; padding:0; box-shadow:-10px 0 40px rgba(0,0,0,.25)}
   dialog.drawer[open]{animation:drawer-in .24s cubic-bezier(.2,.8,.2,1)}
   dialog.drawer[open]::backdrop{animation:sheet-fade .24s ease-out}
@@ -415,6 +416,7 @@
   .day-line.pos{color:var(--pos)} .day-line.neg{color:var(--neg)}
   .gain-line{font-size:16px; font-weight:700; margin-top:10px; display:flex; align-items:baseline; gap:8px}
   .gain-line .gl-pct{font-size:14px; font-weight:600; opacity:.9}
+  .day-now{display:flex; gap:6px; align-items:baseline; margin-top:4px; font-size:14px; font-weight:700} .day-now .dn-l{color:var(--muted); font-weight:600} .day-now .dn-p{font-weight:600; opacity:.9}
   .recibo{margin-top:12px; border-top:1px solid var(--line); display:grid}
   .rrow{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--line)}
   .rrow:last-child{border-bottom:0}
@@ -507,7 +509,9 @@
   .cmpchips button{border-radius:999px;min-height:34px;padding:4px 12px;font-size:13px;font-weight:600}
   .cmpchips button:disabled{opacity:.35}
   .cmpchips button.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
-  .cmpsel{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cmpsel{display:grid;grid-template-columns:1fr 1fr;gap:10px} #cmpView .cmpsel,#cmpView #cmpChips,#cmpView #cmpStartChips{display:none}
+  #cmpView #cmpCashChips button{min-height:30px; font-size:12.5px; padding:0 10px} .pf-t{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:10px 2px 0}
+  .rk-row.tap{cursor:pointer} .rk-row.sel{outline:2px solid #f08a24; outline-offset:-2px} .pf-sh{display:grid; gap:8px; padding-top:6px}
   .cmpleg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;font-weight:700}
   .cmpleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
   .cmpleg i.dash{border-radius:0;height:0;border-top:2px dashed #8a9a98;width:14px;vertical-align:middle}
@@ -528,6 +532,8 @@
   .lotrow{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:8px}
   .lothead{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600}
   .lothead button{min-height:32px;padding:4px 10px;font-size:13px}
+  .dmore{margin-top:12px} .dmore>summary{cursor:pointer; list-style:none; display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:13.5px; font-weight:700; padding:4px 0} .dmore>summary::-webkit-details-marker{display:none}
+  .dmore>summary::after{content:""; width:7px; height:7px; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(45deg) translateY(-2px); transition:transform .2s} .dmore[open]>summary::after{transform:rotate(-135deg) translateY(-2px)} .dmore[open]>summary{margin-bottom:10px}
   .lotlist{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:grid;gap:4px}
   .lotline{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
   .note{font-size:12px; color:var(--muted); margin-top:6px}
@@ -828,7 +834,7 @@
     .sum-card{display:grid; grid-template-columns:minmax(280px,380px) 1fr; column-gap:44px; align-items:center; padding:26px 32px}
     .sum-card>.sum-hd,.sum-card>.sum-main,.sum-card>.gain-line,.sum-card>.note{grid-column:1}
     .sum-card>.kpis{grid-column:2; grid-row:1/span 4; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px 0; align-self:stretch}
-    .sum-card>.recibo,.sum-tg,.sum-card>.gain-line,.sum-card>.gain-tot{display:none!important}
+    .sum-card>.recibo,.sum-tg,.sum-card>.gain-line,.sum-card>.day-now,.sum-card>.gain-tot{display:none!important}
     .sum-main .big{font-size:44px; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
     .sum-card>.kpis.k6{grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:22px}
     .kpi{display:flex; flex-direction:column; justify-content:center; gap:5px; padding:0 22px; border-left:1px solid var(--line)}
@@ -933,6 +939,7 @@
 <header>
   <h1>Holdy</h1>
   <button type="button" id="profSel" aria-haspopup="dialog" aria-label="Cambiar de perfil"></button>
+  <button type="button" id="btnFr" class="burger" aria-label="Movimientos de amigos" hidden><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg><i class="hb-dot" id="frDot" hidden></i></button>
   <button type="button" id="btnSearch" class="burger" aria-label="Buscar una acción"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
   <button type="button" id="btnHide" class="burger eye" aria-pressed="false"></button>
   <button id="btnMenu" class="burger" aria-label="Menú" aria-haspopup="dialog"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -946,13 +953,13 @@
     <div class="dr-k">Tu cartera</div>
     <button type="button" class="dr-item" id="btnAsk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5"/><path d="M12 16.5h.01"/></svg><span>Preguntale a tu cartera</span></button>
     <button type="button" class="dr-item" id="btnRpt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Reportes</span></button>
+    <button type="button" class="dr-item" id="btnCmp"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Rendimiento</span></button>
     <button type="button" class="dr-item" id="btnSim"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg><span>Proyección</span></button>
     <button type="button" class="dr-item" id="btnCash"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Plata sin invertir</span></button>
     <div class="dr-k">Con amigos</div>
     <button type="button" class="dr-item" id="btnFeed"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg><span>Movimientos de amigos</span><i class="dr-badge" id="feedBadge" hidden></i></button>
-    <button type="button" class="dr-item" id="btnRank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Ranking con amigos</span></button>
-    <button type="button" class="dr-item" id="btnShare"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg><span>Compartir mi rendimiento</span></button>
-    <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
+    <button type="button" class="dr-item" id="btnRank" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Ranking con amigos</span></button>
+    <button type="button" class="dr-item" id="btnShare" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg><span>Compartir mi rendimiento</span></button>
     <div class="dr-k">Ajustes</div>
     <button type="button" class="dr-item" id="btnPush"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Avisos</span></button>
     <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Perfiles</span></button>
@@ -994,13 +1001,18 @@
 </section>
 
 <section id="cmpView" hidden>
-  <div class="cmphdr"><button type="button" id="cmpBack" aria-label="Volver">←</button><h2>Comparar rendimientos</h2></div>
+  <div class="cmphdr"><button type="button" id="cmpBack" aria-label="Volver">←</button><h2>Rendimiento</h2></div>
+  <div class="seg sm" id="pfSeg"></div>
+  <div class="rk-list" id="pfRank"></div>
+  <div class="help" id="pfHint">Tocá una fila para comparar con tu cartera.</div>
+  <div class="pf-t" id="pfCmpT">Comparación</div>
   <div class="cmpsel">
     <label>Perfil <select id="cmpA"></select></label>
     <label>Contra <select id="cmpB"></select></label>
   </div>
   <div class="cmpnote" id="cmpStatus"></div>
   <div id="cmpBody" style="display:grid;gap:14px"></div>
+  <div class="pf-sh"><button type="button" class="primary" id="pfShMe">Compartir mi rendimiento</button><button type="button" id="pfShRk">Compartir ranking</button></div>
 </section>
 
 <div id="ptr" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></div>
@@ -1093,7 +1105,7 @@
 
 <dialog id="dlgCash" class="sheet">
   <form method="dialog" id="formCash">
-    <h3>Plata sin invertir</h3>
+    <div class="cob-top"><h3>Plata sin invertir</h3><button type="button" id="cashClose" aria-label="Cerrar">✕</button></div>
     <div class="help">Cargá cuánta plata tenés parada en cada broker. Se suma al número grande de tu cartera.</div>
     <div id="balList" style="display:grid;gap:8px"></div>
     <div class="two"><label>Broker<select id="balBroker"></select></label><label>Monto (US$)<input id="balAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="1500"></label></div>
@@ -1101,7 +1113,6 @@
     <div class="help" id="balHelp">Si ponés la fecha, la comparación entre carteras cuenta esa plata desde ese día. Sin fecha, solo se suma al total.</div>
     <button type="button" class="primary" id="balSave">Guardar</button>
     <div id="cashList" style="display:grid;gap:8px"></div>
-    <div class="btns"><button type="button" id="cashClose">Cerrar</button></div>
   </form>
 </dialog>
 
@@ -1917,12 +1928,13 @@
     $("profbar").hidden=!(c.readOnly||info);
     $("demoBar").hidden=!c.demo;
     $("btnAdd").hidden=!!c.readOnly||cmpOpen;
-    $("btnCmp").hidden=!profData.profiles.length;
+    $("btnCmp").hidden=false;
     $("menuUser").textContent=auth?((auth.name?auth.name+" · ":"")+auth.email):"";
   }
 
+  var detMore={};
   function render(){
-    try{ pushSyncSoon(); }catch(e){}
+    try{ pushSyncSoon(); }catch(e){} try{ feedBadge(); }catch(e){}
     ensureCcl();
     renderProfile();
     syncToolbar();
@@ -2129,6 +2141,8 @@
         var gl=el("div","gain-line "+cls(gt)); gl.appendChild(el("span",null,arrow(gt)+mRs(gt,ccy)));
         gl.appendChild(el("span","gl-pct","("+fmtPct(gb>0?gt/gb:null)+")"));
         card.appendChild(gl);
+        /* Lo de hoy, a la vista: es lo primero que uno quiere saber al abrir. */
+        if(g.dayN){ var dl=el("div","day-now"); dl.appendChild(el("span","dn-l","Hoy")); var dv_=el("span",cls(g.day),mRs(g.day,ccy)); dl.appendChild(dv_); if(g.dayBase>0) dl.appendChild(el("span",cls(g.day)+" dn-p","("+fmtPct(g.day/g.dayBase)+")")); card.appendChild(dl); }
         var rc=el("div","recibo"); rc.hidden=!sumOpen[ccy];
         var tg=el("button","sum-tg",""); tg.type="button"; tg.setAttribute("aria-expanded",String(!!sumOpen[ccy]));
         tg.appendChild(el("span",null,"Detalle")); tg.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
@@ -2761,7 +2775,7 @@
   }
   /* ---------- Compartir rendimiento: una imagen con porcentajes (nunca montos) para WhatsApp o historias ---------- */
   var shPer="mes", shBlob=null, shSeq=0;
-  var SH_PER=[["mes","Este mes"],["ytd","Este año"],["all","Desde el inicio"]];
+  var SH_PER=[["mes","Este mes"],["ytd","Este año"],["all","Todo"]];
   function shPeriod(){ var keep=rptCfg.per; rptCfg.per=shPer==="mes"?"cur":shPer; try{ return rptPeriod(); } finally{ rptCfg.per=keep; } }
   function shPct(x){ return (x>0?"+":(x<0?"−":""))+Math.abs(x*100).toLocaleString("es-AR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%"; }
   /* Datos de la imagen: el % sale del mismo cálculo que el ranking (así coinciden), y lo que más subió/bajó incluye lo que vendiste en el período. */
@@ -2920,7 +2934,9 @@
   function isNewF(x){ return !x.mine&&!!feedSeen&&feedSeen.indexOf(feedKey(x))<0; }
   function feedMarkSeen(){ feedSeen=feedItems().map(feedKey).slice(0,400); save(LS_FEED,feedSeen); }
   function feedNew(){ return feedItems().filter(isNewF).length; }
-  function feedBadge(){ var n=feedNew(), b=$("feedBadge"); if(!b) return; b.hidden=!n; b.textContent=n>9?"9+":String(n); }
+  function feedBadge(){ var n=feedNew(), b=$("feedBadge"); if(!b) return; b.hidden=!n; b.textContent=n>9?"9+":String(n);
+    /* Arriba, al lado de la lupa: solo si seguís a alguien; el punto avisa que hay movimientos nuevos. */
+    var fr=$("btnFr"); fr.hidden=!profData.profiles.some(function(p){ return p.readOnly&&p.syncCode; }); $("frDot").hidden=!n; }
   function ensureFeedPx(items){ var need=[]; items.forEach(function(x){ if(x.k==="b"&&x.ccy==="USD"&&!x.fi&&!prices[x.t]&&!feedPx[x.t]&&need.indexOf(x.t)<0) need.push(x.t); });
     if(!need.length||feedBusy||!navigator.onLine||Date.now()-feedPxT<10*60*1000) return;
     feedBusy=fetchHistory(need.slice(0,60),dayStr(dayNum(todayStr())-10)).then(function(j){ Object.keys(j.data||{}).forEach(function(t){ var h=j.data[t]; if(h&&h.currency==="USD"&&h.pts&&h.pts.length) feedPx[t]=h.pts[h.pts.length-1][1]; }); })
@@ -3070,7 +3086,7 @@
     if(!feedView.hidden){ var now=Date.now(); if(now-(fxT._feed||0)<15000) return; fxT._feed=now; fxT={_feed:now}; fxLoad(feedItems()); } },4000);
   $("dlgSimA").addEventListener("close",function(){ var fm=this.querySelector(".fx-form"); if(fm) fm.remove(); this._fx=null; });
   function openFeed(){ setScr(feedView); try{ history.pushState({scr:1},""); }catch(e){} feedRender(); feedMarkSeen(); feedBadge(); }
-  $("btnFeed").addEventListener("click",openFeed);
+  $("btnFeed").addEventListener("click",openFeed); $("btnFr").addEventListener("click",openFeed);
   /* Al tocar un aviso de amigos la app abre en #feed. */
   function feedFromHash(){ var m=/^#feed(?:\/([^/]+)\/(.+))?$/.exec(location.hash); if(!m) return; var code=m[1]&&decodeURIComponent(m[1]), key=m[2]&&decodeURIComponent(m[2]);
     try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
@@ -3566,6 +3582,12 @@
       }
       g.appendChild(pg);
       body.appendChild(g);
+      /* A la vista solo lo principal (invertido, valor, precio de compra y actual). Lo demás, en "Ver más". */
+      var KEEP={"Precio promedio de compra":1,"Precio de compra":1,"Precio actual":1,"Precio de mercado":1,"Valor a la par":1}, pk_=posKey(p);
+      var more=document.createElement("details"); more.className="dmore"; if(detMore[pk_]) more.open=true; more.addEventListener("toggle",function(){ detMore[pk_]=more.open; });
+      more.appendChild(el("summary",null,"Ver más")); var pg2=el("div","pgrid"); more.appendChild(pg2);
+      [].slice.call(pg.children).forEach(function(c){ if(!KEEP[c.getAttribute("data-k")]) pg2.appendChild(c); });
+      body.appendChild(more); var moreBody=more;
       if(p.lots && p.lots.length>1){
         var ll=el("div","lotlist"); ll.appendChild(el("div","k","Tus compras"));
         p.lots.forEach(function(l,i){
@@ -3576,7 +3598,7 @@
           if(cp!==null){ var lp=(cp-lb_)/lb_; ln.appendChild(el("span",cls(lp),arrow(lp)+fmtPct(lp))); }
           ll.appendChild(ln);
         });
-        body.appendChild(ll);
+        moreBody.appendChild(ll);
       }
 
       var stamp=priceStamp(p);
@@ -4567,10 +4589,20 @@
     profData.profiles.forEach(function(pr){ [a,b].forEach(function(sel){ opt(sel,pr.id,pr.name+(pr.owner?" ("+pr.owner+")":"")); }); });
     Object.keys(IDX).forEach(function(k){ opt(a,k,IDX[k].n+" · índice"); opt(b,k,IDX[k].n+" · índice"); });
     a.value=profData.active; b.value=SPY_ID;
-    cmpRange="Todo"; cmpStart="common"; setCmp(true);
+    cmpRange=rkPer; cmpStart="common"; setCmp(true);
     try{ history.pushState({scr:1},""); }catch(e){}
-    runCompare();
+    pfSeg(); pfRankLoad(); runCompare();
   }
+  /* Rendimiento: un período para todo (ranking, comparación e imagen para compartir). */
+  function pfSeg(){ var sg=$("pfSeg"); sg.textContent=""; SH_PER.forEach(function(o){ var b=el("button",rkPer===o[0]?"on":"",o[1]); b.type="button";
+    b.addEventListener("click",function(){ if(rkPer===o[0]) return; rkPer=shPer=cmpRange=o[0]; pfSeg(); rkDraw($("pfRank")); drawCmp(); }); sg.appendChild(b); }); }
+  function pfRankLoad(){ var list=$("pfRank"); list.textContent=""; $("pfHint").hidden=true;
+    if(rkData&&Date.now()-rkData.t<10*60*1000){ rkDraw(list); $("pfHint").hidden=false; return; }
+    list.appendChild(el("div","sh-st rk-st","Calculando…")); var my=++rkSeq;
+    twrRows(profData.profiles).then(function(R){ if(my!==rkSeq) return; if(!R.rows.some(function(r){ return !r.spy; })){ list.textContent=""; return; } rkData={t:Date.now(),rows:R.rows}; rkDraw(list); $("pfHint").hidden=false; })
+      .catch(function(){ if(my===rkSeq) list.textContent=""; }); }
+  $("pfShMe").addEventListener("click",function(){ shPer=rkPer; shOpen(); });
+  $("pfShRk").addEventListener("click",function(){ if(rkData) rkShare(); });
   $("cmpBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setCmp(false); });
   window.addEventListener("popstate",function(){
     /* Botón atrás del celu: si la pantalla tiene pasos adentro, vuelve un paso y se queda. */
@@ -4645,7 +4677,7 @@
   var rkPer="mes", rkData=null, rkSeq=0;
   function rkOpen(){
     var box=$("simABody"), d=$("dlgSimA"); box.textContent=""; d.querySelector("h3").textContent="Ranking"; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
-    var r=el("div","vw-r"), sg=el("div","seg sm vw-seg"); [["mes","Este mes"],["ytd","Este año"],["all","Desde el inicio"]].forEach(function(o){ var b=el("button",rkPer===o[0]?"on":"",o[1]); b.type="button";
+    var r=el("div","vw-r"), sg=el("div","seg sm vw-seg"); SH_PER.forEach(function(o){ var b=el("button",rkPer===o[0]?"on":"",o[1]); b.type="button";
       b.addEventListener("click",function(){ if(rkPer===o[0]) return; rkPer=o[0]; [].forEach.call(sg.children,function(z){ z.classList.remove("on"); }); b.classList.add("on"); rkDraw(list); }); sg.appendChild(b); }); r.appendChild(sg);
     var g0=el("div","pe-grp vw-g"); g0.appendChild(r); box.appendChild(g0);
     var list=el("div","rk-list"); box.appendChild(list);
@@ -4688,7 +4720,10 @@
       if(!r.spy) pos++;
       row.appendChild(el("span","rk-n",r.spy?"·":(pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":String(pos))));
       var nm=el("span","rk-name",r.n); nm.appendChild(el("small",null,r.spy?"Referencia: el índice":(r.f?(r.o?"De "+r.o:"Compartida"):(r.me?"Vos · la que estás viendo":"Tuya")))); row.appendChild(nm);
-      row.appendChild(el("b",x.v>=0?"pos":"neg",shPct(x.v))); list.appendChild(row); });
+      row.appendChild(el("b",x.v>=0?"pos":"neg",shPct(x.v)));
+      if(list.id==="pfRank"&&!r.me){ var key=r.spy?(r.n===SPY_NAME?"__spy":"__qqq"):r.id; if($("cmpB").value===key) row.classList.add("sel"); row.classList.add("tap"); row.tabIndex=0;
+        row.addEventListener("click",function(){ $("cmpB").value=key; [].forEach.call(list.children,function(z){ z.classList.remove("sel"); }); row.classList.add("sel"); runCompare(); setTimeout(function(){ $("pfCmpT").scrollIntoView({behavior:"smooth",block:"start"}); },60); }); }
+      list.appendChild(row); });
   }
   /* Imagen del ranking: se arma y se comparte directo (sin vista previa). */
   function rkShare(){
@@ -4747,7 +4782,7 @@
         cc.appendChild(b);
       });
       var idle=real.map(function(x){ return (cmpCash&&x.curve&&x.curve.cash>0.5)?x.name+": "+dtxt(x.curve.cash):""; }).filter(Boolean);
-      body.appendChild(el("div","help",cmpCash?"Cuenta el efectivo de tus ventas y depósitos como parte de la cartera, aunque en tu broker ya no esté."+(idle.length?" Efectivo sin invertir hoy según tus movimientos → "+idle.join(" · ")+". Si ya lo usaste o lo retiraste, cargalo como retiro en Efectivo.":""):"Mide solo las inversiones: el efectivo no cuenta y lo que vendés sale de la cartera. Es lo más parecido a tu broker si no dejás plata parada."));
+      body.appendChild(el("div","help pf-cash",cmpCash?"Cuenta la plata de tus ventas como parte de la cartera."+(idle.length?" Sin invertir hoy → "+idle.join(" · ")+".":""):"Solo las inversiones: lo que vendés sale de la cartera."));
     }
     if(csMax>csMin) body.appendChild(el("div","cmpchips")).id="cmpStartChips";
     body.appendChild(el("div","cmpchips")).id="cmpChips";
@@ -4765,7 +4800,7 @@
     tr("Ventas ganadoras",function(s){ return s.closedN?s.wins+" de "+s.closedN:"—"; });
     tr("Posiciones activas",function(s){ return String(s.openN); });
     tr("Mayor peso",function(s){ return s.maxWeight===null?"—":(s.maxWeight*100).toFixed(0)+"%"; });
-    body.appendChild(tb_);
+    /* (la tabla repetía lo de "¿Por qué?": ya no se muestra) */
     var sk=[]; real.forEach(function(x){ if(x.e.skipped) sk.push(x.name+": "+x.e.skipped+" sin fecha de compra o en otra moneda"); });
     if(sk.length) body.appendChild(el("div","cmpnote","No entran en la comparación → "+sk.join(" · ")+". Cargá la fecha de compra para sumarlas."+(TR?" Los rendimientos incluyen dividendos reinvertidos.":" No se tienen en cuenta dividendos.")));
     drawCmp();
@@ -4795,6 +4830,7 @@
       chips.appendChild(b);
     });
     var cur_=RANGES.filter(function(r){return r[0]===cmpRange;})[0]||RANGES[RANGES.length-1];
+    if(cmpRange==="mes"||cmpRange==="ytd") cur_=[cmpRange,D.tn-perStart(cmpRange)];
     var short=cur_[1]&&cur_[1]>=span;
     var r0=(cur_[1]&&!short)?D.tn-cur_[1]:csBase;
     var E=D.ents.map(function(x,k){
@@ -4834,7 +4870,8 @@
       if(ws.closedN||os.closedN) why.push("Operaciones cerradas: "+w.n+" "+ws.wins+" de "+ws.closedN+" ganadoras; "+o.n+" "+os.wins+" de "+os.closedN+".");
     }
     var wb=$("cmpWhy"); wb.textContent="";
-    if(why.length){ wb.appendChild(el("div","k","¿Por qué?")); var ul=el("ul","cmpwhy"); why.forEach(function(t){ ul.appendChild(el("li",null,t)); }); wb.appendChild(ul); }
+    /* El "¿Por qué?" mira desde cada compra: solo tiene sentido en "Todo". */
+    if(why.length&&(cmpRange==="all"||cmpRange==="Todo")){ wb.appendChild(el("div","k","¿Por qué?")); var ul=el("ul","cmpwhy"); why.forEach(function(t){ ul.appendChild(el("li",null,t)); }); wb.appendChild(ul); }
   }
   function cmpChart(series, bench, d0, d1){
     var NS="http://www.w3.org/2000/svg", W=600, H=320, L=44, R=16, T=14, B=28;
