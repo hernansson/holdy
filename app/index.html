@@ -2937,9 +2937,9 @@
   /* Tarjeta estilo red social: quién y cuándo arriba, qué hizo en grande, el % aparte, reacciones y los últimos comentarios. */
   function feedCard(x){ var card=el("div","feed-c"+(isNewF(x)?" new":"")); card._x=x; var ow=ownerOf(x);
     var hd=el("div","fc-hd"); var av=avEl(ow.n,ow.ph); av._x=x; av.classList.add("fc-ow"); hd.appendChild(av);
-    var verb=x.mine?(x.k==="s"?" vendiste ":(x.first?" compraste por primera vez ":" sumaste más ")):(x.k==="s"?" vendió ":(x.first?" compró por primera vez ":" sumó más "));
-    var nm=el("div","fc-nm"), l1=el("div"); l1.appendChild(el("span","fc-who",x.mine?"Vos":ow.n.split(" ")[0])); l1.appendChild(document.createTextNode(verb)); l1.appendChild(el("b",null,x.t)); nm.appendChild(l1);
-    var pct=null, lbl=""; if(x.k==="s"){ pct=x.pct; lbl="de resultado"; } else if(!x.fi&&x.ccy==="USD"){ var px=(prices[x.t]&&prices[x.t].price)||feedPx[x.t]; if(px>0&&x.b>0){ pct=px/x.b-1; lbl="desde que compró"; } }
+    var verb=x.mine?(x.k==="s"?"Vendiste ":(x.first?"Compraste por primera vez ":"Sumaste más ")):(x.k==="s"?" vendió ":(x.first?" compró por primera vez ":" sumó más "));
+    var nm=el("div","fc-nm"), l1=el("div"); if(!x.mine) l1.appendChild(el("span","fc-who",ow.n.split(" ")[0])); l1.appendChild(document.createTextNode(verb)); l1.appendChild(el("b",null,x.t)); nm.appendChild(l1);
+    var pct=null, lbl=""; if(x.k==="s"){ pct=x.pct; lbl="de resultado"; } else if(!x.fi&&x.ccy==="USD"){ var px=(prices[x.t]&&prices[x.t].price)||feedPx[x.t]; if(px>0&&x.b>0){ pct=px/x.b-1; lbl=x.mine?"desde que compraste":"desde que compró"; } }
     var mt=el("div","fc-meta"); mt.appendChild(document.createTextNode(ago(x.d))); if(pct!==null){ mt.appendChild(document.createTextNode(" · ")); mt.appendChild(el("b",pct>=0?"pos":"neg",fmtPct(pct))); mt.appendChild(document.createTextNode(" "+lbl)); } nm.appendChild(mt);
     hd.appendChild(nm); card.appendChild(hd);
     card.appendChild(fxBar(x)); var pv=fxPreview(x); if(pv) card.appendChild(pv); return card; }
@@ -2947,7 +2947,7 @@
   var fcOpen={};
   function fxPreview(x){ var f=fxOf(x), w=el("div","fc-cm"); w._x=x; if(!f.c.length){ w.hidden=true; return w; }
     if(f.c.length>2){ var more=el("button","fc-more","Ver "+(f.c.length-2===1?"1 comentario anterior":"los "+(f.c.length-2)+" comentarios anteriores")); more.type="button"; more.addEventListener("click",function(){ fxThread(x); }); w.appendChild(more); }
-    f.c.slice(-2).forEach(function(c){ var r=el("div","fc-c"); r.appendChild(cAv(x.code,c)); var t=el("div","fc-ct"); t.appendChild(el("b",null,(c.me?"Vos":((fxUser(x.code,c.u)||{}).n||c.n).split(" ")[0])+" ")); if(typeof c.h==="number"){ var ph_=el("span","fx-h sm "+(c.h>=0?"pos":"neg"),fmtPct(c.h)); ph_.title="La tiene"; t.appendChild(ph_); t.appendChild(document.createTextNode(" ")); } var tx=el("span","fc-tx",c.t); t.appendChild(tx);
+    f.c.slice(-2).forEach(function(c){ var r=el("div","fc-c"); r.appendChild(cAv(x.code,c)); var t=el("div","fc-ct"); t.appendChild(el("b",null,(c.me?meName():((fxUser(x.code,c.u)||{}).n||c.n)).split(" ")[0]+" ")); if(typeof c.h==="number"){ var ph_=el("span","fx-h sm "+(c.h>=0?"pos":"neg"),fmtPct(c.h)); ph_.title="La tiene"; t.appendChild(ph_); t.appendChild(document.createTextNode(" ")); } var tx=el("span","fc-tx",c.t); t.appendChild(tx);
       var ck=c.i+"|"+c.a; if(c.t.length>140&&!fcOpen[ck]){ tx.textContent=c.t.slice(0,c.t.lastIndexOf(" ",130)>80?c.t.lastIndexOf(" ",130):130)+"… "; var vm=el("button","fc-vm","Ver más"); vm.type="button"; vm.addEventListener("click",function(){ fcOpen[ck]=1; tx.textContent=c.t; vm.remove(); }); t.appendChild(vm); }
       var wrap=el("div"); wrap.style.minWidth="0"; wrap.appendChild(t); r.appendChild(wrap); w.appendChild(r); });
     var fake=el("button","fc-in","Responder…"); fake.type="button"; fake.addEventListener("click",function(){ fxThread(x,false,true); }); w.appendChild(fake);
