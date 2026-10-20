@@ -56,6 +56,7 @@ export default {
     if (url.pathname.startsWith("/auth/") || url.pathname === "/me/data" || url.pathname.startsWith("/me/ibkr") || url.pathname.startsWith("/me/push") || url.pathname === "/me/ask" || url.pathname === "/me/profile") return account(request, env, url, cors);
     if (url.pathname === "/push/inbox" && request.method === "POST") return pushInbox(request, env, cors);
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405, cors);
+    if (url.pathname.startsWith("/av/")) return avatar(url, env, cors);
     if (url.pathname === "/history") return history(url, cors);
     if (url.pathname === "/divs") return divs(url, cors);
     if (url.pathname === "/push/key") return pushKey(env, cors);
@@ -957,23 +958,34 @@ async function notifyMoves(env, code, oldData, newData, owner) {
   }
 }
 const FX_EMO = ["🔥", "👏", "😬", "🤔", "😂"];
-// Perfil público de cada usuario (nombre que eligió y foto chiquita). Se cachea en memoria 5 minutos para no leer KV en cada consulta del chat.
+// Perfil público de cada usuario (nombre que eligió y foto chiquita). Casi nunca cambia: se guarda en memoria 6 horas.
+// La foto no viaja en cada consulta: va solo una "versión" corta y la app la baja de /av/<id>?v=<versión>, que el celu guarda para siempre.
+// Si la persona cambia la foto, cambia la versión y recién ahí se descarga la nueva.
 const PF = new Map();
 async function getPf(env, sub) {
-  const c = PF.get(sub); if (c && Date.now() - c.t < 300000) return c.v;
+  const c = PF.get(sub); if (c && Date.now() - c.t < 6 * 3600000) return c.v;
   const v = (await env.HOLDY_KV.get("pf:" + sub, "json")) || {}; PF.set(sub, { v, t: Date.now() }); if (PF.size > 2000) PF.clear(); return v;
 }
 async function dispName(env, u) { const p = await getPf(env, u.sub); return p.n || u.name || "Alguien"; }
 async function uid(sub) { return (await sha256("u|" + sub)).slice(0, 12); }
+async function avatar(url, env, cors) {
+  const id = url.pathname.slice(4); if (!/^[a-f0-9]{12}$/.test(id) || !env.HOLDY_KV) return new Response("", { status: 404, headers: cors });
+  const d = await env.HOLDY_KV.get("av:" + id), m = /^data:(image\/[a-z]+);base64,(.+)$/.exec(d || "");
+  if (!m) return new Response("", { status: 404, headers: { ...cors, "Cache-Control": "public, max-age=300" } });
+  const bin = Uint8Array.from(atob(m[2]), (ch) => ch.charCodeAt(0));
+  return new Response(bin, { headers: { ...cors, "Content-Type": m[1], "Cache-Control": "public, max-age=31536000, immutable" } });
+}
 async function meProfile(request, env, user, h) {
-  if (request.method === "GET") { const p = await getPf(env, user.sub); return json({ n: p.n || "", ph: p.ph || "", g: user.name || "" }, 200, h); }
+  if (request.method === "GET") { const p = await getPf(env, user.sub);
+    if (p.ph && !p.pv) { p.pv = (await sha256(p.ph)).slice(0, 8); await env.HOLDY_KV.put("pf:" + user.sub, JSON.stringify(p)); await env.HOLDY_KV.put("av:" + (await uid(user.sub)), p.ph); } // fotos subidas antes de la versión con /av/ return json({ n: p.n || "", ph: p.ph || "", g: user.name || "" }, 200, h); }
   if (request.method !== "PUT") return json({ error: "method_not_allowed" }, 405, h);
   const text = await request.text(); if (text.length > 40000) return json({ error: "too_large" }, 413, h);
   let b; try { b = JSON.parse(text); } catch (e) { return json({ error: "bad_json" }, 400, h); }
   const n = String((b && b.n) || "").replace(/\s+/g, " ").trim().slice(0, 40), ph = String((b && b.ph) || "");
   if (ph && !/^data:image\/(jpeg|webp|png);base64,[A-Za-z0-9+/=]+$/.test(ph)) return json({ error: "bad_photo" }, 400, h);
-  const v = {}; if (n) v.n = n; if (ph) v.ph = ph;
+  const v = {}, id = await uid(user.sub); if (n) v.n = n; if (ph) { v.ph = ph; v.pv = (await sha256(ph)).slice(0, 8); }
   await env.HOLDY_KV.put("pf:" + user.sub, JSON.stringify(v)); PF.set(user.sub, { v, t: Date.now() });
+  if (ph) await env.HOLDY_KV.put("av:" + id, ph); else await env.HOLDY_KV.delete("av:" + id);
   return json({ n: v.n || "", ph: v.ph || "", g: user.name || "" }, 200, h);
 }
 // GET /fx/<code>: reacciones y comentarios de los movimientos de esa cartera · POST {key, re} reacciona (o saca) · POST {key, t} comenta
@@ -992,7 +1004,7 @@ async function social(request, env, url, cors, ctx) {
   const out = async () => { const o = {}, subs = new Set(); if (stored.o) subs.add(stored.o.s);
     Object.values(doc.k).forEach((v) => (v.c || []).forEach((c) => subs.add(c.s)));
     const ids = {}, users = {};
-    await Promise.all([...subs].map(async (s) => { const p = await getPf(env, s), id = await uid(s); ids[s] = id; users[id] = { n: p.n || "", ph: p.ph || "" }; }));
+    await Promise.all([...subs].map(async (s) => { const p = await getPf(env, s), id = await uid(s); ids[s] = id; users[id] = { n: p.n || "", v: p.ph ? p.pv || "1" : "" }; }));
     for (const [k, v] of Object.entries(doc.k)) o[k] = { r: Object.fromEntries(Object.entries(v.r || {}).filter(([, a]) => a.length).map(([e, a]) => [e, [a.length, a.includes(u.sub) ? 1 : 0]])),
       c: (v.c || []).map((c) => ({ i: c.i, n: (users[ids[c.s]] && users[ids[c.s]].n) || c.n, u: ids[c.s], t: c.t, a: c.a, me: c.s === u.sub ? 1 : 0, o: stored.o && c.s === stored.o.s ? 1 : 0 })) };
     return json({ k: o, owner: isOwner ? 1 : 0, ow: stored.o ? ids[stored.o.s] : "", us: users }, 200, nostore); };

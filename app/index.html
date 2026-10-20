@@ -2942,8 +2942,8 @@
     var fake=el("button","fc-in","Responder…"); fake.type="button"; fake.addEventListener("click",function(){ fxThread(x,false,true); }); w.appendChild(fake);
     return w; }
   /* Reacciones y comentarios (en el servidor, por cartera compartida). */
-  var fxUs={}; function fxUser(code,id){ var u=fxUs[code]; return (u&&u.us&&u.us[id])||null; }
-  function ownerOf(x){ if(x.mine) return {n:meName(),ph:meProf.ph}; var u=fxUs[x.code], o=u&&u.us[u.ow]; return {n:(o&&o.n)||x.who,ph:(o&&o.ph)||""}; }
+  var fxUs={}; function fxUser(code,id){ var u=fxUs[code], r=u&&u.us&&u.us[id]; if(!r) return null; return {n:r.n,ph:r.ph||(r.v?SYNC_BASE+"/av/"+id+"?v="+r.v:"")}; }
+  function ownerOf(x){ if(x.mine) return {n:meName(),ph:meProf.ph}; var u=fxUs[x.code], o=u&&fxUser(x.code,u.ow); return {n:(o&&o.n)||x.who,ph:(o&&o.ph)||""}; }
   function cAv(code,c,cls){ if(c.me) return avEl(meName(),meProf.ph,cls); var u=fxUser(code,c.u)||{}; return avEl(u.n||c.n,u.ph,cls); }
   var fxData={}, fxT={}, FX_EMO=["🔥","👏","😬","🤔","😂"];
   function fxKey(x){ return x.k+"|"+x.t+"|"+x.d; }
