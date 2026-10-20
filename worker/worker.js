@@ -976,8 +976,9 @@ async function avatar(url, env, cors) {
   return new Response(bin, { headers: { ...cors, "Content-Type": m[1], "Cache-Control": "public, max-age=31536000, immutable" } });
 }
 async function meProfile(request, env, user, h) {
+  // Fotos subidas antes de la versión con /av/: se pasan al formato nuevo la primera vez.
   if (request.method === "GET") { const p = await getPf(env, user.sub);
-    if (p.ph && !p.pv) { p.pv = (await sha256(p.ph)).slice(0, 8); await env.HOLDY_KV.put("pf:" + user.sub, JSON.stringify(p)); await env.HOLDY_KV.put("av:" + (await uid(user.sub)), p.ph); } // fotos subidas antes de la versión con /av/ return json({ n: p.n || "", ph: p.ph || "", g: user.name || "" }, 200, h); }
+    if (p.ph && !p.pv) { p.pv = (await sha256(p.ph)).slice(0, 8); await env.HOLDY_KV.put("pf:" + user.sub, JSON.stringify(p)); await env.HOLDY_KV.put("av:" + (await uid(user.sub)), p.ph); } return json({ n: p.n || "", ph: p.ph || "", g: user.name || "" }, 200, h); }
   if (request.method !== "PUT") return json({ error: "method_not_allowed" }, 405, h);
   const text = await request.text(); if (text.length > 40000) return json({ error: "too_large" }, 413, h);
   let b; try { b = JSON.parse(text); } catch (e) { return json({ error: "bad_json" }, 400, h); }
