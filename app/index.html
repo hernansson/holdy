@@ -492,8 +492,8 @@
   @keyframes vinR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
   @keyframes vinL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
   .vin-r{animation:vinR .26s cubic-bezier(.2,.8,.2,1)} .vin-l{animation:vinL .26s cubic-bezier(.2,.8,.2,1)}
-  .scr.enter,#cmpView.enter,#rptView.enter,#simView.enter,#pushView.enter,#askView.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
-  .scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave,#askView.leave{position:fixed;top:0;left:0;right:0;bottom:auto;min-height:100vh;align-content:start;box-shadow:-8px 0 24px rgba(0,0,0,.18);z-index:4;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
+  .scr.enter,#cmpView.enter,#rptView.enter,#simView.enter,#pushView.enter,#askView.enter,#feedView.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
+  .scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave,#askView.leave,#feedView.leave{position:fixed;top:0;left:0;right:0;bottom:auto;min-height:100vh;align-content:start;box-shadow:-8px 0 24px rgba(0,0,0,.18);z-index:4;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
   main.enter-back{animation:mainBack .28s cubic-bezier(.2,.8,.2,1)}
   @media (prefers-reduced-motion:reduce){.scr.enter,main.enter-back,.vin-r,.vin-l{animation:none}.scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave{animation:none;display:none}}
   .scr .cmphdr{padding:0 16px}
@@ -558,6 +558,14 @@
   .pi-card{display:grid; gap:4px; background:var(--sh-card,var(--card)); border-radius:14px; padding:14px 16px; margin:4px 0 8px} .pi-big{display:flex; align-items:baseline; gap:8px} .pi-big b{font-size:30px; font-weight:800; color:var(--pos); letter-spacing:-.02em; font-variant-numeric:tabular-nums} .pi-big span{color:var(--muted); font-size:14px}
   .pi-sub{font-size:13px; color:var(--muted); line-height:1.4} .pi-k{font-size:11.5px; color:var(--muted); font-weight:700; margin-top:10px} .pi-bars{display:flex; align-items:flex-end; gap:10px; height:96px; padding-top:4px}
   .pi-b{flex:1; display:grid; justify-items:center; align-content:end; gap:3px} .pi-b i{width:100%; max-width:42px; border-radius:6px 6px 2px 2px; background:var(--pos); opacity:.8} .pi-b small{font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums} .pi-b span{font-size:11px; color:var(--muted); font-weight:600}
+  #feedView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px;align-content:start} #feedView[hidden]{display:none}
+  .feed{display:grid; gap:8px} .feed-g{font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding:10px 2px 2px}
+  .feed-r{display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; background:var(--card); border:1px solid var(--line)} .feed-r.new{border-color:color-mix(in srgb,var(--brand) 55%,transparent)}
+  .feed-av{flex:0 0 40px; height:40px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:800; font-size:17px}
+  .feed-t{flex:1; display:grid; gap:2px; font-size:15px; line-height:1.35} .feed-t small{font-size:12.5px; color:var(--muted)}
+  .feed-p{display:grid; text-align:right; gap:1px} .feed-p b{font-size:16px; font-weight:800; font-variant-numeric:tabular-nums} .feed-p b.pos{color:var(--pos)} .feed-p b.neg{color:var(--neg)} .feed-p small{font-size:11px; color:var(--muted); white-space:nowrap}
+  .feed-empty{display:grid; gap:6px; padding:22px 18px; border-radius:16px; background:var(--card); border:1px dashed var(--line); text-align:center} .feed-empty span{color:var(--muted); font-size:14.5px; line-height:1.45}
+  .dr-badge{margin-left:auto; min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--brand); color:var(--brand-ink); font-style:normal; font-size:12px; font-weight:800; display:grid; place-items:center} .dr-badge[hidden]{display:none}
   .tour-dim{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; opacity:.78; transition:opacity .4s} .tour.intro .tour-dim{opacity:1}
   .tour-card.fin.in{animation:tourUp .4s cubic-bezier(.2,.9,.25,1)} .tour-mr{transition:x .45s cubic-bezier(.2,.9,.2,1),y .45s cubic-bezier(.2,.9,.2,1),width .45s cubic-bezier(.2,.9,.2,1),height .45s cubic-bezier(.2,.9,.2,1)}
   .tour-ring{position:absolute; inset:-3px; border-radius:19px; border:3px solid var(--brand); box-shadow:0 0 18px color-mix(in srgb,var(--brand) 70%,transparent)}
@@ -900,6 +908,7 @@
     <button type="button" class="dr-item" id="btnSim"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg><span>Proyección</span></button>
     <button type="button" class="dr-item" id="btnCash"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Plata sin invertir</span></button>
     <div class="dr-k">Con amigos</div>
+    <button type="button" class="dr-item" id="btnFeed"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg><span>Movimientos de amigos</span><i class="dr-badge" id="feedBadge" hidden></i></button>
     <button type="button" class="dr-item" id="btnRank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Ranking con amigos</span></button>
     <button type="button" class="dr-item" id="btnShare"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg><span>Compartir mi rendimiento</span></button>
     <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
@@ -913,6 +922,10 @@
   </div>
 </dialog>
 
+<section id="feedView" hidden>
+  <div class="cmphdr"><button type="button" id="feedBack" aria-label="Volver">←</button><h2>Movimientos de amigos</h2></div>
+  <div id="feedBody" class="feed"></div>
+</section>
 <section id="askView" hidden>
   <div class="cmphdr"><button type="button" id="askBack" aria-label="Volver">←</button><h2>Preguntale a tu cartera</h2></div>
   <div id="askLog" class="ask-log"></div>
@@ -2842,6 +2855,48 @@
   $("btnAsk").addEventListener("click",openAsk);
   $("askBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   $("askForm").addEventListener("submit",function(e){ e.preventDefault(); askSend($("askIn").value); });
+  /* ---------- Movimientos de amigos: compras y ventas de las carteras que te compartieron (solo %, nunca montos) ---------- */
+  var LS_FEED="cartera.feed.v2", feedSeen=load(LS_FEED,null), feedPx={}, feedPxT=0, feedBusy=null;
+  function feedItems(){ var out=[], tn=dayNum(todayStr());
+    profData.profiles.filter(function(p){ return p.readOnly; }).forEach(function(pr){ var who=pr.owner||pr.name, all=(pr.positions||[]).concat(pr.closed||[]);
+      var first={}; all.forEach(function(p){ (p.lots||[]).forEach(function(l){ if(l.d&&(!first[p.ticker]||l.d<first[p.ticker])) first[p.ticker]=l.d; }); });
+      all.forEach(function(p){ var byDay={};
+        (p.lots||[]).forEach(function(l){ if(!l.d||tn-dayNum(l.d)>120) return; var k=l.d; (byDay[k]||(byDay[k]={q:0,c:0})); byDay[k].q+=l.q; byDay[k].c+=l.q*l.b; });
+        Object.keys(byDay).forEach(function(d){ out.push({who:who,pid:pr.id,t:p.ticker,k:"b",d:d,first:first[p.ticker]===d,b:byDay[d].c/byDay[d].q,ccy:p.ccy,fi:!!p.fi,sold:!!p.sold}); });
+        if(p.sold&&p.sold.d&&tn-dayNum(p.sold.d)<=120){ var c=pCost(p), g=pProceeds(p)-c; out.push({who:who,pid:pr.id,t:p.ticker,k:"s",d:p.sold.d,pct:c>0?g/c:null}); } }); });
+    return out.sort(function(a,b){ return a.d<b.d?1:(a.d>b.d?-1:(a.k==="s"?-1:1)); }); }
+  /* "Nuevo" = movimiento que todavía no viste (se guarda qué viste, no la fecha: así cuenta lo que llega tarde al sincronizar). */
+  function feedKey(x){ return x.pid+"|"+x.t+"|"+x.k+"|"+x.d; }
+  function isNewF(x){ return !!feedSeen&&feedSeen.indexOf(feedKey(x))<0; }
+  function feedMarkSeen(){ feedSeen=feedItems().map(feedKey).slice(0,400); save(LS_FEED,feedSeen); }
+  function feedNew(){ return feedItems().filter(isNewF).length; }
+  function feedBadge(){ var n=feedNew(), b=$("feedBadge"); if(!b) return; b.hidden=!n; b.textContent=n>9?"9+":String(n); }
+  function ensureFeedPx(items){ var need=[]; items.forEach(function(x){ if(x.k==="b"&&x.ccy==="USD"&&!x.fi&&!prices[x.t]&&!feedPx[x.t]&&need.indexOf(x.t)<0) need.push(x.t); });
+    if(!need.length||feedBusy||!navigator.onLine||Date.now()-feedPxT<10*60*1000) return;
+    feedBusy=fetchHistory(need.slice(0,60),dayStr(dayNum(todayStr())-10)).then(function(j){ Object.keys(j.data||{}).forEach(function(t){ var h=j.data[t]; if(h&&h.currency==="USD"&&h.pts&&h.pts.length) feedPx[t]=h.pts[h.pts.length-1][1]; }); })
+      .catch(function(){}).then(function(){ feedBusy=null; feedPxT=Date.now(); if(!feedView.hidden) feedRender(); }); }
+  function ago(d){ var n=dayNum(todayStr())-dayNum(d); return n<=0?"hoy":(n===1?"ayer":(n<7?"hace "+n+" días":(n<14?"hace una semana":(n<60?"hace "+Math.round(n/7)+" semanas":"hace "+Math.round(n/30)+" meses")))); }
+  function avColor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return "hsl("+h+",55%,45%)"; }
+  function feedRender(){ var box=$("feedBody"); box.textContent=""; var items=feedItems(); ensureFeedPx(items);
+    var friends=profData.profiles.filter(function(p){ return p.readOnly; });
+    if(!friends.length){ var e=el("div","feed-empty"); e.appendChild(el("b",null,"Todavía no seguís a nadie")); e.appendChild(el("span",null,"Cuando un amigo te comparta su cartera (Menú → Perfiles → agregar con su código), acá vas a ver lo que compra y vende.")); box.appendChild(e); return; }
+    if(!items.length){ box.appendChild(el("div","feed-empty",null)).appendChild(el("span",null,"Tus amigos no compraron ni vendieron nada en los últimos 4 meses.")); return; }
+    var lastG="";
+    items.forEach(function(x){ var n=dayNum(todayStr())-dayNum(x.d), g=n<=7?"Esta semana":(n<=31?"Este mes":"Antes");
+      if(g!==lastG){ lastG=g; box.appendChild(el("div","feed-g",g)); }
+      var row=el("div","feed-r"+(isNewF(x)?" new":""));
+      var av=el("span","feed-av",(x.who||"?").trim().charAt(0).toUpperCase()); av.style.background=avColor(x.who||""); row.appendChild(av);
+      var mid=el("span","feed-t"); var l1=el("span"); l1.appendChild(el("b",null,x.who)); l1.appendChild(document.createTextNode(x.k==="s"?" vendió ":(x.first?" compró por primera vez ":" sumó más "))); l1.appendChild(el("b",null,x.t)); mid.appendChild(l1);
+      mid.appendChild(el("small",null,ago(x.d)+" · "+x.d.split("-").reverse().join("/"))); row.appendChild(mid);
+      var pct=null, lbl=""; if(x.k==="s"){ pct=x.pct; lbl="resultado"; } else if(!x.fi&&x.ccy==="USD"){ var px=(prices[x.t]&&prices[x.t].price)||feedPx[x.t]; if(px>0&&x.b>0){ pct=px/x.b-1; lbl="desde que compró"; } }
+      var rt=el("span","feed-p"); if(pct!==null){ rt.appendChild(el("b",pct>=0?"pos":"neg",fmtPct(pct))); rt.appendChild(el("small",null,lbl)); } row.appendChild(rt);
+      box.appendChild(row); });
+    box.appendChild(el("div","help","Solo se ven porcentajes, nunca montos ni cantidades.")); }
+  function openFeed(){ setScr(feedView); try{ history.pushState({scr:1},""); }catch(e){} feedRender(); feedMarkSeen(); feedBadge(); }
+  $("btnFeed").addEventListener("click",openFeed);
+  $("btnMenu").addEventListener("click",feedBadge);
+  $("feedBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
+  if(!feedSeen) feedMarkSeen(); /* la primera vez no hay nada "nuevo" */
   function openRpt(){ setScr(rptView); try{ history.pushState({scr:1},""); }catch(e){} rptRenderCfg(); rptBuild(); }
   $("btnRpt").addEventListener("click",openRpt);
   $("rptBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
@@ -4297,7 +4352,7 @@
   var cmpView=$("cmpView"), cmpRun=0, cmpOpen=false, cmpData=null, cmpRange="all";
   var MES3=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
   var dlgProf=$("dlgProf"), dlgSet=$("dlgSet");
-  var rptView=$("rptView"), simView=$("simView"), pushView=$("pushView"), askView=$("askView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView,simView,pushView,askView];
+  var rptView=$("rptView"), simView=$("simView"), pushView=$("pushView"), askView=$("askView"), feedView=$("feedView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView,simView,pushView,askView,feedView];
   function setScr(el){
     var prev=SCREENS.filter(function(x){ return !x.hidden; })[0]||null, prevTop=prev?prev.getBoundingClientRect().top:0;
     SCREENS.forEach(function(x){ x.hidden=x!==el; x.classList.remove("enter","leave"); });
@@ -4646,7 +4701,7 @@
   dlgMenu.addEventListener("click",function(e){ if(e.target===dlgMenu) dlgMenu.close(); });
   $("btnMenu").addEventListener("click",function(){ renderProfile(); dlgMenu.showModal(); });
   $("menuClose").addEventListener("click",function(){ dlgMenu.close(); });
-  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash","btnRpt","btnSim","btnPush","btnShare","btnRank","btnAsk"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
+  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash","btnRpt","btnSim","btnPush","btnShare","btnRank","btnAsk","btnFeed"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
   $("btnCmp").addEventListener("click",openCmp);
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
