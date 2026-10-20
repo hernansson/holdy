@@ -1006,7 +1006,7 @@ async function social(request, env, url, cors, ctx) {
     Object.values(doc.k).forEach((v) => (v.c || []).forEach((c) => { subs.add(c.s); if (c.rp) subs.add(c.rp.s); }));
     const ids = {}, users = {};
     await Promise.all([...subs].map(async (s) => { const p = await getPf(env, s), id = await uid(s); ids[s] = id; users[id] = { n: p.n || "", v: p.ph ? p.pv || "1" : "" }; }));
-    for (const [k, v] of Object.entries(doc.k)) o[k] = { r: Object.fromEntries(Object.entries(v.r || {}).filter(([, a]) => a.length).map(([e, a]) => [e, [a.length, a.includes(u.sub) ? 1 : 0]])),
+    for (const [k, v] of Object.entries(doc.k)) o[k] = { ...(v.nt ? { nt: v.nt } : {}), r: Object.fromEntries(Object.entries(v.r || {}).filter(([, a]) => a.length).map(([e, a]) => [e, [a.length, a.includes(u.sub) ? 1 : 0]])),
       c: (v.c || []).map((c) => ({ i: c.i, n: (users[ids[c.s]] && users[ids[c.s]].n) || c.n, u: ids[c.s], t: c.t, a: c.a, me: c.s === u.sub ? 1 : 0, o: stored.o && c.s === stored.o.s ? 1 : 0,
         ...(c.rp ? { rp: { n: (users[ids[c.rp.s]] && users[ids[c.rp.s]].n) || c.rp.n, t: c.rp.t, me: c.rp.s === u.sub ? 1 : 0 } } : {}),
         ...(Number.isFinite(c.h) ? { h: c.h } : {}),
@@ -1023,7 +1023,11 @@ async function social(request, env, url, cors, ctx) {
   const deep = "#feed/" + encodeURIComponent(code) + "/" + encodeURIComponent(key);
   const myName = await dispName(env, u), me = myName.split(" ")[0];
   let notify = [], msg = null;
-  if (b.del || b.lk) {
+  if (typeof b.nt === "string") {
+    // "Por qué lo hice": nota del dueño, fija arriba de los comentarios. Vacía = se borra.
+    if (!isOwner) return json({ error: "forbidden" }, 403, nostore);
+    const t = b.nt.replace(/\s+/g, " ").trim().slice(0, 200); if (t) it.nt = { t, a: Date.now() }; else delete it.nt;
+  } else if (b.del || b.lk) {
     // Borrar: el que lo escribió o el dueño de la cartera. Me gusta en un comentario: sin aviso (ahorra escrituras).
     const id = String(b.del || b.lk), ci = it.c.findIndex((c) => c.i === id);
     if (ci < 0) return out();
@@ -1045,7 +1049,7 @@ async function social(request, env, url, cors, ctx) {
   it.at = Date.now();
   const keys = Object.keys(doc.k); if (keys.length > 200) keys.sort((x, y) => doc.k[x].at - doc.k[y].at).slice(0, keys.length - 200).forEach((k) => delete doc.k[k]);
   await env.HOLDY_KV.put(fk, JSON.stringify(doc), { expirationTtl: TTL_PROFILE });
-  const last = it.c[it.c.length - 1], rpTo = !b.re && !b.del && !b.lk && last && last.s === u.sub && last.rp ? last.rp.s : null;
+  const last = it.c[it.c.length - 1], rpTo = !b.re && !b.del && !b.lk && typeof b.nt !== "string" && last && last.s === u.sub && last.rp ? last.rp.s : null;
   if (msg && notify.length && ctx) ctx.waitUntil(Promise.all(notify.map((s) => pushTo(env, s, "fr", s === rpTo ? { ...msg, title: me + " te respondió" } : msg).catch(() => 0))));
   return out();
 }
