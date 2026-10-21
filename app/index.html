@@ -764,7 +764,7 @@
   #profSel svg{color:var(--muted); flex:0 0 auto; transition:transform .15s}
   #profSel .pav{display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--brand); color:#fff; font-style:normal; font-size:12px; font-weight:700; flex:0 0 auto}
   header #profSel{border:0; background:#fff; color:#14201f; opacity:1; box-shadow:0 1px 3px rgba(0,0,0,.2); max-width:58%; margin-right:2px; padding:0 10px 0 4px}
-  header #profSel .pav{background:var(--brand); color:#fff}
+  header #profSel .pav{background:var(--brand); color:#fff} #profSel .pav.ph,header #profSel .pav.ph{background:none; overflow:hidden; padding:0} #profSel .pav img{width:100%; height:100%; object-fit:cover; display:block}
   header #profSel svg{color:#5b6b69}
   #profSel span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .pmenu{position:absolute; top:calc(100% + 6px); left:0; z-index:30; min-width:220px; max-width:calc(100vw - 32px); background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 8px 28px rgba(0,0,0,.18); padding:6px; opacity:0; transform:translateY(-6px) scale(.98); transform-origin:top left; transition:opacity .12s, transform .12s}
@@ -1966,7 +1966,11 @@
   function renderProfile(){
     var c=cur();
     var ps=$("profSel"); ps.textContent="";
-    ps.appendChild(el("i","pav",(c.name||"?").trim().charAt(0).toUpperCase()));
+    /* Tu foto en tus carteras; la de tu amigo en la suya (si ya la conocemos). Si no, la inicial. */
+    var pav=el("i","pav",(c.name||"?").trim().charAt(0).toUpperCase()), phu="";
+    try{ if(!c.readOnly&&!c.demo) phu=meProf.ph||""; else if(c.readOnly&&c.syncCode&&fxUs[c.syncCode]){ var ou=fxUser(c.syncCode,fxUs[c.syncCode].ow); phu=(ou&&ou.ph)||""; } }catch(e){}
+    if(phu){ pav.textContent=""; pav.classList.add("ph"); var im_=document.createElement("img"); im_.src=phu; im_.alt=""; pav.appendChild(im_); }
+    ps.appendChild(pav);
     ps.appendChild(el("span",null,c.name));
     ps.insertAdjacentHTML("beforeend",'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>');
     $("roTag").hidden=!c.readOnly;
@@ -5032,7 +5036,7 @@
     if(meProf.ph){ var im=document.createElement("img"); im.src=meProf.ph; im.alt="Tu foto"; ph.appendChild(im); ph.style.background=""; } else { ph.appendChild(document.createTextNode(meName().charAt(0).toUpperCase())); ph.style.background=avColor(meName()); }
     if(document.activeElement!==$("meBy")) $("meBy").value=meProf.by?String(meProf.by):"";
     $("meDel").hidden=!meProf.ph; if(document.activeElement!==$("meName")) $("meName").value=meProf.n||(auth&&auth.name)||""; }
-  function meSet(p){ meProf={n:p.n||"",ph:p.ph||"",by:+p.by||0,t:+p.t||0}; save("cartera.me.v1",meProf); meRender(); hubRender(); menuUserRender(); if(!feedView.hidden) feedRender(); }
+  function meSet(p){ meProf={n:p.n||"",ph:p.ph||"",by:+p.by||0,t:+p.t||0}; save("cartera.me.v1",meProf); meRender(); hubRender(); menuUserRender(); try{ renderProfile(); }catch(e){} if(!feedView.hidden) feedRender(); }
   function meFetch(){ if(!auth||!navigator.onLine) return; api("GET","/me/profile").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j&&!(meProf.t&&(+j.t||0)<meProf.t)) meSet(j); }).catch(function(){}); } /* no pisa un cambio tuyo más nuevo */
   function mePut(p,msg){ var st=$("meSt"); st.textContent="Guardando…"; var prev=meProf; meSet(Object.assign({},meProf,p,{t:Date.now()}));
     return api("PUT","/me/profile",{n:meProf.n,ph:meProf.ph,by:meProf.by||0}).then(function(r){ if(!r.ok) throw {status:r.status}; return r.json(); }).then(function(j){ meSet(j); st.textContent=msg||"Guardado ✓"; setTimeout(function(){ st.textContent=""; },2500); })
