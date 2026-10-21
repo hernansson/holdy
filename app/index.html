@@ -39,6 +39,8 @@
     background:var(--bg); color:var(--text); font-size:15px; line-height:1.4;
     padding-bottom:calc(88px + env(safe-area-inset-bottom));
   }
+  /* El espacio de abajo es para el botón "+ Posición": en las otras pantallas no hace falta (si no, deja deslizar sin que haya nada). */
+  body:has(> main[hidden]){padding-bottom:env(safe-area-inset-bottom)} #simOut:empty{display:none}
   header{
     position:sticky; top:0; z-index:5; background:var(--brand); color:var(--brand-ink);
     padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
@@ -206,7 +208,7 @@
   .cob-hd{padding:4px 2px 12px}
   #pushView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #pushView[hidden]{display:none}
   #pushBody > button{min-height:46px}
-  #simView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #simView[hidden]{display:none} #simForm{display:grid; gap:12px} .sim-adjw{display:grid; gap:12px}
+  #simView{max-width:860px;margin:0 auto;padding:14px 16px 16px;display:grid;gap:12px} #simView[hidden]{display:none} #simForm{display:grid; gap:12px} .sim-adjw{display:grid; gap:12px}
   #simForm,#simOut,#simAs{display:grid; gap:6px} #simOut{gap:10px}
   .sim-r{cursor:default} .sim-in{display:flex; align-items:center; gap:6px; background:var(--chip); border-radius:10px; padding:0 10px; flex:0 0 auto}
   .sim-in i{font-style:normal; color:var(--muted); font-size:13px} .sim-in input{border:0; background:transparent; width:96px; text-align:right; font-size:16px; font-weight:600; padding:9px 0; color:var(--text); min-height:0; box-shadow:none; outline:none}
@@ -227,6 +229,7 @@
   .sim-warn{font-size:14px; color:var(--neg); padding:10px}
   
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
+  .sim-bar{display:grid; gap:8px; align-items:stretch} .sim-hq{font-size:13px; font-weight:700; color:var(--muted); padding-bottom:8px; border-bottom:1px solid var(--line)} .sim-bar div.sim-cols{display:flex; justify-content:space-between; align-items:end; gap:12px} .sim-bar div.sim-hq{display:block}
   .sim-bar::before{content:""; position:absolute; left:-17px; right:-17px; top:-9px; height:9px; background:var(--bg)}
   .sim-q{padding:12px 16px 0} .sim-sum{align-items:center} .sim-sum .pe-t{font-size:14.5px} .sim-edit{flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:800; color:var(--brand-ink,#fff); background:var(--brand); border-radius:999px; padding:10px 16px; box-shadow:0 4px 14px rgba(0,0,0,.18)}
   .pe-grp:has(> .sim-sum){border:2px solid var(--brand)} .sim-sum{cursor:pointer}
@@ -2686,15 +2689,19 @@
     var capRet=new Float64Array(N); for(var i2=0;i2<N;i2++) capRet[i2]=cap*G[i2]+(isFinite(ap)?ap:0)*Aa[i2];
     var p50=need&&isFinite(target)&&ap>0?Math.max(target,simPct(capRet,0.5)):simPct(capRet,0.5);
     /* Arriba, fijo: lo más importante de cada modo. */
-    var L=el("div"), Rr=el("div","r");
-    if(need){ L.appendChild(el("small",null,"Tenés que poner por mes")); L.appendChild(el("b",null,!isFinite(ap)?"—":(ap>0?M(ap):"Nada"))); L.appendChild(el("small",null,!isFinite(ap)?"con este rendimiento no se puede":(ap>0?"durante "+yAcc+" años":"ya te alcanza")));
-      Rr.appendChild(el("small",null,live?"A los "+ret+" juntás":"En "+yAcc+" años juntás")); Rr.appendChild(el("b",null,M(p50*fRet))); Rr.appendChild(el("small",null,"≈ "+M(p50)+" de hoy")); }
-    else { L.appendChild(el("small",null,"A los "+ret+" ("+yrRet+") tenés")); L.appendChild(el("b",null,M(p50*fRet))); L.appendChild(el("small",null,"≈ "+M(p50)+" de hoy"));
-      Rr.appendChild(el("small",null,"Podés gastar por mes")); Rr.appendChild(el("b",null,M(p50*sPlan*fRet))); Rr.appendChild(el("small",null,"≈ "+M(p50*sPlan)+" de hoy · "+planTxt)); }
-    bar.appendChild(L); bar.appendChild(Rr);
+    /* Arriba: una frase con lo que estás calculando y dos números con su nombre. Igual en los tres modos. */
+    var L=el("div"), Rr=el("div","r"), hq;
+    if(need){ hq=live?"Para cobrar "+M(+simIn.liveN||0)+"/mes "+(inf?"desde los "+ret+", para siempre":"de los "+ret+" a los "+end):"Para juntar "+M(+simIn.goalAmt||0)+" en "+yAcc+(yAcc===1?" año":" años");
+      L.appendChild(el("small",null,"Tenés que poner por mes")); L.appendChild(el("b",null,!isFinite(ap)?"—":(ap>0?M(ap):"Nada"))); L.appendChild(el("small",null,!isFinite(ap)?"con este rendimiento no se puede":(ap>0?"durante "+yAcc+" años":"ya te alcanza")));
+      if(live){ Rr.appendChild(el("small",null,"Necesitás juntar")); Rr.appendChild(el("b",null,M(p50*fRet))); Rr.appendChild(el("small",null,"≈ "+M(p50)+" de hoy")); }
+      else { /* la meta ya está en la frase de arriba: acá, cuánto ponés vos y cuánto el mercado */
+        var put0=cap; if(isFinite(ap)) for(var y0=0;y0<yAcc;y0++) put0+=ap*12*Math.pow(1+INF,y0+0.5);
+        Rr.appendChild(el("small",null,"Vos ponés en total")); Rr.appendChild(el("b",null,isFinite(ap)?M(put0):"—")); Rr.appendChild(el("small",null,isFinite(ap)?"el mercado suma "+M(Math.max(0,(+simIn.goalAmt||0)-put0)):"")); } }
+    else { hq="Con "+M(cap)+(ap>0?" + "+M(ap)+"/mes":"")+" hasta los "+ret;
+      L.appendChild(el("small",null,"A los "+ret+" ("+yrRet+") tenés")); L.appendChild(el("b",null,M(p50*fRet))); L.appendChild(el("small",null,"≈ "+M(p50)+" de hoy"));
+      Rr.appendChild(el("small",null,"Para gastar por mes")); Rr.appendChild(el("b",null,M(p50*sPlan*fRet))); Rr.appendChild(el("small",null,"≈ "+M(p50*sPlan)+" de hoy · "+planTxt)); }
+    bar.appendChild(el("div","sim-hq",hq)); var cols=el("div","sim-cols"); cols.appendChild(L); cols.appendChild(Rr); bar.appendChild(cols);
     if(need&&!isFinite(ap)) card().appendChild(el("div","sim-n","Con este rendimiento no se llega. Probá con más años o una meta más chica."));
-    var how=document.createElement("details"); how.className="sim-how"; how.appendChild(el("summary",null,"¿Cómo se calcula?")); out.appendChild(how);
-    how.appendChild(el("div","sim-foot","Se toma el caso normal: el resultado del medio entre 2.000 futuros posibles con años buenos y malos. En plazos largos es lo más representativo ("+(R*100).toFixed(1).replace(".",",")+"% anual por encima de la inflación). Los montos “de hoy” descuentan una inflación de "+(INF*100).toFixed(1).replace(".",",")+"% anual; los “de "+yrRet+"” son los dólares que vas a ver ese año. No incluye impuestos ni comisiones. Es una simulación, no una promesa ni una recomendación."));
   }
   function simChart(box,runs,age,ret,end,cy,title){
     box.textContent=""; box.appendChild(el("div","pe-k",title));
