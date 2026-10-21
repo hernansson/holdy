@@ -206,7 +206,7 @@
   .cob-hd{padding:4px 2px 12px}
   #pushView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #pushView[hidden]{display:none}
   #pushBody > button{min-height:46px}
-  #simView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #simView[hidden]{display:none}
+  #simView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #simView[hidden]{display:none} #simForm{display:grid; gap:12px} .sim-adjw{display:grid; gap:12px}
   #simForm,#simOut,#simAs{display:grid; gap:6px} #simOut{gap:10px}
   .sim-r{cursor:default} .sim-in{display:flex; align-items:center; gap:6px; background:var(--chip); border-radius:10px; padding:0 10px; flex:0 0 auto}
   .sim-in i{font-style:normal; color:var(--muted); font-size:13px} .sim-in input{border:0; background:transparent; width:96px; text-align:right; font-size:16px; font-weight:600; padding:9px 0; color:var(--text); min-height:0; box-shadow:none; outline:none}
@@ -2535,7 +2535,7 @@
     cons:{n:"Conservadora · bonos",r:0.02,v:0.06,s:"Bonos de EE.UU., muy estable",h:"Bonos del Tesoro de EE.UU. Muy estable; apenas le gana a la inflación."}
   };
   var LS_SIM="cartera.sim.v1", simIn=Object.assign({liveNom:0,cap:null,ap:0,age:35,ret:60,end:85,a:"vuaa",gasto:0,mode:"have",goal:"cap",goalAmt:1000000,goalNom:1,live:3000,livePlan:"end",r:null,v:null,inf:2.5},load(LS_SIM,{})||{});
-  if(simIn.a==="mod") simIn.a="custom"; if(simIn.livePlan==="inf"){ simIn.end=100; simIn.livePlan="end"; } if(simIn.end>100) simIn.end=100;
+  if(simIn.a==="mod") simIn.a="custom"; if(simIn.livePlan==="inf"){ simIn.end=100; simIn.livePlan="end"; } if(simIn.end>100) simIn.end=100; if(!(simIn.liveN>=0)) simIn.liveN=Math.round((+simIn.live||0)*Math.pow(1+(+simIn.inf||0)/100,Math.max(0,simIn.ret-simIn.age))/100)*100; /* Renta: ahora se elige en dólares de ese año */
   if(simIn.r===null){ var A0=SIM_ASSETS[simIn.a]||SIM_ASSETS.vuaa; simIn.r=A0.r*100; simIn.v=A0.v*100; }
   function simCapNow(){ var t=0; vPos().forEach(function(p){ var cp=curPx(p); if(cp!==null) t+=p.qty*cp; }); return Math.round((t+vBalTotal())*dcF()); }
   /* Generador de números al azar con semilla fija: los resultados no cambian cada vez que abrís la pantalla. */
@@ -2572,8 +2572,8 @@
     [["have","Ahorro"],["cap","Meta"],["live","Renta"]].forEach(function(o){ var b=el("button",cur_===o[0]?"on":"",o[1]); b.type="button";
       b.addEventListener("click",function(){ if(cur_===o[0]) return; if(o[0]==="have") simIn.mode="have"; else { simIn.mode="need"; simIn.goal=o[0]; } simSave(); simForm(); simCalcNow(); }); sg.appendChild(b); });
     r.appendChild(sg); g0.appendChild(r);
-    var sb=el("button","pe-r sim-sum"); sb.type="button"; sb.id="simSum"; sb.addEventListener("click",simOpenA);
-    var g5=el("div","pe-grp"); g5.appendChild(sb); box.appendChild(g5); simSumUpd();
+    /* Los ajustes van en la pantalla (sin hoja): el resultado queda fijo arriba y esto se desliza. */
+    var adj=el("div","sim-adjw"); adj.id="simAdj"; box.appendChild(adj); simOpenA();
     $("simAs").textContent="";
   }
   function simSumUpd(){ var sb=$("simSum"); if(!sb) return; sb.textContent=""; var A=SIM_ASSETS[simIn.a];
@@ -2617,7 +2617,7 @@
     parent.appendChild(w); draw(); requestAnimationFrame(draw); }
   function simOpenA(){
     if(!simIn.adjSeen){ simIn.adjSeen=1; simSave(); var pe=document.querySelector(".sim-edit.pulse"); if(pe) pe.classList.remove("pulse"); }
-    var box=$("simABody"), d=$("dlgSimA"), st=box.scrollTop; box.textContent=""; d.querySelector("h3").textContent="Ajustar"; d.classList.add("sim-live");
+    var box=$("simAdj"); if(!box) return; box.textContent="";
     function seg(parent,opts,key){ var r=el("div","sim-sg"), sg=el("div","seg sm vw-seg");
       opts.forEach(function(o){ var b=el("button",String(simIn[key])===String(o[0])?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(String(simIn[key])===String(o[0])) return; simIn[key]=o[0]; simSave(); simCalcNow(); simSumUpd(); simOpenA(); }); sg.appendChild(b); });
       r.appendChild(sg); parent.appendChild(r); }
@@ -2633,9 +2633,9 @@
       i.addEventListener("blur",function(){ apply(); show(); }); parent.appendChild(r); return r; }
     var g=el("div","pe-grp vw-g sim-adj"); box.appendChild(g); simDyn=[]; simIn.liveNom=0;
     if(simIn.mode==="need"&&simIn.goal==="cap"){ sl(g,"Quiero juntar","goalAmt",0,2000000,10000,1); }
-    else if(simIn.mode==="need"){ var eq=el("div","sim-eq"); var upd=function(){ var n=Math.max(0,Math.round(simIn.ret)-Math.round(simIn.age)), f=Math.pow(1+(+simIn.inf||0)/100,n), v=+simIn.live||0;
-          eq.textContent="En plata de hoy. En "+(+todayStr().slice(0,4)+n)+" van a ser ≈ "+simM(v*f)+" por mes."; };
-        sl(g,"Quiero cobrar por mes","live",0,20000,100,1,upd); g.appendChild(eq); upd(); simDyn.push(upd); }
+    else if(simIn.mode==="need"){ var eq=el("div","sim-eq"); var upd=function(){ var n=Math.max(0,Math.round(simIn.ret)-Math.round(simIn.age)), f=Math.pow(1+(+simIn.inf||0)/100,n), v=+simIn.liveN||0;
+          eq.textContent="Dólares de "+(+todayStr().slice(0,4)+n)+" · ≈ "+simM(v/f)+" de hoy"; };
+        sl(g,"Quiero cobrar por mes","liveN",0,30000,100,1,upd); g.appendChild(eq); upd(); simDyn.push(upd); }
     else sl(g,"Ponés por mes","ap",0,20000,100,1);
     sl(g,"Arrancás con","cap",0,Math.max(300000,Math.ceil((+simIn.cap||0)*2/50000)*50000),1000,1);
     if(simIn.mode==="need"&&simIn.goal==="cap"){ simIn._yrs=Math.max(1,Math.round(simIn.ret-simIn.age)); sl(g,"En cuántos años","_yrs",1,50,1,0,function(){ simIn._yrs=Math.max(1,Math.round(simIn._yrs)); simIn.ret=Math.round(simIn.age)+simIn._yrs; if(simIn.end<=simIn.ret) simIn.end=Math.min(100,simIn.ret+1); }); }
@@ -2654,14 +2654,9 @@
           if(o[1]==="nom"){ simIn.r=((1+v/100)/(1+(+simIn.inf||0)/100)-1)*100; } else if(o[1]==="inf"){ var nom=simNom(+simIn.r); simIn.inf=v; simIn.r=((1+nom/100)/(1+v/100)-1)*100; } else simIn[o[1]]=v;
           simLive(); };
         ["input","keyup","change","compositionend","blur"].forEach(function(ev){ i.addEventListener(ev,apply); }); }); }
-    /* "Listo" fijo abajo, fuera de la parte que se desliza. */
-    var old=d.querySelector(".sim-ok"); if(old) old.remove();
-    var ok=el("button","primary sim-ok","Listo"); ok.type="button"; ok.addEventListener("click",function(){ d.close(); }); box.parentNode.appendChild(ok);
-    if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); } else box.scrollTop=st;
   }
   $("simAClose").addEventListener("click",function(){ $("dlgSimA").close(); });
   $("dlgSimA").addEventListener("click",function(e){ if(e.target===this) this.close(); });
-  $("dlgSimA").addEventListener("close",function(){ if(!simView.hidden) simForm(); });
   var simT=null;
   function simCalc(){ clearTimeout(simT); simT=setTimeout(simCalcNow,30); }
   var simPC={k:"",p:null};
@@ -2685,7 +2680,7 @@
     var ap=+simIn.ap||0, need=simIn.mode==="need", live=need&&simIn.goal==="live", target=0, liveR=0, inf=end>=100, sPlan=inf?sInf:sEnd, planTxt=inf?"para siempre":"hasta los "+end;
     if(need){
       if(!live) target=(+simIn.goalAmt||0)/fRet;
-      else { liveR=+simIn.live||0; target=sPlan>0?liveR/sPlan:Infinity; }
+      else { if(!(simIn.liveN>=0)) simIn.liveN=Math.round((+simIn.live||0)*fRet/100)*100; liveR=(+simIn.liveN||0)/fRet; target=sPlan>0?liveR/sPlan:Infinity; }
       ap=isFinite(target)?apFor(target,0.5):Infinity;
     }
     var capRet=new Float64Array(N); for(var i2=0;i2<N;i2++) capRet[i2]=cap*G[i2]+(isFinite(ap)?ap:0)*Aa[i2];
@@ -2697,17 +2692,7 @@
     else { L.appendChild(el("small",null,"A los "+ret+" ("+yrRet+") tenés")); L.appendChild(el("b",null,M(p50*fRet))); L.appendChild(el("small",null,"≈ "+M(p50)+" de hoy"));
       Rr.appendChild(el("small",null,"Podés gastar por mes")); Rr.appendChild(el("b",null,M(p50*sPlan*fRet))); Rr.appendChild(el("small",null,"≈ "+M(p50*sPlan)+" de hoy · "+planTxt)); }
     bar.appendChild(L); bar.appendChild(Rr);
-    /* Una sola tarjeta: la frase que lo explica + de dónde sale la plata. */
-    var apU=isFinite(ap)?ap:0, put=cap; for(var yy=0;yy<yAcc;yy++) put+=apU*12*Math.pow(1+INF,yy+0.5);
-    var tot=p50*fRet, gain=Math.max(0,tot-put), cS=card("De dónde sale");
-    var f1="";
-    if(need&&!isFinite(ap)) f1="Con este rendimiento no se llega. Probá con más años o una meta más chica.";
-    else if(need&&ap<=0) f1="Ya te alcanza con lo que tenés, sin poner nada más.";
-    else if(!need||live) f1=inf?"Después vivís de lo que rinde: la plata no se termina nunca.":"Gastás hasta los "+end+": lo que queda sigue rindiendo y a esa edad llega a cero.";
-    if(f1) cS.appendChild(el("div","sim-n",f1));
-    var sb_=el("div","sim-stk"), w1=tot>0?put/(put+gain)*100:50; var a1=el("i","a"); a1.style.width=w1+"%"; var a2=el("i","b"); a2.style.width=(100-w1)+"%"; sb_.appendChild(a1); sb_.appendChild(a2); cS.appendChild(sb_);
-    var lg=el("div","sim-lg"); [["a","Vos ponés",put],["b","El mercado suma",gain]].forEach(function(x){ var d=el("div"); d.appendChild(el("i",x[0])); var t=el("span",null,x[1]+" "); t.appendChild(el("b",null,M(x[2]))); d.appendChild(t); lg.appendChild(d); }); cS.appendChild(lg);
-    if(need&&ap>0&&isFinite(ap)) cS.appendChild(el("div","sim-n","Tip: subí lo que ponés por mes un poco cada año, lo mismo que la inflación."));
+    if(need&&!isFinite(ap)) card().appendChild(el("div","sim-n","Con este rendimiento no se llega. Probá con más años o una meta más chica."));
     var how=document.createElement("details"); how.className="sim-how"; how.appendChild(el("summary",null,"¿Cómo se calcula?")); out.appendChild(how);
     how.appendChild(el("div","sim-foot","Se toma el caso normal: el resultado del medio entre 2.000 futuros posibles con años buenos y malos. En plazos largos es lo más representativo ("+(R*100).toFixed(1).replace(".",",")+"% anual por encima de la inflación). Los montos “de hoy” descuentan una inflación de "+(INF*100).toFixed(1).replace(".",",")+"% anual; los “de "+yrRet+"” son los dólares que vas a ver ese año. No incluye impuestos ni comisiones. Es una simulación, no una promesa ni una recomendación."));
   }
