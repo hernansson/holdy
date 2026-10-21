@@ -60,6 +60,12 @@
   .dr-top{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 8px;font-size:18px}
   .dr-top button{border:0;background:transparent;min-height:36px;min-width:36px;font-size:18px}
   .dr-user{font-size:13px;color:var(--muted);padding:0 8px 10px;word-break:break-all}
+  .dr-acct{display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:10px; margin:0 0 8px; border-radius:14px; background:var(--card); border:1px solid var(--line); box-shadow:none; color:var(--text); font-weight:400}
+  .dr-acct .feed-av{flex:0 0 42px; height:42px; font-size:17px} .dr-acct>span{flex:1; min-width:0; display:grid; gap:1px} .dr-acct b{font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap} .dr-acct small{color:var(--muted); font-size:12.5px} .dr-acct i{font-style:normal; color:var(--muted); font-size:20px}
+  #formSet.hub>.sec:not(#lockSec):not(#installSec){display:none} #formSet.sub>#setHub,#formSet.sub>.sec:not(.cur){display:none} #formSet.sub .sec-t{display:none} #formSet.sub>.sec{border-top:0; padding-top:0}
+  .set-hub{display:grid; gap:12px} .set-me{display:flex; align-items:center; gap:14px; width:100%; text-align:left; padding:14px; border-radius:16px; background:var(--card); border:1px solid var(--line); box-shadow:none; color:var(--text); font-weight:400}
+  .set-me .feed-av{flex:0 0 56px; height:56px; font-size:22px} .set-me>span{flex:1; min-width:0; display:grid; gap:2px} .set-me b{font-size:17px} .set-me small{color:var(--muted); font-size:13px; overflow:hidden; text-overflow:ellipsis} .set-me i,.pe-ch{font-style:normal; color:var(--muted); font-size:20px; margin-left:auto}
+  #setHub .pe-r{border-top:1px solid var(--line)} #setHub .pe-r:first-child{border-top:0}
   .dr-item{display:flex;align-items:center;gap:12px;text-align:left;border:0;background:transparent;border-radius:10px;padding:13px 10px;font-size:16px;width:100%}
   .dr-item:hover,.dr-item:active{background:var(--chip)}
   .dr-item[hidden]{display:none}
@@ -957,7 +963,7 @@
 <dialog id="dlgMenu" class="drawer">
   <div class="dr-in">
     <div class="dr-top"><strong>Holdy</strong><button type="button" id="menuClose" aria-label="Cerrar menú">✕</button></div>
-    <div class="dr-user" id="menuUser"></div>
+    <button type="button" class="dr-acct" id="menuUser"></button>
     <button type="button" class="dr-item" id="btnRefresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span>Actualizar precios</span></button>
     <div class="dr-k">Tu cartera</div>
     <button type="button" class="dr-item" id="btnAsk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5"/><path d="M12 16.5h.01"/></svg><span>Preguntale a tu cartera</span></button>
@@ -969,10 +975,10 @@
     <button type="button" class="dr-item" id="btnRank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Ranking con amigos</span></button>
     <button type="button" class="dr-item" id="btnShare"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg><span>Compartir mi rendimiento</span></button>
     <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
-    <div class="dr-k">Ajustes</div>
-    <button type="button" class="dr-item" id="btnPush"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Avisos</span></button>
-    <button type="button" class="dr-item" id="btnProfAdm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Perfiles</span></button>
-    <button type="button" class="dr-item" id="btnSettings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Tu cuenta</span></button>
+    <div class="dr-k" hidden>Ajustes</div>
+    <button type="button" class="dr-item" id="btnPush" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Avisos</span></button>
+    <button type="button" class="dr-item" id="btnProfAdm" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5 6.5-5s6.5 1.5 6.5 5"/><path d="M17 5a3.5 3.5 0 0 1 0 6"/><path d="M19 15c1.5.7 2.5 2.2 2.5 4.5"/></svg><span>Perfiles</span></button>
+    <button type="button" class="dr-item" id="btnSettings" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Tu cuenta</span></button>
     <div class="dr-sep"></div>
     <button type="button" class="dr-item danger" id="menuOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></svg><span>Cerrar sesión</span></button>
     <div class="dr-ver" id="drVer"></div>
@@ -1382,8 +1388,17 @@
 </dialog>
 
 <section id="dlgSet" class="scr" hidden>
-  <div class="cmphdr"><button type="button" id="sClose" aria-label="Volver">←</button><h2>Tu cuenta</h2></div>
-  <div id="formSet" style="padding:8px 16px 18px;display:grid;gap:12px">
+  <div class="cmphdr"><button type="button" id="sClose" aria-label="Volver">←</button><h2 id="setTitle">Ajustes</h2></div>
+  <div id="formSet" class="hub" style="padding:8px 16px 18px;display:grid;gap:12px">
+    <div id="setHub" class="set-hub">
+      <button type="button" class="set-me" id="hubMe"></button>
+      <div class="pe-grp">
+        <button type="button" class="pe-r" id="hubProf"><span class="pe-t">Perfiles<small>Tus carteras: crear, importar y compartir</small></span><span class="pe-ch">›</span></button>
+        <button type="button" class="pe-r" id="hubPush"><span class="pe-t">Avisos<small>Qué te avisa Holdy y cuándo</small></span><span class="pe-ch">›</span></button>
+        <button type="button" class="pe-r" id="hubAcct"><span class="pe-t">Cuenta y sincronización<small>Tu cuenta de Google y tus dispositivos</small></span><span class="pe-ch">›</span></button>
+        <button type="button" class="pe-r" id="hubBk"><span class="pe-t">Copia de seguridad<small>Exportar, importar y Excel</small></span><span class="pe-ch">›</span></button>
+      </div>
+    </div>
     <div class="sec" id="meSec" style="border-top:0;padding-top:0" hidden>
       <div class="sec-t">Tu perfil</div>
       <div class="me-row"><label class="me-ph" id="mePh" title="Cambiar foto"><input type="file" id="meFile" accept="image/*" hidden></label>
@@ -1933,7 +1948,7 @@
     $("demoBar").hidden=!c.demo;
     $("btnAdd").hidden=!!c.readOnly||cmpOpen;
     $("btnCmp").hidden=!profData.profiles.length;
-    $("menuUser").textContent=auth?((auth.name?auth.name+" · ":"")+auth.email):"";
+    try{ menuUserRender(); }catch(e){}
   }
 
   var detMore={};
@@ -3090,7 +3105,7 @@
       if(code){ var x=feedGroups(feedItems()).filter(function(y){ return y.code===code&&(fxKey(y)===key||y.items.some(function(i){ return fxKey(i)===key; })); })[0]; if(!x) return; var d=$("dlgSimA"); if(d.open) d.close();
         fxThread(x); api("GET","/fx/"+encodeURIComponent(code)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; fxData[code]=j.k||{}; fxUs[code]={us:j.us||{},ow:j.ow||"",owner:j.owner}; if(d.open&&d._fx===x) fxThread(x); fxPaint(); }).catch(function(){}); } },300); }
   window.addEventListener("hashchange",feedFromHash); setTimeout(feedFromHash,800);
-  $("btnMenu").addEventListener("click",feedBadge);
+  $("btnMenu").addEventListener("click",function(){ feedBadge(); menuUserRender(); });
   $("feedBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   if(!feedSeen) feedMarkSeen(); /* la primera vez no hay nada "nuevo" */
   function openRpt(){ setScr(rptView); try{ history.pushState({scr:1},""); }catch(e){} rptRenderCfg(); rptBuild(); }
@@ -4591,9 +4606,11 @@
   $("cmpBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setCmp(false); });
   window.addEventListener("popstate",function(){
     /* Botón atrás del celu: si la pantalla tiene pasos adentro, vuelve un paso y se queda. */
-    if(dlgProf._closing||dlgSet._closing){ dlgProf._closing=dlgSet._closing=false; setScr(null); return; }
+    if(dlgProf._closing||dlgSet._closing){ var wasProf=dlgProf._closing; dlgProf._closing=dlgSet._closing=false; if(wasProf&&retHub){ retHub=false; setScr(dlgSet); hubRender(); return; } setScr(null); return; }
+    /* Dentro de Ajustes: de una sección vuelve a la lista. */
+    if(!dlgSet.hidden&&$("formSet").classList.contains("sub")){ setSub(null); return; }
     if(window.pvCanBack&&window.pvCanBack()){ window.pvBackStep(); try{ history.pushState({scr:1},""); }catch(e){} return; }
-    if(cmpOpen) setScr(null); });
+    if(cmpOpen){ if(retHub&&(!pushView.hidden||!dlgProf.hidden)){ retHub=false; setScr(dlgSet); hubRender(); return; } retHub=false; setScr(null); } });
   $("cmpA").addEventListener("change",runCompare); $("cmpB").addEventListener("change",runCompare);
   function pctTxt(v){ return fmtPct(v/100); }
   function fmtD(n){ return dayStr(n).split("-").reverse().join("/"); }
@@ -4908,12 +4925,25 @@
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
   // ---------- Ajustes ----------
-  function openSettings(){ renderAccount(); mountGoogleButton(); try{ lockRender(); }catch(e){} meRender(); meFetch(); dlgSet.showModal(); }
+  function openSettings(){ setSub(null); renderAccount(); mountGoogleButton(); try{ lockRender(); }catch(e){} meRender(); meFetch(); hubRender(); dlgSet.showModal(); }
+  /* Ajustes: una pantalla con tu perfil arriba y la lista de secciones; cada una se abre como una pantalla aparte y "atrás" vuelve acá. */
+  var retHub=false;
+  function setSub(id,title){ var f=$("formSet"); [].forEach.call(f.querySelectorAll(":scope>.sec"),function(x){ x.classList.toggle("cur",x.id===id); }); f.className=id?"sub":"hub"; $("setTitle").textContent=id?title:"Ajustes"; window.scrollTo(0,0); }
+  function subOpen(id,title){ setSub(id,title); try{ history.pushState({scr:1,sub:1},""); }catch(e){} }
+  function hubRender(){ var b=$("hubMe"); b.textContent=""; if(!auth){ b.hidden=true; } else { b.hidden=false; b.appendChild(avEl(meName(),meProf.ph)); var t=el("span"); t.appendChild(el("b",null,meName())); t.appendChild(el("small",null,(auth.email||"")+" · editar nombre y foto")); b.appendChild(t); b.appendChild(el("i",null,"›")); }
+    $("hubAcct").hidden=$("acctSec").hidden; }
+  function menuUserRender(){ var b=$("menuUser"); b.textContent=""; b.hidden=!auth; if(!auth) return; b.appendChild(avEl(meName(),meProf.ph)); var t=el("span"); t.appendChild(el("b",null,meName())); t.appendChild(el("small",null,"Ajustes y cuenta")); b.appendChild(t); b.appendChild(el("i",null,"›")); }
+  $("menuUser").addEventListener("click",function(){ dlgMenu.close(); openSettings(); });
+  $("hubMe").addEventListener("click",function(){ subOpen("meSec","Tu perfil"); });
+  $("hubAcct").addEventListener("click",function(){ subOpen("acctSec","Cuenta y sincronización"); });
+  $("hubBk").addEventListener("click",function(){ subOpen("backupSec","Copia de seguridad"); });
+  $("hubProf").addEventListener("click",function(){ retHub=true; $("btnProfAdm").click(); });
+  $("hubPush").addEventListener("click",function(){ retHub=true; $("btnPush").click(); });
   /* Tu perfil: nombre y foto que ven tus amigos en el feed y en los comentarios. La foto se achica a 160×160 antes de subirla. */
   function meRender(){ var sec=$("meSec"); sec.hidden=!auth; if(!auth) return; var ph=$("mePh"), f=$("meFile"); ph.textContent=""; ph.appendChild(f);
     if(meProf.ph){ var im=document.createElement("img"); im.src=meProf.ph; im.alt="Tu foto"; ph.appendChild(im); ph.style.background=""; } else { ph.appendChild(document.createTextNode(meName().charAt(0).toUpperCase())); ph.style.background=avColor(meName()); }
     $("meDel").hidden=!meProf.ph; if(document.activeElement!==$("meName")) $("meName").value=meProf.n||(auth&&auth.name)||""; }
-  function meSet(p){ meProf={n:p.n||"",ph:p.ph||""}; save("cartera.me.v1",meProf); meRender(); if(!feedView.hidden) feedRender(); }
+  function meSet(p){ meProf={n:p.n||"",ph:p.ph||""}; save("cartera.me.v1",meProf); meRender(); hubRender(); menuUserRender(); if(!feedView.hidden) feedRender(); }
   function meFetch(){ if(!auth||!navigator.onLine) return; api("GET","/me/profile").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j) meSet(j); }).catch(function(){}); }
   function mePut(p,msg){ var st=$("meSt"); st.textContent="Guardando…"; var prev=meProf; meSet(Object.assign({},meProf,p));
     return api("PUT","/me/profile",{n:meProf.n,ph:meProf.ph}).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(j){ meSet(j); st.textContent=msg||"Guardado ✓"; setTimeout(function(){ st.textContent=""; },2500); })
@@ -4930,7 +4960,7 @@
     $("meName").addEventListener("blur",function(){ if(!this.value.trim()) this.value=meName(); }); })();
   setTimeout(meFetch,4000);
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
-  $("sClose").addEventListener("click",function(){ dlgSet.close(); });
+  $("sClose").addEventListener("click",function(){ if($("formSet").classList.contains("sub")&&history.state&&history.state.sub) history.back(); else if($("formSet").classList.contains("sub")) setSub(null); else dlgSet.close(); });
   function doExport(){
     var blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),active:profData.active,profiles:profData.profiles.map(function(x){ return {id:x.id,name:x.name,readOnly:!!x.readOnly,owner:x.owner||"",sharedAt:x.sharedAt||0,shareKey:x.shareKey||"",shareId:x.shareId||"",positions:x.positions,closed:x.closed||[],cash:x.cash||[],bal:x.bal||[]}; })},null,2)],{type:"application/json"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
