@@ -68,7 +68,7 @@
   @media (min-width:1100px){ #list .cash-r{padding:14px 20px} #list .cash-add{width:auto; margin:12px 20px 16px} }
   /* Pantallas de lista (Ajustes, Rendimiento, Amigos): en pantallas grandes no se estiran de punta a punta. */
   @media (min-width:700px){ #hubView,#dlgSet{max-width:720px; margin-left:auto; margin-right:auto} }
-  #askHome{margin-top:18px} #askHome[hidden]{display:none} .askh{display:grid; gap:10px; padding:14px; border-radius:16px; background:var(--card); border:1px solid var(--line)}
+  #askHome{margin-top:10px} .askh-l{display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:0 4px; background:none; border:0; box-shadow:none; color:var(--muted); font-size:14px; font-weight:600} .askh-l .askh-go{font-size:16px} .askh-l:hover{color:var(--text)} #askHome[hidden]{display:none} .askh{display:grid; gap:10px; padding:14px; border-radius:16px; background:var(--card); border:1px solid var(--line)}
   .askh-in{display:flex; align-items:center; gap:10px; width:100%; min-height:46px; padding:0 14px; border-radius:999px; background:var(--bg); border:1px solid var(--line); box-shadow:none; color:var(--muted); font-weight:400; font-size:15px; text-align:left} .askh-ic{color:var(--brand); font-size:16px}
   .askh .ask-chips button{font-size:13px; padding:7px 12px}
   .dr-acct{display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:10px; margin:0 0 8px; border-radius:14px; background:var(--card); border:1px solid var(--line); box-shadow:none; color:var(--text); font-weight:400}
@@ -2968,8 +2968,9 @@
   function openAsk(){ setScr(askView); try{ history.pushState({scr:1},""); }catch(e){} askRender(); }
   /* En la pantalla principal, abajo de la lista: preguntale a tu cartera (antes estaba en el menú). */
   function askHome(){ var box=$("askHome"); if(!box) return; box.textContent=""; var show=!!auth&&!isRO()&&vPos().length>0&&!cur().demo; box.hidden=!show; if(!show) return;
-    var c=el("div","askh"); var b=el("button","askh-in"); b.type="button"; b.appendChild(el("span","askh-ic","✦")); b.appendChild(el("span",null,"Preguntale algo a tu cartera…")); b.addEventListener("click",function(){ openAsk(); setTimeout(function(){ $("askIn").focus(); },350); }); c.appendChild(b);
-    var ch=el("div","ask-chips"); ASK_SUG.slice(0,2).forEach(function(q){ var x=el("button",null,q); x.type="button"; x.addEventListener("click",function(){ openAsk(); askSend(q); }); ch.appendChild(x); }); c.appendChild(ch); box.appendChild(c); }
+    /* Discreto: una sola línea al final de la lista. */
+    var b=el("button","askh-l"); b.type="button"; b.appendChild(el("span","askh-ic","✦")); b.appendChild(el("span",null,"Preguntale a tu cartera")); b.appendChild(el("span","askh-go","›"));
+    b.addEventListener("click",function(){ openAsk(); setTimeout(function(){ $("askIn").focus(); },350); }); box.appendChild(b); }
   $("btnAsk").addEventListener("click",openAsk);
   $("askBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   $("askForm").addEventListener("submit",function(e){ e.preventDefault(); askSend($("askIn").value); });
