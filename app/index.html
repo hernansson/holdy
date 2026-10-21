@@ -9,7 +9,7 @@
 <script>
 (function(){ try{ document.documentElement.setAttribute("data-ui","m"); var l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"; document.head.appendChild(l); }catch(e){} })();
 </script>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Holdy</title>
 <meta name="theme-color" content="#0f766e">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2950,7 +2950,8 @@
     if(!askLog.length){ var hi=el("div","ask-hi"); hi.appendChild(el("b",null,"Preguntale lo que quieras sobre tu cartera")); hi.appendChild(el("span",null,"Responde con tus números. No da consejos de inversión.")); box.appendChild(hi);
       var ch=el("div","ask-chips"); ASK_SUG.forEach(function(q){ var b=el("button",null,q); b.type="button"; b.addEventListener("click",function(){ askSend(q); }); ch.appendChild(b); }); box.appendChild(ch); }
     askLog.forEach(function(m){ box.appendChild(el("div","ask-m "+m.r+(m.err?" err":"")+(m.wait?" wait":""),m.t)); });
-    setTimeout(function(){ window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); },30); }
+    /* Solo baja si hay conversación: así al abrir con el teclado no se esconde el título. */
+    if(askLog.length) setTimeout(function(){ window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); },30); }
   function askSend(q){ q=String(q||"").trim(); if(!q||askBusy) return;
     if(!auth){ alert("Para preguntarle a tu cartera tenés que entrar con tu cuenta de Google."); return; }
     if(!navigator.onLine){ askLog.push({r:"u",t:q}); askLog.push({r:"a",t:"Necesito conexión para responder.",err:1}); askRender(); return; }
@@ -2970,7 +2971,7 @@
   function askHome(){ var box=$("askHome"); if(!box) return; box.textContent=""; var show=!!auth&&!isRO()&&vPos().length>0&&!cur().demo; box.hidden=!show; if(!show) return;
     /* Discreto: una sola línea al final de la lista. */
     var b=el("button","askh-l"); b.type="button"; b.appendChild(el("span","askh-ic","✦")); b.appendChild(el("span",null,"Preguntale a tu cartera")); b.appendChild(el("span","askh-go","›"));
-    b.addEventListener("click",function(){ openAsk(); setTimeout(function(){ $("askIn").focus(); },350); }); box.appendChild(b); }
+    b.addEventListener("click",function(){ openAsk(); setTimeout(function(){ $("askIn").focus({preventScroll:true}); },350); }); box.appendChild(b); }
   $("btnAsk").addEventListener("click",openAsk);
   $("askBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   $("askForm").addEventListener("submit",function(e){ e.preventDefault(); askSend($("askIn").value); });
