@@ -229,7 +229,11 @@
   .sim-warn{font-size:14px; color:var(--neg); padding:10px}
   
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
-  .sim-bar{display:grid; gap:8px; align-items:stretch} .sim-hq{font-size:13px; font-weight:700; color:var(--muted); padding-bottom:8px; border-bottom:1px solid var(--line)} .sim-bar div.sim-cols{display:flex; justify-content:space-between; align-items:end; gap:12px} .sim-bar div.sim-hq{display:block}
+  .sim-bar{display:grid; gap:8px; align-items:stretch}
+  /* El resultado es lo principal: fondo con el color de la marca, borde marcado y sombra más fuerte cuando queda fijo arriba. */
+  .sim-bar{background:linear-gradient(135deg,color-mix(in srgb,var(--brand) 22%,var(--card)),color-mix(in srgb,var(--brand) 8%,var(--card))); border:1.5px solid color-mix(in srgb,var(--brand) 55%,transparent); padding:14px 16px; transition:box-shadow .2s}
+  .sim-bar.stuck{box-shadow:0 10px 28px rgba(0,0,0,.35)} .sim-bar div.sim-hq{color:var(--text); opacity:.8; border-bottom-color:color-mix(in srgb,var(--brand) 30%,transparent)}
+  .sim-bar div:first-child b{font-size:26px} .sim-sec{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:8px 2px 0} .sim-hq{font-size:13px; font-weight:700; color:var(--muted); padding-bottom:8px; border-bottom:1px solid var(--line)} .sim-bar div.sim-cols{display:flex; justify-content:space-between; align-items:end; gap:12px} .sim-bar div.sim-hq{display:block}
   .sim-bar::before{content:""; position:absolute; left:-17px; right:-17px; top:-9px; height:9px; background:var(--bg)}
   .sim-q{padding:12px 16px 0} .sim-sum{align-items:center} .sim-sum .pe-t{font-size:14.5px} .sim-edit{flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:800; color:var(--brand-ink,#fff); background:var(--brand); border-radius:999px; padding:10px 16px; box-shadow:0 4px 14px rgba(0,0,0,.18)}
   .pe-grp:has(> .sim-sum){border:2px solid var(--brand)} .sim-sum{cursor:pointer}
@@ -2567,6 +2571,8 @@
   function simCy(){ return dcCur()==="ARS"?"$":"US$"; }
   function simM(n){ return simCy()+" "+Math.round(n).toLocaleString("es-AR"); }
   /* Pantalla: modo + resumen de tus datos (tocás y se abre la hoja para ajustar). */
+  /* Sombra cuando el resultado queda pegado arriba (al deslizar los ajustes). */
+  window.addEventListener("scroll",function(){ var b=$("simBar"); if(!b||simView.hidden) return; b.classList.toggle("stuck",window.scrollY>40); },{passive:true});
   function simForm(){
     var box=$("simForm"); box.textContent="";
     var g0=el("div","pe-grp vw-g"); box.appendChild(g0);
@@ -2576,7 +2582,7 @@
       b.addEventListener("click",function(){ if(cur_===o[0]) return; if(o[0]==="have") simIn.mode="have"; else { simIn.mode="need"; simIn.goal=o[0]; } simSave(); simForm(); simCalcNow(); }); sg.appendChild(b); });
     r.appendChild(sg); g0.appendChild(r);
     /* Los ajustes van en la pantalla (sin hoja): el resultado queda fijo arriba y esto se desliza. */
-    var adj=el("div","sim-adjw"); adj.id="simAdj"; box.appendChild(adj); simOpenA();
+    box.appendChild(el("div","sim-sec","Tus datos")); var adj=el("div","sim-adjw"); adj.id="simAdj"; box.appendChild(adj); simOpenA();
     $("simAs").textContent="";
   }
   function simSumUpd(){ var sb=$("simSum"); if(!sb) return; sb.textContent=""; var A=SIM_ASSETS[simIn.a];
