@@ -62,7 +62,10 @@
   .dr-user{font-size:13px;color:var(--muted);padding:0 8px 10px;word-break:break-all}
   .dr-acct{display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:10px; margin:0 0 8px; border-radius:14px; background:var(--card); border:1px solid var(--line); box-shadow:none; color:var(--text); font-weight:400}
   .dr-acct .feed-av{flex:0 0 42px; height:42px; font-size:17px} .dr-acct>span{flex:1; min-width:0; display:grid; gap:1px} .dr-acct b{font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap} .dr-acct small{color:var(--muted); font-size:12.5px} .dr-acct i{font-style:normal; color:var(--muted); font-size:20px}
-  #formSet.hub>.sec:not(#lockSec):not(#installSec){display:none} #formSet.sub>#setHub,#formSet.sub>.sec:not(.cur){display:none} #formSet.sub .sec-t{display:none} #formSet.sub>.sec{border-top:0; padding-top:0}
+  #formSet.hub>.sec:not(#installSec){display:none} #formSet.sub>.sec.cur+.sec.cur{border-top:1px solid var(--line); padding-top:14px}
+  .me-by{display:grid; gap:4px; font-size:12.5px; color:var(--muted)} .me-by input{max-width:140px; font-size:16px} .me-by small{font-size:12px}
+  .sec-card{padding:12px 14px; border-radius:14px; background:var(--card); border:1px solid var(--line); font-size:14px; line-height:1.45; display:grid; gap:4px} .sec-card b{font-size:15px} .sec-card small{color:var(--muted); font-size:12.5px}
+  .danger-b{color:var(--neg); background:transparent; border:1px solid color-mix(in srgb,var(--neg) 45%,transparent); margin-top:6px} #formSet.sub>#setHub,#formSet.sub>.sec:not(.cur){display:none} #formSet.sub .sec-t{display:none} #formSet.sub>.sec{border-top:0; padding-top:0}
   .set-hub{display:grid; gap:12px} .set-me{display:flex; align-items:center; gap:14px; width:100%; text-align:left; padding:14px; border-radius:16px; background:var(--card); border:1px solid var(--line); box-shadow:none; color:var(--text); font-weight:400}
   .set-me .feed-av{flex:0 0 56px; height:56px; font-size:22px} .set-me>span{flex:1; min-width:0; display:grid; gap:2px} .set-me b{font-size:17px} .set-me small{color:var(--muted); font-size:13px; overflow:hidden; text-overflow:ellipsis} .set-me i,.pe-ch{font-style:normal; color:var(--muted); font-size:20px; margin-left:auto}
   #setHub .pe-r{border-top:1px solid var(--line)} #setHub .pe-r:first-child{border-top:0}
@@ -1395,14 +1398,15 @@
       <div class="pe-grp">
         <button type="button" class="pe-r" id="hubProf"><span class="pe-t">Perfiles<small>Tus carteras: crear, importar y compartir</small></span><span class="pe-ch">›</span></button>
         <button type="button" class="pe-r" id="hubPush"><span class="pe-t">Avisos<small>Qué te avisa Holdy y cuándo</small></span><span class="pe-ch">›</span></button>
-        <button type="button" class="pe-r" id="hubAcct"><span class="pe-t">Cuenta y sincronización<small>Tu cuenta de Google y tus dispositivos</small></span><span class="pe-ch">›</span></button>
-        <button type="button" class="pe-r" id="hubBk"><span class="pe-t">Copia de seguridad<small>Exportar, importar y Excel</small></span><span class="pe-ch">›</span></button>
+        <button type="button" class="pe-r" id="hubSec"><span class="pe-t">Seguridad<small>Tu cuenta, bloqueo con huella y montos ocultos</small></span><span class="pe-ch">›</span></button>
+        <button type="button" class="pe-r" id="hubBk"><span class="pe-t">Datos y copias<small>Sincronización, exportar, importar y Excel</small></span><span class="pe-ch">›</span></button>
       </div>
     </div>
     <div class="sec" id="meSec" style="border-top:0;padding-top:0" hidden>
       <div class="sec-t">Tu perfil</div>
       <div class="me-row"><label class="me-ph" id="mePh" title="Cambiar foto"><input type="file" id="meFile" accept="image/*" hidden></label>
         <div class="me-f"><label for="meName" class="help" style="font-size:12.5px">Nombre que ven tus amigos</label><input id="meName" maxlength="40" autocomplete="nickname" placeholder="Tu nombre"></div></div>
+      <label class="me-by">Año de nacimiento<input id="meBy" inputmode="numeric" maxlength="4" placeholder="Ej.: 1990" autocomplete="bday-year"><small>Con tu edad, la Proyección arranca con tus datos. Tus amigos no lo ven.</small></label>
       <div class="me-act"><button type="button" class="linkbtn" id="mePick">Cambiar foto</button><button type="button" class="linkbtn" id="meDel" hidden>Quitar foto</button><span class="help" id="meSt" role="status" aria-live="polite"></span></div>
     </div>
     <div class="sec" id="acctSec" hidden>
@@ -1426,8 +1430,12 @@
       <div class="help" style="font-size:12.5px">El Excel es para mirar o hacer tus cuentas (posiciones, compras y ventas, cobros y plata sin invertir del perfil abierto); para restaurar tus datos usá el archivo de “Exportar”.</div>
     </div>
     <div class="sec" id="lockSec">
-      <div class="sec-t">Privacidad</div>
-      <label class="vw-r vw-t" style="padding:4px 0"><span class="pe-t">Bloquear con huella<small id="lockSub">Al abrir Holdy te pide la huella, la cara o el PIN del celu.</small></span><input type="checkbox" class="sw" id="lockTg"></label>
+      <div class="sec-t">Seguridad</div>
+      <div class="sec-card" id="secAcct"></div>
+      <label class="vw-r vw-t" style="padding:4px 0"><span class="pe-t">Bloquear con huella<small id="lockSub">Al abrir Holdy te pide lo mismo que para desbloquear el celu: huella, cara, PIN o patrón.</small></span><input type="checkbox" class="sw" id="lockTg"></label>
+      <div class="vw-r" id="lockWhenR" hidden><span class="pe-t">Pedirla de nuevo<small>Cuando volvés a Holdy después de un rato</small></span><div class="seg sm" id="lockWhen"></div></div>
+      <label class="vw-r vw-t" style="padding:4px 0"><span class="pe-t">Abrir con montos ocultos<small>Holdy arranca con el ojito cerrado: se ven los % pero no la plata.</small></span><input type="checkbox" class="sw" id="hideTg"></label>
+      <button type="button" class="danger-b" id="secOut">Cerrar sesión</button>
     </div>
     <div class="sec" id="installSec" hidden>
       <div class="sec-t">Instalar</div>
@@ -1564,7 +1572,7 @@
     bk:typeof uiRaw.bk==="string"?uiRaw.bk:"",
     sort:["value","plpct","pl","day","ticker"].indexOf(uiRaw.sort)>=0?uiRaw.sort:"value",
     sortSold:["date","plpct","pl","ticker","days"].indexOf(uiRaw.sortSold)>=0?uiRaw.sortSold:"date",
-    hide:!!uiRaw.hide,
+    hide:!!uiRaw.hide||(function(){ try{ return localStorage.getItem("cartera.hideOpen.v1")==="true"; }catch(e){ return false; } })(), /* "Abrir con montos ocultos" (Ajustes → Seguridad) */
     dc:["CCL","MEP","ARS"].indexOf(uiRaw.dc)>=0?uiRaw.dc:"CCL",
     tab:["fi","sold"].indexOf(uiRaw.tab)>=0?uiRaw.tab:"acc"
   };
@@ -2452,18 +2460,22 @@
   $("lockBtn").addEventListener("click",lockUnlock);
   if(lockOn()) setTimeout(lockUnlock,300);
   /* Si la app queda en segundo plano más de 1 minuto, se vuelve a bloquear. */
-  document.addEventListener("visibilitychange",function(){ if(!lockOn()) return; if(document.hidden) lockLeft=Date.now(); else if(lockLeft&&Date.now()-lockLeft>60000){ document.documentElement.classList.add("locked"); setTimeout(lockUnlock,300); } });
-  function lockRender(){ $("lockTg").checked=lockOn(); }
+  var LS_HIDEOPEN="cartera.hideOpen.v1";
+  function lockDelay(){ try{ var d=JSON.parse(localStorage.getItem(LS_LOCK)).d; return typeof d==="number"?d:60000; }catch(e){ return 60000; } }
+  function lockWhenRender(){ var r=$("lockWhenR"); r.hidden=!lockOn(); var sg=$("lockWhen"); sg.textContent=""; var cur_=lockDelay();
+    [[0,"Siempre"],[60000,"1 min"],[300000,"5 min"]].forEach(function(o){ var b=el("button",cur_===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ try{ var x=JSON.parse(localStorage.getItem(LS_LOCK)); x.d=o[0]; localStorage.setItem(LS_LOCK,JSON.stringify(x)); }catch(e){} lockWhenRender(); }); sg.appendChild(b); }); }
+  document.addEventListener("visibilitychange",function(){ if(!lockOn()) return; if(document.hidden) lockLeft=Date.now(); else if(lockLeft&&Date.now()-lockLeft>=Math.max(1000,lockDelay())){ document.documentElement.classList.add("locked"); setTimeout(lockUnlock,300); } });
+  function lockRender(){ $("lockTg").checked=lockOn(); try{ lockWhenRender(); }catch(e){} }
   $("lockTg").addEventListener("change",function(){
     var tg=this;
-    if(!tg.checked){ try{ localStorage.removeItem(LS_LOCK); }catch(e){} return; }
+    if(!tg.checked){ try{ localStorage.removeItem(LS_LOCK); }catch(e){} lockWhenRender(); return; }
     if(!window.PublicKeyCredential){ tg.checked=false; alert("Este navegador no permite usar la huella."); return; }
     PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function(ok){
       if(!ok) throw new Error("Este celu no tiene huella, cara ni bloqueo de pantalla configurado.");
       return navigator.credentials.create({publicKey:{challenge:rnd(32),rp:{name:"Holdy",id:location.hostname},user:{id:rnd(16),name:(auth&&auth.email)||"holdy",displayName:(auth&&auth.name)||"Holdy"},
         pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required",residentKey:"discouraged"},timeout:60000,attestation:"none"}});
     }).then(function(c){ var u=new Uint8Array(c.rawId), s=""; for(var i=0;i<u.length;i++) s+=String.fromCharCode(u[i]);
-      localStorage.setItem(LS_LOCK,JSON.stringify({id:btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""),t:Date.now()})); $("lockSub").textContent="Activado: al abrir Holdy te va a pedir la huella."; })
+      localStorage.setItem(LS_LOCK,JSON.stringify({id:btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""),t:Date.now()})); $("lockSub").textContent="Activado: al abrir Holdy te va a pedir la huella."; lockWhenRender(); })
       .catch(function(e){ tg.checked=false; alert((e&&e.message&&!/NotAllowed|abort/i.test(e.name||""))?e.message:"No se activó el bloqueo."); });
   });
 
@@ -2576,7 +2588,10 @@
       for(var i=0;i<paths.length;i++){ var v=1, fail=false; for(var y=yAcc;y<yAcc+years;y++){ var r=paths[i][y]; v=v*(1+r)-mid*12*(1+r/2); if(v<=0){ fail=true; break; } } if(!fail) good++; }
       if(good/paths.length>=ok) lo=mid; else hi=mid; }
     return lo; }
-  function openSim(){ setScr(simView); try{ history.pushState({scr:1},""); }catch(e){} if(simIn.cap===null||!simIn.capR){ simIn.cap=Math.round((simIn.cap===null?simCapNow():+simIn.cap)/1000)*1000; simIn.capR=1; simSave(); } simForm(); simCalc(); }
+  /* Si cargaste tu año de nacimiento, "Hoy" arranca con tu edad (y retiro/hasta se corren si hace falta). */
+  function simAgeFromProfile(){ var by=meProf&&+meProf.by; if(!by) return; var a=+todayStr().slice(0,4)-by; if(a<15||a>90||Math.round(simIn.age)===a) return;
+    simIn.age=a; if(simIn.ret<=a) simIn.ret=Math.min(95,Math.max(a+1,65)); if(simIn.end<=simIn.ret) simIn.end=Math.min(100,simIn.ret+1); simSave(); }
+  function openSim(){ simAgeFromProfile(); setScr(simView); try{ history.pushState({scr:1},""); }catch(e){} if(simIn.cap===null||!simIn.capR){ simIn.cap=Math.round((simIn.cap===null?simCapNow():+simIn.cap)/1000)*1000; simIn.capR=1; simSave(); } simForm(); simCalc(); }
   $("btnSim").addEventListener("click",openSim);
   $("simBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   function simSave(){ save(LS_SIM,simIn); }
@@ -4928,25 +4943,29 @@
   function openSettings(){ setSub(null); renderAccount(); mountGoogleButton(); try{ lockRender(); }catch(e){} meRender(); meFetch(); hubRender(); dlgSet.showModal(); }
   /* Ajustes: una pantalla con tu perfil arriba y la lista de secciones; cada una se abre como una pantalla aparte y "atrás" vuelve acá. */
   var retHub=false;
-  function setSub(id,title){ var f=$("formSet"); [].forEach.call(f.querySelectorAll(":scope>.sec"),function(x){ x.classList.toggle("cur",x.id===id); }); f.className=id?"sub":"hub"; $("setTitle").textContent=id?title:"Ajustes"; window.scrollTo(0,0); }
+  function setSub(id,title){ var f=$("formSet"), ids=[].concat(id||[]); [].forEach.call(f.querySelectorAll(":scope>.sec"),function(x){ x.classList.toggle("cur",ids.indexOf(x.id)>=0); }); f.className=id?"sub":"hub"; $("setTitle").textContent=id?title:"Ajustes"; window.scrollTo(0,0); }
   function subOpen(id,title){ setSub(id,title); try{ history.pushState({scr:1,sub:1},""); }catch(e){} }
   function hubRender(){ var b=$("hubMe"); b.textContent=""; if(!auth){ b.hidden=true; } else { b.hidden=false; b.appendChild(avEl(meName(),meProf.ph)); var t=el("span"); t.appendChild(el("b",null,meName())); t.appendChild(el("small",null,(auth.email||"")+" · editar nombre y foto")); b.appendChild(t); b.appendChild(el("i",null,"›")); }
-    $("hubAcct").hidden=$("acctSec").hidden; }
+    var sa=$("secAcct"); sa.textContent=""; if(auth){ sa.appendChild(el("small",null,"Entrás con Google")); sa.appendChild(el("b",null,auth.email||"")); sa.appendChild(el("small",null,"Holdy no tiene contraseña propia: tu cuenta está protegida por la de Google (contraseña y verificación en dos pasos se cambian en tu cuenta de Google).")); }
+    sa.hidden=!auth; $("secOut").hidden=!auth; lockWhenRender(); $("hideTg").checked=!!load(LS_HIDEOPEN,false); }
   function menuUserRender(){ var b=$("menuUser"); b.textContent=""; b.hidden=!auth; if(!auth) return; b.appendChild(avEl(meName(),meProf.ph)); var t=el("span"); t.appendChild(el("b",null,meName())); t.appendChild(el("small",null,"Ajustes y cuenta")); b.appendChild(t); b.appendChild(el("i",null,"›")); }
   $("menuUser").addEventListener("click",function(){ dlgMenu.close(); openSettings(); });
   $("hubMe").addEventListener("click",function(){ subOpen("meSec","Tu perfil"); });
-  $("hubAcct").addEventListener("click",function(){ subOpen("acctSec","Cuenta y sincronización"); });
-  $("hubBk").addEventListener("click",function(){ subOpen("backupSec","Copia de seguridad"); });
+  $("hubSec").addEventListener("click",function(){ subOpen("lockSec","Seguridad"); });
+  $("hubBk").addEventListener("click",function(){ subOpen(["acctSec","backupSec"],"Datos y copias"); });
+  $("secOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
+  $("hideTg").addEventListener("change",function(){ save(LS_HIDEOPEN,this.checked); });
   $("hubProf").addEventListener("click",function(){ retHub=true; $("btnProfAdm").click(); });
   $("hubPush").addEventListener("click",function(){ retHub=true; $("btnPush").click(); });
   /* Tu perfil: nombre y foto que ven tus amigos en el feed y en los comentarios. La foto se achica a 160×160 antes de subirla. */
   function meRender(){ var sec=$("meSec"); sec.hidden=!auth; if(!auth) return; var ph=$("mePh"), f=$("meFile"); ph.textContent=""; ph.appendChild(f);
     if(meProf.ph){ var im=document.createElement("img"); im.src=meProf.ph; im.alt="Tu foto"; ph.appendChild(im); ph.style.background=""; } else { ph.appendChild(document.createTextNode(meName().charAt(0).toUpperCase())); ph.style.background=avColor(meName()); }
+    if(document.activeElement!==$("meBy")) $("meBy").value=meProf.by?String(meProf.by):"";
     $("meDel").hidden=!meProf.ph; if(document.activeElement!==$("meName")) $("meName").value=meProf.n||(auth&&auth.name)||""; }
-  function meSet(p){ meProf={n:p.n||"",ph:p.ph||""}; save("cartera.me.v1",meProf); meRender(); hubRender(); menuUserRender(); if(!feedView.hidden) feedRender(); }
+  function meSet(p){ meProf={n:p.n||"",ph:p.ph||"",by:+p.by||0}; save("cartera.me.v1",meProf); meRender(); hubRender(); menuUserRender(); if(!feedView.hidden) feedRender(); }
   function meFetch(){ if(!auth||!navigator.onLine) return; api("GET","/me/profile").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j) meSet(j); }).catch(function(){}); }
   function mePut(p,msg){ var st=$("meSt"); st.textContent="Guardando…"; var prev=meProf; meSet(Object.assign({},meProf,p));
-    return api("PUT","/me/profile",{n:meProf.n,ph:meProf.ph}).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(j){ meSet(j); st.textContent=msg||"Guardado ✓"; setTimeout(function(){ st.textContent=""; },2500); })
+    return api("PUT","/me/profile",{n:meProf.n,ph:meProf.ph,by:meProf.by||0}).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(j){ meSet(j); st.textContent=msg||"Guardado ✓"; setTimeout(function(){ st.textContent=""; },2500); })
       .catch(function(){ meSet(prev); st.textContent="No se pudo guardar. Probá de nuevo."; }); }
   function meShrink(file){ return new Promise(function(ok,ko){ var url=URL.createObjectURL(file), im=new Image();
     im.onload=function(){ var S=160, c=document.createElement("canvas"); c.width=c.height=S; var g=c.getContext("2d"), m=Math.min(im.naturalWidth,im.naturalHeight);
@@ -4959,6 +4978,7 @@
   (function(){ var t; $("meName").addEventListener("input",function(){ clearTimeout(t); var v=this.value.replace(/\s+/g," ").trim(); t=setTimeout(function(){ if(v&&v!==meProf.n) mePut({n:v}); },900); });
     $("meName").addEventListener("blur",function(){ if(!this.value.trim()) this.value=meName(); }); })();
   setTimeout(meFetch,4000);
+  (function(){ var t; $("meBy").addEventListener("input",function(){ clearTimeout(t); var v=+this.value.replace(/\D/g,""), y=+todayStr().slice(0,4); t=setTimeout(function(){ if(v>=1920&&v<=y-10&&v!==meProf.by) mePut({by:v}); else if(!v&&meProf.by) mePut({by:0}); },700); }); })();
   $("btnSettings").addEventListener("click",function(){ openSettings(); });
   $("sClose").addEventListener("click",function(){ if($("formSet").classList.contains("sub")&&history.state&&history.state.sub) history.back(); else if($("formSet").classList.contains("sub")) setSub(null); else dlgSet.close(); });
   function doExport(){
