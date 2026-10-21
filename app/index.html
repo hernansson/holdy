@@ -638,8 +638,8 @@
   .fc-cm{gap:5px; padding:6px 0 0 44px; border-top:0} .fc-ct{font-size:14px; padding:5px 10px} .fc-in{min-height:32px; font-size:13.5px; padding:0 12px} .fc-more{font-size:12.5px}
   .fc-c{display:flex; gap:6px; align-items:flex-start} .fc-c .feed-av{flex:0 0 24px; height:24px; font-size:11px; margin-top:2px}
   .feed-av{overflow:hidden} .feed-av img{width:100%; height:100%; object-fit:cover; display:block}
-  .me-row{display:flex; gap:14px; align-items:center} .me-ph{flex:0 0 72px; height:72px; border-radius:50%; overflow:hidden; display:grid; place-items:center; color:#fff; font-weight:800; font-size:28px; cursor:pointer; position:relative}
-  .me-ph img{width:100%; height:100%; object-fit:cover} .me-ph::after{content:"📷"; position:absolute; right:0; bottom:0; width:24px; height:24px; border-radius:50%; background:var(--card); border:1px solid var(--line); font-size:12px; display:grid; place-items:center}
+  .me-row{display:flex; gap:14px; align-items:center} .me-ph{flex:0 0 72px; height:72px; border-radius:50%; overflow:visible; display:grid; place-items:center; color:#fff; font-weight:800; font-size:28px; cursor:pointer; position:relative}
+  .me-ph img{width:100%; height:100%; object-fit:cover; border-radius:50%} .me-ph::after{content:"📷"; position:absolute; right:-4px; bottom:-2px; width:26px; height:26px; line-height:1; border-radius:50%; background:var(--card); border:1px solid var(--line); font-size:12px; display:grid; place-items:center}
   .me-f{flex:1; display:grid; gap:4px} .me-act{display:flex; gap:14px; align-items:center; flex-wrap:wrap} .me-act .help{font-size:12.5px}
   .fc-c{} .fc-ct{font-size:14.5px; line-height:1.4; background:var(--chip); border-radius:14px; padding:7px 12px; justify-self:start; max-width:100%; word-break:break-word} .fc-ct.clamp{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
   .fc-vm{display:inline; min-height:0; padding:0; background:none; border:0; box-shadow:none; color:var(--muted); font-size:12.5px; font-weight:700}
@@ -1435,8 +1435,8 @@
       <div class="sec-t">Tu perfil</div>
       <div class="me-row"><label class="me-ph" id="mePh" title="Cambiar foto"><input type="file" id="meFile" accept="image/*" hidden></label>
         <div class="me-f"><label for="meName" class="help" style="font-size:12.5px">Nombre que ven tus amigos</label><input id="meName" maxlength="40" autocomplete="nickname" placeholder="Tu nombre"></div></div>
-      <label class="me-by">Año de nacimiento<input id="meBy" inputmode="numeric" maxlength="4" placeholder="Ej.: 1990" autocomplete="bday-year"><small>Con tu edad, la Proyección arranca con tus datos. Tus amigos no lo ven.</small></label>
       <div class="me-act"><button type="button" class="linkbtn" id="mePick">Cambiar foto</button><button type="button" class="linkbtn" id="meDel" hidden>Quitar foto</button><span class="help" id="meSt" role="status" aria-live="polite"></span></div>
+      <label class="me-by">Año de nacimiento<input id="meBy" inputmode="numeric" maxlength="4" placeholder="Ej.: 1990" autocomplete="bday-year"><small>Con tu edad, la Proyección arranca con tus datos. Tus amigos no lo ven.</small></label>
     </div>
     <div class="sec" id="acctSec" hidden>
       <div class="sec-t">Cuenta</div>
