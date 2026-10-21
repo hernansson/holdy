@@ -985,7 +985,7 @@ async function meProfile(request, env, user, h) {
   let b; try { b = JSON.parse(text); } catch (e) { return json({ error: "bad_json" }, 400, h); }
   const n = String((b && b.n) || "").replace(/\s+/g, " ").trim().slice(0, 40), ph = String((b && b.ph) || "");
   if (ph && !/^data:image\/(jpeg|webp|png);base64,[A-Za-z0-9+/=]+$/.test(ph)) return json({ error: "bad_photo" }, 400, h);
-  const by = Math.round(+(b && b.by) || 0), v = {}, id = await uid(user.sub); if (n) v.n = n; if (by >= 1920 && by <= 2015) v.by = by; v.t = Date.now(); // año de nacimiento: solo lo ve el dueño (para la Proyección) if (ph) { v.ph = ph; v.pv = (await sha256(ph)).slice(0, 8); }
+  const by = Math.round(+(b && b.by) || 0), v = {}, id = await uid(user.sub); if (n) v.n = n; if (by >= 1920 && by <= 2015) v.by = by; v.t = Date.now(); /* año de nacimiento: solo lo ve el dueño (para la Proyección) */ if (ph) { v.ph = ph; v.pv = (await sha256(ph)).slice(0, 8); }
   await env.HOLDY_KV.put("pf:" + user.sub, JSON.stringify(v)); PF.set(user.sub, { v, t: Date.now() });
   if (ph) await env.HOLDY_KV.put("av:" + id, ph); else await env.HOLDY_KV.delete("av:" + id);
   return json({ n: v.n || "", ph: v.ph || "", by: v.by || 0, t: v.t, g: user.name || "" }, 200, h);
