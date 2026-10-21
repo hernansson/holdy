@@ -60,6 +60,17 @@
   .dr-top{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 8px;font-size:18px}
   .dr-top button{border:0;background:transparent;min-height:36px;min-width:36px;font-size:18px}
   .dr-user{font-size:13px;color:var(--muted);padding:0 8px 10px;word-break:break-all}
+  .dr-go{margin-left:auto; font-style:normal; color:var(--muted); font-size:18px} .dr-item .dr-badge+.dr-go{margin-left:8px}
+  .hub-body{display:grid; gap:12px; padding:8px 16px 18px} .hub-body .pe-r{border-top:1px solid var(--line)} .hub-body .pe-r:first-child{border-top:0} .hub-body .pe-r .dr-badge{margin-left:auto} .hub-body .pe-r .dr-badge+.pe-ch{margin-left:8px}
+  .cash-r{display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:54px; padding:10px 4px; background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0; box-shadow:none; color:var(--text); text-align:left; font-weight:400}
+  .cash-n{display:grid; gap:1px; font-weight:700; font-size:16px} .cash-n small{font-weight:400; font-size:12.5px; color:var(--muted)} .cash-r b{font-size:16px; font-variant-numeric:tabular-nums} .cash-r.tot{border-bottom:0} .cash-r.tot .cash-n{color:var(--muted)}
+  .cash-add{margin-top:12px; width:100%}
+  @media (min-width:1100px){ #list .cash-r{padding:14px 20px} #list .cash-add{width:auto; margin:12px 20px 16px} }
+  /* Pantallas de lista (Ajustes, Rendimiento, Amigos): en pantallas grandes no se estiran de punta a punta. */
+  @media (min-width:700px){ #hubView,#dlgSet{max-width:720px; margin-left:auto; margin-right:auto} }
+  #askHome{margin-top:18px} #askHome[hidden]{display:none} .askh{display:grid; gap:10px; padding:14px; border-radius:16px; background:var(--card); border:1px solid var(--line)}
+  .askh-in{display:flex; align-items:center; gap:10px; width:100%; min-height:46px; padding:0 14px; border-radius:999px; background:var(--bg); border:1px solid var(--line); box-shadow:none; color:var(--muted); font-weight:400; font-size:15px; text-align:left} .askh-ic{color:var(--brand); font-size:16px}
+  .askh .ask-chips button{font-size:13px; padding:7px 12px}
   .dr-acct{display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:10px; margin:0 0 8px; border-radius:14px; background:var(--card); border:1px solid var(--line); box-shadow:none; color:var(--text); font-weight:400}
   .dr-acct .feed-av{flex:0 0 42px; height:42px; font-size:17px} .dr-acct>span{flex:1; min-width:0; display:grid; gap:1px} .dr-acct b{font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap} .dr-acct small{color:var(--muted); font-size:12.5px} .dr-acct i{font-style:normal; color:var(--muted); font-size:20px}
   #formSet.hub>.sec:not(#installSec){display:none} #formSet.sub>.sec.cur+.sec.cur{border-top:1px solid var(--line); padding-top:14px}
@@ -238,7 +249,7 @@
   .sim-warn{font-size:14px; color:var(--neg); padding:10px}
   
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
-  .sim-bar{display:grid; gap:8px; align-items:stretch}
+  .sim-bar{display:grid; gap:8px; align-items:stretch; justify-content:stretch; grid-template-columns:minmax(0,1fr)}
   /* El título y el resultado van juntos y fijos: así el título no queda cortado al deslizar. */
   .sim-top{position:sticky; top:calc(var(--hdrH,60px) - 8px); z-index:4; background:var(--bg); margin:-14px -16px 0; padding:14px 16px 10px; display:grid; gap:12px}
   #simView .sim-bar{position:static} #simView .sim-bar::before{display:none}
@@ -789,7 +800,7 @@
   .sub-line .bk{text-transform:uppercase; letter-spacing:.04em; font-size:10px; opacity:.85}
   .acc-r{display:flex; flex-direction:column; align-items:flex-end; gap:0; flex:0 0 auto}
   .acc-pl{font-weight:600; font-size:12px; white-space:nowrap; line-height:1.25}
-  #list{padding-bottom:96px}
+  #list{padding-bottom:0} /* el espacio para el botón "+ Posición" ya lo da el body */
   .acc-l .sub{margin:0; font-size:12px; white-space:nowrap; min-width:64px; overflow:hidden; text-overflow:ellipsis}
   .acc-val{font-size:14.5px; font-weight:700; line-height:1.25; text-align:right; white-space:nowrap}
   .acc-pct{font-weight:700; font-size:15px; min-width:78px; text-align:right; white-space:nowrap}
@@ -839,7 +850,8 @@
   @media (min-width:1100px){
     body{background:var(--bg)}
     main{max-width:1380px; padding:28px 36px 100px; display:grid; grid-template-columns:minmax(0,1fr); align-items:start;
-      grid-template-areas:"ban" "no1" "no2" "pb" "st" "sum" "tabs" "list" "sold" "dist"}
+      grid-template-areas:"ban" "no1" "no2" "pb" "st" "sum" "tabs" "list" "sold" "ask" "dist"}
+    main>#askHome{grid-area:ask}
     main>#banners{grid-area:ban} main>#notice{grid-area:no1} main>#notice2{grid-area:no2}
     main>#profbar{grid-area:pb} main>#status{grid-area:st}
     main>#summary{grid-area:sum; margin-bottom:8px}
@@ -905,14 +917,15 @@
   }
   @media (min-width:1400px){
     main{grid-template-columns:minmax(0,1fr) 340px; column-gap:28px;
-      grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum sum" "tabs dist" "tb dist" "list dist" "sold dist"; grid-template-rows:repeat(9,auto) 1fr}
+      grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum sum" "tabs dist" "tb dist" "list dist" "sold dist" "ask dist"; grid-template-rows:repeat(10,auto) 1fr}
     main>#dist{grid-template-columns:1fr; position:sticky; top:20px; align-self:start; margin-top:14px}
   }
   @media (min-width:1100px) and (max-width:1300px){ .sum-card>.kpis{grid-template-columns:repeat(2,1fr); row-gap:18px} .kpi:nth-child(3){border-left:0} .sum-card{column-gap:28px} }
   /* ---- Tablet / Fold abierto (700–1099px): dos columnas ---- */
   @media (min-width:700px) and (max-width:1099px){
     main{max-width:1060px; padding:20px 20px 100px; display:grid; grid-template-columns:minmax(300px,360px) minmax(0,1fr); column-gap:20px; align-items:start;
-      grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum tabs" "sum list" "dist list" "dist sold"; grid-template-rows:repeat(7,auto) 1fr auto}
+      grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum tabs" "sum list" "dist list" "ask list" "ask sold"; grid-template-rows:repeat(8,auto) 1fr auto}
+    main>#askHome{grid-area:ask}
     main>#banners{grid-area:ban} main>#notice{grid-area:no1} main>#notice2{grid-area:no2}
     main>#profbar{grid-area:pb} main>#status{grid-area:st}
     main>#summary{grid-area:sum; margin:0 0 14px}
@@ -968,15 +981,17 @@
     <div class="dr-top"><strong>Holdy</strong><button type="button" id="menuClose" aria-label="Cerrar menú">✕</button></div>
     <button type="button" class="dr-acct" id="menuUser"></button>
     <button type="button" class="dr-item" id="btnRefresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span>Actualizar precios</span></button>
-    <div class="dr-k">Tu cartera</div>
-    <button type="button" class="dr-item" id="btnAsk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5"/><path d="M12 16.5h.01"/></svg><span>Preguntale a tu cartera</span></button>
+    <div class="dr-k" hidden>Tu cartera</div>
+    <button type="button" class="dr-item" id="btnAsk" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5"/><path d="M12 16.5h.01"/></svg><span>Preguntale a tu cartera</span></button>
     <button type="button" class="dr-item" id="btnRpt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Reportes</span></button>
     <button type="button" class="dr-item" id="btnSim"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg><span>Proyección</span></button>
-    <button type="button" class="dr-item" id="btnCash"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Plata sin invertir</span></button>
-    <div class="dr-k">Con amigos</div>
-    <button type="button" class="dr-item" id="btnFeed"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg><span>Movimientos de amigos</span><i class="dr-badge" id="feedBadge" hidden></i></button>
-    <button type="button" class="dr-item" id="btnRank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Ranking con amigos</span></button>
-    <button type="button" class="dr-item" id="btnShare"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg><span>Compartir mi rendimiento</span></button>
+    <button type="button" class="dr-item" id="btnCash" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Plata sin invertir</span></button>
+    <div class="dr-k" hidden>Con amigos</div>
+    <button type="button" class="dr-item" id="btnPerfHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Rendimiento</span><i class="dr-go">›</i></button>
+    <button type="button" class="dr-item" id="btnFrHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg><span>Amigos</span><i class="dr-badge" id="frHubBadge" hidden></i><i class="dr-go">›</i></button>
+    <button type="button" class="dr-item" id="btnFeed" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg><span>Movimientos de amigos</span><i class="dr-badge" id="feedBadge" hidden></i></button>
+    <button type="button" class="dr-item" id="btnRank" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Ranking con amigos</span></button>
+    <button type="button" class="dr-item" id="btnShare" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg><span>Compartir mi rendimiento</span></button>
     <button type="button" class="dr-item" id="btnCmp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Comparar rendimiento</span></button>
     <div class="dr-k" hidden>Ajustes</div>
     <button type="button" class="dr-item" id="btnPush" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Avisos</span></button>
@@ -988,6 +1003,10 @@
   </div>
 </dialog>
 
+<section id="hubView" class="scr" hidden>
+  <div class="cmphdr"><button type="button" id="hubBack" aria-label="Volver">←</button><h2 id="hubTitle"></h2></div>
+  <div id="hubBody" class="hub-body"></div>
+</section>
 <section id="feedView" hidden>
   <div class="cmphdr"><button type="button" id="feedBack" aria-label="Volver">←</button><h2>Movimientos de amigos</h2></div>
   <div id="feedBody" class="feed"></div>
@@ -1048,6 +1067,7 @@
   <section class="list" id="list" aria-label="Posiciones"></section>
   <aside id="dist" aria-label="Distribución"></aside>
   <div id="soldBox"></div>
+  <div id="askHome"></div>
 </main>
 
 <button class="primary fab" id="btnAdd">+ Posición</button>
@@ -1306,7 +1326,7 @@
             <button type="button" id="codeCopy">Copiar</button>
             <button type="button" id="codeSend" class="primary">Enviar…</button>
           </div>
-          <div class="shc-h">Tu amigo abre Holdy, va a Perfiles → “Agregar el perfil de otra persona” y pega el código. Los cambios le llegan solos.</div>
+          <div class="shc-h">Tu amigo abre Holdy, va a Menú → Amigos → “Seguir a un amigo” y pega el código. Los cambios le llegan solos.</div>
         </div>
         <span id="shareTitle" hidden></span>
         <div class="help" id="shareMsg" role="status" aria-live="polite" hidden></div>
@@ -1925,7 +1945,7 @@
   function sortSet(){ return ui.tab==="sold"?{map:SORTS_SOLD,key:"sortSold",def:"date"}:{map:SORTS,key:"sort",def:"value"}; }
   function syncToolbar(){
     $("toolbar").hidden=!(positions.length||(cur().closed||[]).length);
-    $("btnSort").hidden=ui.tab==="cob";
+    $("btnSort").hidden=ui.tab==="cob"||ui.tab==="cash";
     ui.filter="all";
     $("btnHide").setAttribute("aria-pressed",String(ui.hide));
     var eye='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ui.hide?'<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4 9.5 6a14 14 0 0 1-2.6 3.4M6.5 7.6A14 14 0 0 0 2.5 12c1 2 4.5 6 9.5 6 1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>':'<path d="M2.5 12c1-2 4.5-6 9.5-6s8.5 4 9.5 6c-1 2-4.5 6-9.5 6s-8.5-4-9.5-6z"/><circle cx="12" cy="12" r="3"/>')+'</svg>';
@@ -1955,13 +1975,13 @@
     $("profbar").hidden=!(c.readOnly||info);
     $("demoBar").hidden=!c.demo;
     $("btnAdd").hidden=!!c.readOnly||cmpOpen;
-    $("btnCmp").hidden=!profData.profiles.length;
+    $("btnCmp").hidden=true; /* ahora está en Menú → Rendimiento */
     try{ menuUserRender(); }catch(e){}
   }
 
   var detMore={};
   function render(){
-    try{ pushSyncSoon(); }catch(e){} try{ feedBadge(); }catch(e){}
+    try{ pushSyncSoon(); }catch(e){} try{ feedBadge(); }catch(e){} try{ askHome(); }catch(e){}
     ensureCcl();
     renderProfile();
     syncToolbar();
@@ -2208,7 +2228,7 @@
         kpi("Capital invertido",mR(costPriced,ccy),"",nCl?"lo que costó lo que tenés":"lo que pusiste");
         if(cashT>0) kpi("Plata sin invertir",mR(cashT,ccy),"","la cargaste vos, ya está sumada");
         else if(inc>0) kpi("Cupones cobrados","+"+mR(inc,ccy),"pos","suman a la ganancia");
-        else kpi("Plata sin invertir",mR(0,ccy),"","cargala en el menú");
+        else kpi("Plata sin invertir",mR(0,ccy),"","cargala en la pestaña Efectivo");
         card.appendChild(kp);
       } else card.appendChild(el("div","v","Sin precios actuales todavía"));
       }
@@ -2224,7 +2244,7 @@
     if(ui.tab==="sold" && !cl) ui.tab="acc";
     t.hidden=!(positions.length||cl); t.textContent="";
     var nF=positions.filter(isRF).length, nA=positions.length-nF;
-    var defs=[["acc","Acciones",nA],["fi","Renta fija",nF]]; if(cl) defs.push(["sold","Vendidas",cl]);
+    var defs=[["acc","Acciones",nA],["fi","Renta fija",nF]]; if(cl) defs.push(["sold","Vendidas",cl]); defs.push(["cash","Efectivo",vBal().length||""]);
     if(ui.tab==="cob") ui.tab=nF?"fi":"acc";
     defs.forEach(function(x){
       var b=el("button",ui.tab===x[0]?"on":"",x[1]); b.type="button"; b.setAttribute("role","tab"); b.setAttribute("aria-selected",String(ui.tab===x[0]));
@@ -2939,6 +2959,10 @@
       .then(function(){ askBusy=false; askRender(); });
   }
   function openAsk(){ setScr(askView); try{ history.pushState({scr:1},""); }catch(e){} askRender(); }
+  /* En la pantalla principal, abajo de la lista: preguntale a tu cartera (antes estaba en el menú). */
+  function askHome(){ var box=$("askHome"); if(!box) return; box.textContent=""; var show=!!auth&&!isRO()&&vPos().length>0&&!cur().demo; box.hidden=!show; if(!show) return;
+    var c=el("div","askh"); var b=el("button","askh-in"); b.type="button"; b.appendChild(el("span","askh-ic","✦")); b.appendChild(el("span",null,"Preguntale algo a tu cartera…")); b.addEventListener("click",function(){ openAsk(); setTimeout(function(){ $("askIn").focus(); },350); }); c.appendChild(b);
+    var ch=el("div","ask-chips"); ASK_SUG.slice(0,2).forEach(function(q){ var x=el("button",null,q); x.type="button"; x.addEventListener("click",function(){ openAsk(); askSend(q); }); ch.appendChild(x); }); c.appendChild(ch); box.appendChild(c); }
   $("btnAsk").addEventListener("click",openAsk);
   $("askBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   $("askForm").addEventListener("submit",function(e){ e.preventDefault(); askSend($("askIn").value); });
@@ -2961,6 +2985,7 @@
   function feedNew(){ return feedItems().filter(isNewF).length; }
   function feedBadge(){ var n=feedNew(), b=$("feedBadge"); if(!b) return; b.hidden=!n; b.textContent=n>9?"9+":String(n);
     /* Arriba, al lado de la lupa: solo si seguís a alguien; el punto avisa que hay movimientos nuevos. */
+    var hb=$("frHubBadge"); if(hb){ hb.hidden=!n; hb.textContent=n>9?"9+":String(n); }
     var fr=$("btnFr"); fr.hidden=!profData.profiles.some(function(p){ return p.readOnly&&p.syncCode; }); $("frDot").hidden=!n; }
   function ensureFeedPx(items){ var need=[]; items.forEach(function(x){ if(x.k==="b"&&x.ccy==="USD"&&!x.fi&&!prices[x.t]&&!feedPx[x.t]&&need.indexOf(x.t)<0) need.push(x.t); });
     if(!need.length||feedBusy||!navigator.onLine||Date.now()-feedPxT<10*60*1000) return;
@@ -2980,7 +3005,7 @@
   function feedNew_(g){ return (g.items||[g]).some(isNewF); }
   function feedRender(){ var box=$("feedBody"); box.textContent=""; var items=feedItems(); ensureFeedPx(items);
     var friends=profData.profiles.filter(function(p){ return p.readOnly&&p.syncCode; });
-    if(!friends.length){ var e=el("div","feed-empty"); e.appendChild(el("b",null,"Todavía no seguís a nadie")); e.appendChild(el("span",null,"Cuando un amigo te comparta su cartera (Menú → Perfiles → agregar con su código), acá vas a ver lo que compra y vende.")); box.appendChild(e); return; }
+    if(!friends.length){ var e=el("div","feed-empty"); e.appendChild(el("b",null,"Todavía no seguís a nadie")); e.appendChild(el("span",null,"Cuando un amigo te comparta su cartera (Menú → Amigos → Seguir a un amigo), acá vas a ver lo que compra y vende.")); box.appendChild(e); return; }
     if(!items.length){ box.appendChild(el("div","feed-empty",null)).appendChild(el("span",null,"Tus amigos no compraron ni vendieron nada en los últimos 4 meses.")); return; }
     var lastG="";
     feedGroups(items).forEach(function(x){ var n=dayNum(todayStr())-dayNum(x.d), g=n<=7?"Esta semana":(n<=31?"Este mes":"Antes");
@@ -3375,9 +3400,9 @@
   var TOUR=[
     [".sum-card","Tu cartera de un vistazo","Cuánto vale todo hoy y cuánto ganaste."],
     ["#list .acc","Tocá cualquier inversión","Ves el detalle y por qué subió o bajó."],
-    ["#btnAdd","Cargá tus inversiones","Una por una desde acá, o todas juntas subiendo el archivo de tu broker (Menú → Perfiles → Importar)."],
+    ["#btnAdd","Cargá tus inversiones","Una por una desde acá, o todas juntas subiendo el archivo de tu broker (Menú → tu foto → Perfiles → Importar)."],
     ["#profSel","La cartera de tus amigos","Si alguien te comparte la suya, la ves acá y la comparás con la tuya."],
-    ["#btnMenu","Y más en el menú","Proyectá cuánto vas a tener a futuro y armá reportes en PDF."],
+    ["#btnMenu","Y más en el menú","Reportes en PDF, proyección a futuro, tu rendimiento y tus amigos."],
     [null,"Ahora te toca a vos","Salí del ejemplo y cargá tu propia cartera."]
   ];
   function tourStart(ready){
@@ -3463,6 +3488,7 @@
     renderTabs();
     var box=$("list"); box.textContent=""; $("dist").textContent=""; document.body.classList.remove("welcome");
     if(ui.tab==="sold"){ renderSoldList(box); return; }
+    if(ui.tab==="cash"){ renderCashTab(box); return; }
     var allN=allPosN(), positions=vPos(); /* con el filtro de broker, solo las de ese broker */
     if(allN&&!positions.length){ box.appendChild(el("div","empty","No tenés posiciones abiertas en "+brokerName(bkOn())+".")); return; }
     if(!positions.length){
@@ -4025,6 +4051,13 @@
     });
     box.appendChild(nav);
   }
+  /* Pestaña Efectivo: la plata sin invertir de cada broker (antes estaba en el menú). */
+  function renderCashTab(box){ var l=vBal(), ro=isRO(), tot=vBalTotal();
+    if(!l.length) box.appendChild(el("div","empty",ro?"Este perfil no tiene plata sin invertir cargada.":"¿Tenés plata parada en algún broker? Cargala y se suma al total de tu cartera."));
+    l.forEach(function(x){ var r=el("button","cash-r"); r.type="button"; var t=el("span","cash-n",brokerName(x.b)); if(x.d) t.appendChild(el("small",null,"desde "+fromISO(x.d))); r.appendChild(t); r.appendChild(el("b",null,ui.hide?MASK:mR(x.a,"USD"))); if(!ro) r.addEventListener("click",openCashDlg); box.appendChild(r); });
+    if(l.length>1){ var tr=el("div","cash-r tot"); tr.appendChild(el("span","cash-n","Total")); tr.appendChild(el("b",null,ui.hide?MASK:mR(tot,"USD"))); box.appendChild(tr); }
+    if(!ro){ var b=el("button","cash-add",l.length?"Cargar o cambiar":"+ Cargar plata sin invertir"); b.type="button"; b.addEventListener("click",openCashDlg); box.appendChild(b); } }
+  function openCashDlg(){ $("cashDate").dataset.iso=""; $("cashDate").value=""; renderCash(); dlgCash.showModal(); }
   function renderBal(){
     var pr=cur(), ro=isRO(), sel=$("balBroker"), box=$("balList");
     if(!sel.options.length) BROKERS.forEach(function(b){ var o=document.createElement("option"); o.value=b; o.textContent=brokerName(b); sel.appendChild(o); });
@@ -4584,7 +4617,7 @@
   var cmpView=$("cmpView"), cmpRun=0, cmpOpen=false, cmpData=null, cmpRange="all";
   var MES3=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
   var dlgProf=$("dlgProf"), dlgSet=$("dlgSet");
-  var rptView=$("rptView"), simView=$("simView"), pushView=$("pushView"), askView=$("askView"), feedView=$("feedView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView,simView,pushView,askView,feedView];
+  var rptView=$("rptView"), simView=$("simView"), pushView=$("pushView"), askView=$("askView"), feedView=$("feedView"), hubView=$("hubView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView,simView,pushView,askView,feedView,hubView];
   function setScr(el){
     var prev=SCREENS.filter(function(x){ return !x.hidden; })[0]||null, prevTop=prev?prev.getBoundingClientRect().top:0;
     SCREENS.forEach(function(x){ x.hidden=x!==el; x.classList.remove("enter","leave"); });
@@ -4621,11 +4654,11 @@
   $("cmpBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setCmp(false); });
   window.addEventListener("popstate",function(){
     /* Botón atrás del celu: si la pantalla tiene pasos adentro, vuelve un paso y se queda. */
-    if(dlgProf._closing||dlgSet._closing){ var wasProf=dlgProf._closing; dlgProf._closing=dlgSet._closing=false; if(wasProf&&retHub){ retHub=false; setScr(dlgSet); hubRender(); return; } setScr(null); return; }
+    if(dlgProf._closing||dlgSet._closing){ var wasProf=dlgProf._closing; dlgProf._closing=dlgSet._closing=false; if(wasProf&&retHub){ backToHub(); return; } setScr(null); return; }
     /* Dentro de Ajustes: de una sección vuelve a la lista. */
     if(!dlgSet.hidden&&$("formSet").classList.contains("sub")){ setSub(null); return; }
     if(window.pvCanBack&&window.pvCanBack()){ window.pvBackStep(); try{ history.pushState({scr:1},""); }catch(e){} return; }
-    if(cmpOpen){ if(retHub&&(!pushView.hidden||!dlgProf.hidden)){ retHub=false; setScr(dlgSet); hubRender(); return; } retHub=false; setScr(null); } });
+    if(cmpOpen){ if(retHub&&dlgSet.hidden&&hubView.hidden){ backToHub(); return; } retHub=false; setScr(null); } });
   $("cmpA").addEventListener("change",runCompare); $("cmpB").addEventListener("change",runCompare);
   function pctTxt(v){ return fmtPct(v/100); }
   function fmtD(n){ return dayStr(n).split("-").reverse().join("/"); }
@@ -4700,7 +4733,7 @@
     var list=el("div","rk-list"); box.appendChild(list);
     var shb=el("button","primary sh-go","Compartir ranking"); shb.type="button"; shb.addEventListener("click",function(){ if(rkData) rkShare(); });
     var friends=profData.profiles.filter(function(p){ return p.readOnly; }).length;
-    box.appendChild(el("div","help",friends?"Se compara en %: no importa cuánta plata tiene cada uno.":"Todavía no tenés carteras de amigos. Pedile a alguien que te comparta la suya (Menú → Perfiles → Compartir) y aparece acá."));
+    box.appendChild(el("div","help",friends?"Se compara en %: no importa cuánta plata tiene cada uno.":"Todavía no tenés carteras de amigos. Pedile a alguien que te comparta la suya (Menú → Amigos → Compartir mi cartera) y aparece acá."));
     box.appendChild(shb);
     if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
     if(rkData&&Date.now()-rkData.t<10*60*1000){ rkDraw(list); return; }
@@ -4955,8 +4988,34 @@
   $("hubBk").addEventListener("click",function(){ subOpen(["acctSec","backupSec"],"Datos y copias"); });
   $("secOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
   $("hideTg").addEventListener("change",function(){ save(LS_HIDEOPEN,this.checked); });
-  $("hubProf").addEventListener("click",function(){ retHub=true; $("btnProfAdm").click(); });
-  $("hubPush").addEventListener("click",function(){ retHub=true; $("btnPush").click(); });
+  $("hubProf").addEventListener("click",function(){ retHub="set"; $("btnProfAdm").click(); });
+  $("hubPush").addEventListener("click",function(){ retHub="set"; $("btnPush").click(); });
+  /* Volver a la pantalla de entradas desde la que se abrió (Ajustes, Rendimiento o Amigos). */
+  function backToHub(){ var k=retHub; retHub=false; if(k==="set"){ setScr(dlgSet); hubRender(); } else { setScr(hubView); hubShow(k); } }
+  /* Pantallas de entradas del menú: cada fila abre su pantalla y "atrás" vuelve acá. */
+  function hubRow(box,title,sub,fn,badge){ var b=el("button","pe-r"); b.type="button"; var t=el("span","pe-t",title); t.appendChild(el("small",null,sub)); b.appendChild(t); if(badge) b.appendChild(el("i","dr-badge",badge)); b.appendChild(el("span","pe-ch","›")); b.addEventListener("click",fn); box.appendChild(b); }
+  function hubShow(k){ var box=$("hubBody"); box.textContent=""; hubView._k=k; var g=el("div","pe-grp"); box.appendChild(g);
+    if(k==="perf"){ $("hubTitle").textContent="Rendimiento";
+      hubRow(g,"Comparar","Tu cartera contra un índice o la de un amigo, en un gráfico",function(){ retHub="perf"; openCmp(); });
+      hubRow(g,"Ranking","Quién rindió más: vos, tus amigos y los índices",function(){ rkOpen(); });
+      hubRow(g,"Compartir mi rendimiento","Una imagen con tu % para mandar (sin montos)",function(){ shOpen(); }); }
+    else { $("hubTitle").textContent="Amigos"; var n=feedNew();
+      hubRow(g,"Movimientos de amigos","Qué compran y venden, con reacciones y comentarios",function(){ retHub="fr"; openFeed(); },n?(n>9?"9+":String(n)):"");
+      hubRow(g,"Seguir a un amigo","Cargá el código que te pasó",frFollow);
+      hubRow(g,"Compartir mi cartera","Pasale tu código a un amigo",frShareMine);
+      box.appendChild(el("div","help","Lo que se comparte son porcentajes: tus amigos no ven cuánta plata tenés, salvo que lo elijas.")); } }
+  function openHub(k){ setScr(hubView); try{ history.pushState({scr:1},""); }catch(e){} hubShow(k); }
+  $("btnPerfHub").addEventListener("click",function(){ dlgMenu.close(); openHub("perf"); });
+  $("btnFrHub").addEventListener("click",function(){ dlgMenu.close(); openHub("fr"); });
+  $("hubBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
+  function frFollow(){ var d=$("dlgSimA"), box=$("simABody"); d._fx=null; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove(); d.querySelector("h3").textContent="Seguir a un amigo"; box.textContent="";
+    box.appendChild(el("div","help","Pedile a tu amigo su código (Menú → Amigos → Compartir mi cartera) y pegalo acá."));
+    var inp=document.createElement("input"); inp.placeholder="Código (ABCDE-FGHJK) o link"; inp.autocomplete="off"; inp.autocapitalize="off"; inp.spellcheck=false; box.appendChild(inp);
+    var go=el("button","primary sim-ok","Agregar"); go.type="button"; go.addEventListener("click",function(){ var v=inp.value.trim(); if(!v) return; $("pfLink").value=v; d.close(); $("pfImport").click(); }); box.parentNode.appendChild(go);
+    box.appendChild(el("div","help","Tu amigo va a ver tu nombre y email en la lista de personas que siguen su cartera."));
+    d.showModal(); setTimeout(function(){ inp.focus(); },300); }
+  function frShareMine(){ var own=profData.profiles.filter(function(p){ return !p.readOnly&&!p.demo; }); if(!own.length){ alert("Primero cargá tu cartera."); return; }
+    var pr=own.filter(function(p){ return p.id===profData.active; })[0]||own[0]; retHub="fr"; pvDirect=true; pvProf=pr; $("shareWho").textContent=""; pvShow("share"); showShare(pr); dlgProf.showModal(); }
   /* Tu perfil: nombre y foto que ven tus amigos en el feed y en los comentarios. La foto se achica a 160×160 antes de subirla. */
   function meRender(){ var sec=$("meSec"); sec.hidden=!auth; if(!auth) return; var ph=$("mePh"), f=$("meFile"); ph.textContent=""; ph.appendChild(f);
     if(meProf.ph){ var im=document.createElement("img"); im.src=meProf.ph; im.alt="Tu foto"; ph.appendChild(im); ph.style.background=""; } else { ph.appendChild(document.createTextNode(meName().charAt(0).toUpperCase())); ph.style.background=avColor(meName()); }
@@ -5333,7 +5392,7 @@
   });
   $("peUse").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); setActive(id); });
   $("peShare").addEventListener("click",function(){ if(!pvProf) return; $("shareWho").textContent=""; pvShow("share"); showShare(pvProf); });
-  $("codeSend").addEventListener("click",function(){ var c=$("shareCode").textContent, t="Mirá mi cartera en Holdy (https://holdy.pages.dev): en Perfiles → “Agregar el perfil de otra persona”, pegá el código "+c;
+  $("codeSend").addEventListener("click",function(){ var c=$("shareCode").textContent, t="Mirá mi cartera en Holdy (https://holdy.pages.dev): en Menú → Amigos → “Seguir a un amigo”, pegá el código "+c;
     if(navigator.share) navigator.share({text:t}).catch(function(){}); else { if(navigator.clipboard) navigator.clipboard.writeText(t); shareMsg("Copié el mensaje con el código para que lo pegues donde quieras."); } });
   /* Se abre encima de Perfiles; al cerrarla se vuelve al perfil, con el estado actualizado. */
   $("peIbAuto").addEventListener("click",function(){ if(!pvProf) return; openIb(pvProf.id); });
