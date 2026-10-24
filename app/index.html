@@ -5347,6 +5347,13 @@
     save(LS_PROF,profData); dlgShare.close(); render(); refresh(false);
   });
 
+  /* Invitación para seguir una cartera (link "Enviar" de Compartir): se agrega sola, con la confirmación de siempre. */
+  function followPending(){ if(GOOGLE_CLIENT_ID && !auth) return; var c=null; try{ c=localStorage.getItem("cartera.follow.v1"); localStorage.removeItem("cartera.follow.v1"); }catch(e){}
+    var m=/^#seguir=([A-Za-z0-9-]{8,24})$/.exec(location.hash||""); if(m){ c=m[1]; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} }
+    if(!c) return; var code=normCode(c); if(code.length<8) return;
+    if(profData.profiles.some(function(p){ return p.syncCode===code||(p.sync&&p.sync.code===code); })) return; /* ya la seguís (o es tuya) */
+    importCode(code).then(offerShare).catch(function(e){ alert(importErrMsg(e)); }); }
+  window.addEventListener("hashchange",followPending); setTimeout(followPending,1200);
   function handleHash(){
     if(GOOGLE_CLIENT_ID && !auth) return;
     var m=/^#share=(.+)$/.exec(location.hash||"");
@@ -5411,7 +5418,7 @@
   });
   $("peUse").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); setActive(id); });
   $("peShare").addEventListener("click",function(){ if(!pvProf) return; $("shareWho").textContent=""; pvShow("share"); showShare(pvProf); });
-  $("codeSend").addEventListener("click",function(){ var c=$("shareCode").textContent, t="Mirá mi cartera en Holdy (https://holdy.pages.dev): en Menú → Amigos → “Seguir a un amigo”, pegá el código "+c;
+  $("codeSend").addEventListener("click",function(){ var c=$("shareCode").textContent, t="Te comparto mi cartera en Holdy 📈 Tocá el link y se agrega sola: https://holdy.pages.dev/?seguir="+encodeURIComponent(c.replace(/\s/g,""))+" (o pegá el código "+c+" en Menú → Amigos → Seguir a un amigo)";
     if(navigator.share) navigator.share({text:t}).catch(function(){}); else { if(navigator.clipboard) navigator.clipboard.writeText(t); shareMsg("Copié el mensaje con el código para que lo pegues donde quieras."); } });
   /* Se abre encima de Perfiles; al cerrarla se vuelve al perfil, con el estado actualizado. */
   $("peIbAuto").addEventListener("click",function(){ if(!pvProf) return; openIb(pvProf.id); });

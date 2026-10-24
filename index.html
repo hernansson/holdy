@@ -21,6 +21,8 @@
 <meta name="twitter:image" content="https://holdy.pages.dev/og.jpg">
 <script>
 // Quien ya inició sesión entra directo a la app, antes de pintar nada (con ?home se ve esta página).
+// Link de invitación (?seguir=CÓDIGO): se guarda y la app lo agrega sola apenas entrás.
+(function(){ try{ var m=/[?&]seguir=([A-Za-z0-9-]{8,24})/.exec(location.search); if(m) localStorage.setItem("cartera.follow.v1",m[1]); }catch(e){} })();
 (function(){ try{ if(localStorage.getItem("cartera.auth.v1") && !/[?&]home\b/.test(location.search)){ document.documentElement.style.visibility="hidden"; location.replace("app/"); setTimeout(function(){ document.documentElement.style.visibility=""; },3000); } }catch(e){} })();
 </script>
 <link rel="icon" href="app/icon-192.png">
@@ -362,6 +364,9 @@
     });
   });
   if("requestIdleCallback" in window) requestIdleCallback(mount,{timeout:2500}); else setTimeout(mount,800);
+  /* Vino por una invitación y no entró todavía: se abre el ingreso con Google directamente. */
+  (function(){ var f=null, logged=false; try{ f=localStorage.getItem("cartera.follow.v1"); logged=!!localStorage.getItem("cartera.auth.v1"); }catch(x){}
+    if(f&&!logged&&dlg.showModal&&/[?&]seguir=/.test(location.search)){ setTimeout(function(){ dlg.showModal(); mount(); say("Te compartieron una cartera. Entrá con Google y se agrega sola."); },400); } })();
   document.getElementById("gclose").addEventListener("click",function(){ dlg.close(); });
   dlg.addEventListener("click",function(e){ if(e.target===dlg) dlg.close(); });
 })();
