@@ -5217,7 +5217,18 @@
     if(!profData.profiles.some(function(x){return x.id===id;})) return;
     cur().positions=positions;
     profData.active=id; positions=cur().positions; openId=null;
-    save(LS_PROF,profData); render(); refresh(false);
+    save(LS_PROF,profData); render(); var rp=refresh(false);
+    /* Si estás en otra pantalla (Reportes, Proyección, Preguntale, Comparar, Avisos), se rearma con la cartera nueva. */
+    try{ screensForProfile(); }catch(e){}
+    if(rp&&rp.then) rp.then(function(){ try{ if(!simView.hidden) screensForProfile(true); }catch(e){} });
+  }
+  function screensForProfile(simOnly){
+    if(!simView.hidden){ if(!simWz){ simIn.cap=Math.round(simCapNow()/1000)*1000; simIn.capR=1; simSave(); simForm(); simCalcNow(); } }
+    if(simOnly) return;
+    if(!rptView.hidden){ rptRenderCfg(); rptBuild(); }
+    if(!askView.hidden){ askLog=[]; askRender(); }
+    if(!cmpView.hidden){ var a=$("cmpA"); if([].some.call(a.options,function(o){ return o.value===profData.active; })){ a.value=profData.active; if($("cmpB").value===a.value) $("cmpB").value=SPY_ID; } runCompare(); }
+    if(!pushView.hidden){ renderPush(); }
   }
 
   function b64uEnc(bytes){ var s=""; for(var i=0;i<bytes.length;i+=0x8000) s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000)); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
