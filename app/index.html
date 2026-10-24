@@ -5018,6 +5018,7 @@
       hubRow(g,"Movimientos de amigos","Qué compran y venden, con reacciones y comentarios",function(){ retHub="fr"; openFeed(); },n?(n>9?"9+":String(n)):"");
       hubRow(g,"Seguir a un amigo","Cargá el código que te pasó",frFollow);
       hubRow(g,"Compartir mi cartera","Pasale tu código a un amigo",frShareMine);
+      hubRow(g,"Invitar a Holdy","Mandale la app por WhatsApp o donde quieras",frInvite);
       box.appendChild(el("div","help","Lo que se comparte son porcentajes: tus amigos no ven cuánta plata tenés, salvo que lo elijas.")); } }
   function openHub(k){ setScr(hubView); try{ history.pushState({scr:1},""); }catch(e){} hubShow(k); }
   $("btnPerfHub").addEventListener("click",function(){ dlgMenu.close(); openHub("perf"); });
@@ -5029,6 +5030,9 @@
     var go=el("button","primary sim-ok","Agregar"); go.type="button"; go.addEventListener("click",function(){ var v=inp.value.trim(); if(!v) return; $("pfLink").value=v; d.close(); $("pfImport").click(); }); box.parentNode.appendChild(go);
     box.appendChild(el("div","help","Tu amigo va a ver tu nombre y email en la lista de personas que siguen su cartera."));
     d.showModal(); setTimeout(function(){ inp.focus(); },300); }
+  /* Invitar: el link lleva a la página de Holdy, que en WhatsApp se ve como tarjeta con imagen. */
+  function frInvite(){ var t="Mirá Holdy, la uso para ver toda mi cartera clara (acciones, bonos y fondos de todos los brokers) y seguir lo que compran mis amigos. Es gratis 👉 https://holdy.pages.dev";
+    if(navigator.share) navigator.share({text:t}).catch(function(){}); else window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank"); }
   function frShareMine(){ var own=profData.profiles.filter(function(p){ return !p.readOnly&&!p.demo; }); if(!own.length){ alert("Primero cargá tu cartera."); return; }
     var pr=own.filter(function(p){ return p.id===profData.active; })[0]||own[0]; retHub="fr"; pvDirect=true; pvProf=pr; $("shareWho").textContent=""; pvShow("share"); showShare(pr); dlgProf.showModal(); }
   /* Tu perfil: nombre y foto que ven tus amigos en el feed y en los comentarios. La foto se achica a 160×160 antes de subirla. */
