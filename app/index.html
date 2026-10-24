@@ -5418,7 +5418,7 @@
   });
   $("peUse").addEventListener("click",function(){ if(!pvProf) return; var id=pvProf.id; dlgProf.close(); setActive(id); });
   $("peShare").addEventListener("click",function(){ if(!pvProf) return; $("shareWho").textContent=""; pvShow("share"); showShare(pvProf); });
-  $("codeSend").addEventListener("click",function(){ var c=$("shareCode").textContent, t="Te comparto mi cartera en Holdy 📈 Tocá el link y se agrega sola: https://holdy.pages.dev/?seguir="+encodeURIComponent(c.replace(/\s/g,""))+" (o pegá el código "+c+" en Menú → Amigos → Seguir a un amigo)";
+  $("codeSend").addEventListener("click",function(){ var c=$("shareCode").textContent, t="Te comparto mi cartera en Holdy 📈 Tocá el link y se agrega sola: https://holdy.pages.dev/seguir/?c="+encodeURIComponent(c.replace(/\s/g,""));
     if(navigator.share) navigator.share({text:t}).catch(function(){}); else { if(navigator.clipboard) navigator.clipboard.writeText(t); shareMsg("Copié el mensaje con el código para que lo pegues donde quieras."); } });
   /* Se abre encima de Perfiles; al cerrarla se vuelve al perfil, con el estado actualizado. */
   $("peIbAuto").addEventListener("click",function(){ if(!pvProf) return; openIb(pvProf.id); });
