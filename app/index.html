@@ -6121,6 +6121,19 @@
       var nm=rows[i].map(function(x){ return x.toLowerCase(); });
       if(nm.indexOf("tipo mov.")>=0 && nm.indexOf("nro. de boleto")>=0){ hi=i; nm.forEach(function(k,j){ ix[k]=j; }); break; }
     }
+    /* Formato nuevo de IOL: "Fecha Transacción · Boleto · Tipo Transacción · Simbolo · Cantidad · Moneda · Precio Ponderado …" */
+    if(hi<0){ for(var i2=0;i2<Math.min(rows.length,10);i2++){ var nm2=rows[i2].map(function(x){ return x.toLowerCase(); });
+        if(nm2.indexOf("tipo transacción")>=0 && nm2.indexOf("boleto")>=0){ var j={}; nm2.forEach(function(k,q){ j[k]=q; });
+          var nT=j["tipo transacción"], nB=j["boleto"], nD=j["fecha transacción"], nS=j["simbolo"], nQ=j["cantidad"], nP=j["precio ponderado"], nM=j["moneda"];
+          if([nT,nB,nD,nS,nQ,nP].some(function(v){ return v===undefined; })){ out.error="columnas"; return out; }
+          for(var r2=i2+1;r2<rows.length;r2++){ var c2=rows[r2]; if(c2.length<=nT) continue; var tp2=c2[nT]||""; if(!tp2) continue;
+            if(/cauci/i.test(tp2)){ out.skipped.cauciones++; continue; } if(/FCI/i.test(tp2)){ out.skipped.fci++; continue; } if(/dividend/i.test(tp2)){ out.skipped.dividendos++; continue; }
+            if(!/^(compra|venta)$/i.test(tp2.trim())){ out.skipped.otros++; continue; }
+            var raw=String(c2[nS]||"").trim().toUpperCase(), usd=nM!==undefined&&/US\$|USD|D[OÓ]LAR/i.test(c2[nM]||""), d2=iolDate(String(c2[nD]||"").split(" ")[0]), q2=iolNum(c2[nQ]), p2=iolNum(c2[nP]);
+            if(!d2||!(q2>0)||!(p2>0)) continue; var tk2=usd?raw.replace(/\.?D$/,""):raw; if(!/^[A-Z0-9.\-]{1,12}$/.test(tk2)) continue;
+            out.trades.push({d:d2,s:/^compra/i.test(tp2.trim())?"b":"s",tk:tk2,raw:raw,q:q2,p:p2,usd:usd});
+            if(!out.dmin||d2<out.dmin) out.dmin=d2; if(!out.dmax||d2>out.dmax) out.dmax=d2; }
+          return out; } } }
     if(hi<0){ out.error="formato"; return out; }
     var cT=ix["tipo mov."], cB=ix["nro. de boleto"], cD=ix["concert."], cE=ix["est"], cQ=ix["cant. titulos"], cP=ix["precio"], cA=ix["tipo cuenta"];
     if([cT,cB,cD,cQ,cP].some(function(v){ return v===undefined; })){ out.error="columnas"; return out; }
@@ -6317,7 +6330,7 @@
     if(/\.xlsx$/i.test(f.name)){
       rd.onload=function(){ balanzRead(rd.result); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsArrayBuffer(f);
     } else {
-      rd.onload=function(){ var tx=String(rd.result||""); if(/Tipo Mov\./i.test(tx)) iolRead(tx); else if(balanzMobileCsv(tx)){} else if(/^\s*(<|\xd0\xcf)/.test(tx)||/\.xls$/i.test(f.name)){ ibMsg("No reconozco este archivo. Para IOL tiene que ser el Excel de “Operaciones finalizadas” tal como lo descargás."); } else ibRead(tx); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
+      rd.onload=function(){ var tx=String(rd.result||""); if(/Tipo Mov\.|Tipo Transacci(ó|&oacute;|o)n/i.test(tx)) iolRead(tx); else if(balanzMobileCsv(tx)){} else if(/^\s*(<|\xd0\xcf)/.test(tx)||/\.xls$/i.test(f.name)){ ibMsg("No reconozco este archivo. Para IOL tiene que ser el Excel de “Operaciones finalizadas” tal como lo descargás."); } else ibRead(tx); }; rd.onerror=function(){ ibMsg("No pude leer el archivo."); }; rd.readAsText(f);
     }
   });
   $("ibRead").addEventListener("click",function(){ var t=$("ibText").value; if(!t.trim()){ ibMsg("Pegá el contenido del CSV o elegí el archivo."); return; } if(/Tipo Mov\./i.test(t)) iolRead(t); else if(balanzMobileCsv(t)){} else ibRead(t); });
