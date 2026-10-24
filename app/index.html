@@ -551,6 +551,8 @@
   .cmpchips button:disabled{opacity:.35}
   .cmpchips button.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
   .cmpsel{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cmpm{font-size:12.5px; color:var(--muted); line-height:1.4} .cmpm .linkbtn{font-size:12.5px; padding:0; min-height:0}
+  .rk-row b small{display:block; font-size:10.5px; font-weight:600; color:var(--muted); text-align:right}
   .cmpleg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;font-weight:700}
   .cmpleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
   .cmpleg i.dash{border-radius:0;height:0;border-top:2px dashed #8a9a98;width:14px;vertical-align:middle}
@@ -1436,6 +1438,7 @@
         <button type="button" class="pe-r" id="hubProf"><span class="pe-t">Perfiles<small>Tus carteras: crear, importar y compartir</small></span><span class="pe-ch">›</span></button>
         <button type="button" class="pe-r" id="hubPush"><span class="pe-t">Avisos<small>Qué te avisa Holdy y cuándo</small></span><span class="pe-ch">›</span></button>
         <button type="button" class="pe-r" id="hubSec"><span class="pe-t">Seguridad<small>Tu cuenta, bloqueo con huella y montos ocultos</small></span><span class="pe-ch">›</span></button>
+        <button type="button" class="pe-r" id="hubCmp"><span class="pe-t">Comparar con el S&amp;P 500<small id="hubCmpSub">Con tu plata o solo en %</small></span><span class="pe-ch">›</span></button>
         <button type="button" class="pe-r" id="hubBk"><span class="pe-t">Datos y copias<small>Sincronización, exportar, importar y Excel</small></span><span class="pe-ch">›</span></button>
       </div>
     </div>
@@ -1474,6 +1477,7 @@
       <label class="vw-r vw-t" style="padding:4px 0"><span class="pe-t">Abrir con montos ocultos<small>Holdy arranca con el ojito cerrado: se ven los % pero no la plata.</small></span><input type="checkbox" class="sw" id="hideTg"></label>
       <button type="button" class="danger-b" id="secOut">Cerrar sesión</button>
     </div>
+    <div class="sec" id="cmpSec"><div class="help" style="margin-bottom:6px">Se usa en Reportes, Comparar y Ranking.</div><div id="cmpSecBody" style="display:grid;gap:8px"></div></div>
     <div class="sec" id="installSec" hidden>
       <div class="sec-t">Instalar</div>
       <button type="button" id="sInstall">Instalar app</button>
@@ -2853,7 +2857,7 @@
     else o={from:t.slice(0,8)+"01",to:t,label:"Reporte mensual · "+RPT_MES[m-1]+" "+y,closed:false,mes:1};
     o.del=o.mes?"del mes":"del período"; o.en=o.mes?"en el mes":"en el período"; o.file=RPT_PER.filter(function(x){ return x[0]===per; })[0][1]+" "+(o.mes?o.label.split("· ")[1]:F(o.from)+"-"+F(o.to));
     return o; }
-  function rptRenderCfg(){
+  function rptRenderCfg(){ setTimeout(function(){ try{ rptMethod(); }catch(e){} },0);
     var box=$("rptCfg"); box.textContent="";
     /* Período (una fila que abre una hoja) y broker. */
     var g=el("div","pe-grp vw-g"), P0=rptPeriod(), pb=el("button","pe-r"); pb.type="button";
@@ -3217,6 +3221,7 @@
   $("feedBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   if(!feedSeen) feedMarkSeen(); /* la primera vez no hay nada "nuevo" */
   function openRpt(){ setScr(rptView); try{ history.pushState({scr:1},""); }catch(e){} rptRenderCfg(); rptBuild(); }
+  function rptMethod(){ var c=$("rptCfg"), o=c.querySelector(".cmpm"); if(o) o.remove(); c.appendChild(cmpMethodEl(function(){ rptMethod(); rptBuild(); })); }
   $("btnRpt").addEventListener("click",openRpt);
   $("rptBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   $("rptPdf").addEventListener("click",function(){
@@ -3250,7 +3255,10 @@
     var histP=navigator.onLine?Promise.all([stk.length?fetchHistory(stk,hFrom).catch(function(){ return {data:{}}; }):Promise.resolve({data:{}}),spyHist(hFrom)]).then(function(x){ var d=x[0].data||{}; if(x[1]) d.SPY=x[1]; return {data:d}; }):Promise.resolve({data:{}});
     /* Tu % del período para comparar con el S&P 500: el mismo cálculo que el ranking (no depende de cuánta plata pusiste ni de cuándo empezaste). */
     var twrP=navigator.onLine?scoped(function(){ return twrRows([vProf()]); }).then(function(R){ var row=(R.rows||[]).filter(function(r){ return !r.spy; })[0]; if(!row||!row.pts.length) return null;
-      var b=null, e=null; row.pts.forEach(function(p){ if(p[0]<=dFrom-1) b=p; if(p[0]<=dTo) e=p; }); if(!b) b=row.pts[0]; if(!e) return null; return b[1]>0?e[1]/b[1]-1:null; }).catch(function(){ return null; }):Promise.resolve(null);
+      var b=null, e=null; row.pts.forEach(function(p){ if(p[0]<=dFrom-1) b=p; if(p[0]<=dTo) e=p; }); if(!b) b=row.pts[0]; if(!e) return null;
+      /* Con tu plata: cartera espejo en el S&P 500 desde el inicio del período */
+      var pm=null; if(row.raw){ var B=benchArr(R.hist&&R.hist.SPY); if(B.length){ var ps=pmeSeries(row.raw.filter(function(p){ return p[0]<=dTo; }),B,Math.max(dFrom-1,row.raw[0][0]-1)); pm=ps.last; } }
+      return {twr:b[1]>0?e[1]/b[1]-1:null,pme:pm}; }).catch(function(){ return null; }):Promise.resolve(null);
     return Promise.all([evoP,histP,twrP]).then(function(R){ return scoped(function(){
       var ev=R[0], H=(R[1]&&R[1].data)||{}, fT=dcF(), D={};
       function conv(p){ if(p.length<7||ui.dc==="CCL"||!fxToday()) return [p[0],p[1],p[2]]; var c_=p[5]||1, m_=p[6]||1; return [p[0],(ui.dc==="ARS"?p[1]*c_:p[1]*c_/m_)/fT,(ui.dc==="ARS"?p[3]:p[4])/fT]; }
@@ -3276,7 +3284,7 @@
       D.real=real; D.cpn=cpn; D.dvs=dvs; D.cobs=cobs.sort(function(a,b){ return a.d<b.d?-1:1; }); D.next=it.next.slice(0,3);
       /* Por acción: variación del precio en el período (desde la compra, si fue durante el mes). */
       function hpx(tk,d){ var h=H[tk]; if(!h||!h.pts) return null; var b=null; h.pts.forEach(function(r){ if(dayNum(r[0])<=d) b=r[1]; }); return b; }
-      var spy0=hpx("SPY",dFrom-1), spy1=hpx("SPY",dTo); D.spy=(spy0>0&&spy1>0)?spy1/spy0-1:null; D.twr=(typeof R[2]==="number"&&isFinite(R[2]))?R[2]:null;
+      var spy0=hpx("SPY",dFrom-1), spy1=hpx("SPY",dTo); D.spy=(spy0>0&&spy1>0)?spy1/spy0-1:null; D.twr=(R[2]&&typeof R[2].twr==="number"&&isFinite(R[2].twr))?R[2].twr:null; D.pme=(R[2]&&R[2].pme&&R[2].pme.ex!==null)?R[2].pme:null;
       D.pos=PS.map(function(p){ var cp=curPx(p), v=cp===null?null:p.qty*cp, cst=pCost(p), inc=p.fi?fiIncomeE(p):0;
         var m=null; if(!p.fi&&!isFci(p)&&H[p.ticker]){ var fd=(p.lots||[]).map(function(l){return l.d;}).filter(Boolean).sort()[0]||"", st=fd&&fd>P.from?dayNum(fd):dFrom-1, a0=hpx(p.ticker,st), a1=P.closed?hpx(p.ticker,dTo):(prices[p.ticker]&&prices[p.ticker].price)||hpx(p.ticker,dTo); if(fd&&fd>P.from){ var lb=(p.lots||[]).filter(function(l){return l.d===fd;})[0]; if(lb&&lb.b>0) a0=lb.b; } if(a0>0&&a1>0) m=a1/a0-1; }
         return {t:p.ticker,b:p.broker,k:p.fi?"Renta fija":(isFci(p)?(isRF(p)?"Renta fija":"Acciones"):"Acciones"),fci:isFci(p),v:v,c:cst,r:v===null?null:v-cst+inc,rp:(v!==null&&cst>0)?(v-cst+inc)/cst:null,m:m}; })
@@ -3325,7 +3333,9 @@
       h.push('<div class="rp-kpi"><span>Resultado total</span><b class="'+C(D.totalAll)+'">'+MS(D.totalAll)+'</b><small>'+(D.costAll>0?PC(D.totalAll/D.costAll)+" sobre lo invertido":"")+'</small></div>');
       /* Comparación: tu % del mes contra lo que hizo el S&P 500 (el índice de las 500 empresas más grandes de EE.UU.) en el mismo período. */
       var myP=D.twr!==null?D.twr:((D.month!==null&&D.base>0)?D.month/D.base:null), dif=(myP!==null&&D.spy!==null)?myP-D.spy:null;
-      h.push('<div class="rp-kpi"><span>Contra el S&amp;P 500</span><b class="'+C(dif)+'">'+(dif===null?"—":(dif>=0?"Le ganaste":"Te ganó"))+'</b><small>'+(dif===null?(D.spy===null?"no se pudo traer el S&amp;P 500; probá de nuevo":"sin historial de tu cartera en el período"):"Vos "+PC(myP)+" · S&amp;P 500 "+PC(D.spy)+" "+P.en)+'</small></div></div>');
+      if(pmeOn()&&D.pme){ var pd=D.pme.real-D.pme.sh, pmT=function(x){ return mR(x,"USD"); };
+        h.push('<div class="rp-kpi"><span>Contra el S&amp;P 500</span><b class="'+C(pd)+'">'+(pd>=0?"Le ganaste":"Te ganó")+'</b><small>Con todo en el S&amp;P 500 tendrías '+pmT(D.pme.sh)+' (vos '+pmT(D.pme.real)+') · '+PC(D.pme.ex)+'</small></div></div>'); }
+      else h.push('<div class="rp-kpi"><span>Contra el S&amp;P 500</span><b class="'+C(dif)+'">'+(dif===null?"—":(dif>=0?"Le ganaste":"Te ganó"))+'</b><small>'+(dif===null?(D.spy===null?"no se pudo traer el S&amp;P 500; probá de nuevo":"sin historial de tu cartera en el período"):"Vos "+PC(myP)+" · S&amp;P 500 "+PC(D.spy)+" "+P.en)+'</small></div></div>');
       if(D.month!==null){ h.push('<div class="rp-sec"><h3>De dónde salió el resultado '+P.del+'</h3><table class="rp-t">');
         [["Variación de precios",D.price],["Cupones cobrados",D.cpn],["Dividendos cobrados",D.dvs],["Ganancia de lo que vendiste",D.real]].forEach(function(r){ if(r[1]===null||(Math.abs(r[1])<0.005&&r[0]!=="Variación de precios")) return; h.push('<tr><td>'+r[0]+'</td><td class="'+C(r[1])+'">'+MS(r[1],true)+'</td></tr>'); });
         h.push('<tr class="tot"><td>Total '+P.del+'</td><td class="'+C(D.month)+'">'+MS(D.month,true)+'</td></tr></table></div>'); }
@@ -4636,6 +4646,27 @@
     (pr.bal||[]).forEach(function(c){ if(c.d) ev.push({d:c.d,tk:"$",a:c.a,t:"c"}); });
     return {ev:ev,used:used,skipped:skipped,items:items,fis:fis};
   }
+  /* ---------- Cómo comparar con el índice (Ajustes): "pme" = con tu plata (cartera espejo), "twr" = solo % ---------- */
+  var LS_CMPM="cartera.cmpm.v1", cmpM=load(LS_CMPM,"pme")==="twr"?"twr":"pme";
+  function pmeOn(){ return cmpM==="pme"; }
+  function benchArr(h){ return h&&h.pts?h.pts.map(function(r){ return [dayNum(r[0]),(r[2]>0?r[2]:r[1])]; }):[]; }
+  /* Cartera espejo: lo que tenías al empezar el período y cada peso nuevo que pusiste van al índice ese mismo día; las ventas no salen (esa plata sigue siendo tuya).
+     pts = [día, %, valor, plata nueva del día] (de cmpCurve con efectivo). Devuelve la serie de "cuánto le ganás" en % y el último punto con los montos. */
+  function pmeSeries(pts,bench,r0){ var bm={}, bd=[]; bench.forEach(function(b){ bm[b[0]]=b[1]; bd.push(b[0]); });
+    function bp(d){ for(var k=d;k>d-12;k--){ if(bm[k]>0) return bm[k]; } return null; }
+    var units=0, V0=0, started=false, out=[], last=null;
+    pts.forEach(function(p){ var d=p[0]; if(d<=r0){ V0=p[2]||0; return; } var b=bp(d); if(!b) return;
+      if(!started){ var b0=bp(r0)||b; units=V0>0?V0/b0:0; started=true; }
+      if(p[3]) units+=p[3]/b; var sh=units*b; last={d:d,real:p[2],sh:sh,ex:sh>0?p[2]/sh-1:null}; if(sh>0) out.push([d,(p[2]/sh-1)*100]); });
+    return {p:out,last:last}; }
+  function cmpMethodTxt(){ return pmeOn()?"Comparando con tu plata: como si todo lo que pusiste hubiera ido al índice":"Comparando en %: cuánto rindió cada dólar invertido"; }
+  function cmpMethodEl(onChange){ var w=el("div","cmpm"); w.appendChild(el("span",null,cmpMethodTxt()+" · ")); var b=el("button","linkbtn","Cambiar"); b.type="button";
+    b.addEventListener("click",function(){ cmpMethodSheet(onChange); }); w.appendChild(b); return w; }
+  function cmpMethodOpts(box,onPick){ [["pme","Con tu plata","¿Qué tendrías si todo lo que pusiste hubiera ido al S&P 500? Cuenta cuándo entraste y la plata que tuviste parada."],["twr","Solo %","¿Rindió más cada dólar invertido? Es el estándar para comparar gestores: no importa cuándo ni cuánto pusiste."]].forEach(function(o){
+      var b=el("button","wz-opt"+(cmpM===o[0]?" on":"")); b.type="button"; var t=el("span",null,o[1]+(o[0]==="pme"?" (recomendado)":"")); t.appendChild(el("small",null,o[2])); b.appendChild(t);
+      b.addEventListener("click",function(){ cmpM=o[0]; save(LS_CMPM,cmpM); rkData=null; onPick(); }); box.appendChild(b); }); }
+  function cmpMethodSheet(onChange){ var d=$("dlgSimA"), box=$("simABody"); d._fx=null; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove(); d.querySelector("h3").textContent="Cómo comparar con el S&P 500"; box.textContent="";
+    cmpMethodOpts(box,function(){ d.close(); if(onChange) onChange(); }); box.appendChild(el("div","help","Se usa en Reportes, Comparar y Ranking. También lo cambiás en Ajustes.")); d.showModal(); }
   // Curva de rendimiento ponderado por tiempo (en %), con "efectivo virtual": lo que cobrás de una venta
   // se usa primero para pagar compras; solo lo que falta cuenta como plata nueva.
   function cmpCurve(events, hist, todayStr, withCash){
@@ -4669,7 +4700,7 @@
       // Los movimientos se toman a precio de cierre del día: el rendimiento del día es el valor antes del movimiento sobre el de ayer.
       if(vPrev>0 && v-flow>0){ idx*=(v-flow)/vPrev; }
       vPrev=v;
-      out.push([d,(idx-1)*100]);
+      out.push([d,(idx-1)*100,v,flow]);
     }
     return {pts:out,total:(idx-1)*100,contrib:contrib,value:vPrev,cash:cash};
   }
@@ -4811,11 +4842,11 @@
     var box=$("simABody"), d=$("dlgSimA"); box.textContent=""; d.querySelector("h3").textContent="Ranking"; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
     var r=el("div","vw-r"), sg=el("div","seg sm vw-seg"); SH_PER.forEach(function(o){ var b=el("button",rkPer===o[0]?"on":"",o[1]); b.type="button";
       b.addEventListener("click",function(){ if(rkPer===o[0]) return; rkPer=o[0]; [].forEach.call(sg.children,function(z){ z.classList.remove("on"); }); b.classList.add("on"); rkDraw(list); }); sg.appendChild(b); }); r.appendChild(sg);
-    var g0=el("div","pe-grp vw-g"); g0.appendChild(r); box.appendChild(g0);
+    var g0=el("div","pe-grp vw-g"); g0.appendChild(r); box.appendChild(g0); box.appendChild(cmpMethodEl(rkOpen));
     var list=el("div","rk-list"); box.appendChild(list);
     var shb=el("button","primary sh-go","Compartir ranking"); shb.type="button"; shb.addEventListener("click",function(){ if(rkData) rkShare(); });
     var friends=profData.profiles.filter(function(p){ return p.readOnly; }).length;
-    box.appendChild(el("div","help",friends?"Se compara en %: no importa cuánta plata tiene cada uno.":"Todavía no tenés carteras de amigos. Pedile a alguien que te comparta la suya (Menú → Amigos → Compartir mi cartera) y aparece acá."));
+    box.appendChild(el("div","help",friends?(pmeOn()?"Cada uno contra lo que tendría si hubiera puesto la misma plata, los mismos días, en el S&P 500. Solo porcentajes.":"Se compara en %: no importa cuánta plata tiene cada uno."):"Todavía no tenés carteras de amigos. Pedile a alguien que te comparta la suya (Menú → Amigos → Compartir mi cartera) y aparece acá."));
     box.appendChild(shb);
     if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
     if(rkData&&Date.now()-rkData.t<10*60*1000){ rkDraw(list); return; }
@@ -4823,7 +4854,7 @@
     var my=++rkSeq;
     twrRows(profData.profiles).then(function(R){ if(my!==rkSeq) return;
       if(!R.rows.some(function(r){ return !r.spy; })){ list.textContent=""; list.appendChild(el("div","sh-st rk-st","Para el ranking, tus posiciones necesitan fecha de compra.")); return; }
-      rkData={t:Date.now(),rows:R.rows}; rkDraw(list);
+      rkData={t:Date.now(),rows:R.rows,bench:benchArr(R.hist&&R.hist.SPY)}; rkDraw(list);
     }).catch(function(){ if(my!==rkSeq) return; list.textContent=""; list.appendChild(el("div","sh-st rk-st","No se pudieron traer los precios. Probá de nuevo en un rato.")); });
   }
   /* Rendimiento ponderado por tiempo de cada perfil (índice que arranca en 1) + el S&P 500. Lo usan el ranking y la imagen para compartir. */
@@ -4837,13 +4868,20 @@
       var hist={}; Object.keys(j.data||{}).forEach(function(tk){ var h=j.data[tk]; if(h&&h.currency==="USD"&&Array.isArray(h.pts)&&h.pts.length>1) hist[tk]=h; });
       var raw=Object.assign({},hist); cmpFiHist(ents,fiMap,hist);
       var today=todayStr(), rows=[];
-      ents.forEach(function(x){ var c=cmpCurve(x.e.ev,hist,today,false); if(c&&c.pts.length>1) rows.push({n:x.name,o:x.owner,f:x.friend,id:x.pr.id,pts:c.pts.map(function(p){ return [p[0],1+p[1]/100]; })}); });
+      ents.forEach(function(x){ var c=cmpCurve(x.e.ev,hist,today,false); if(c&&c.pts.length>1){ var c2=pmeOn()?cmpCurve(x.e.ev,hist,today,true):null; rows.push({n:x.name,o:x.owner,f:x.friend,id:x.pr.id,pts:c.pts.map(function(p){ return [p[0],1+p[1]/100]; }),raw:c2&&c2.pts}); } });
       [["SPY","S&P 500"],["QQQ","Nasdaq 100"]].forEach(function(ix){ var h=hist[ix[0]]; if(h) rows.push({n:ix[1],spy:true,pts:h.pts.map(function(r){ return [dayNum(r[0]),(r[2]>0?r[2]:r[1])]; })}); });
       return {rows:rows,hist:raw,full:hist};
     });
   }
   function perStart(per){ var t=todayStr(); return per==="mes"?dayNum(t.slice(0,8)+"01")-1:(per==="ytd"?dayNum(t.slice(0,4)+"-01-01")-1:-Infinity); }
   function rkList(){ var d0=perStart(rkPer), first=Infinity; rkData.rows.forEach(function(r){ if(!r.spy&&r.pts.length&&r.pts[0][0]<first) first=r.pts[0][0]; });
+    /* Con tu plata: cada uno contra su propia cartera espejo en el S&P 500 (el S&P es la base, 0%). */
+    if(pmeOn()&&rkData.bench&&rkData.bench.length){ var B=rkData.bench, r0=d0===-Infinity?first-1:d0;
+      function bAt(d){ var v=null; B.forEach(function(b){ if(b[0]<=d) v=b[1]; }); return v; }
+      return rkData.rows.map(function(r){ var v=null;
+        if(r.spy){ if(r.n===SPY_NAME) return null; var a0=null, a1=r.pts[r.pts.length-1]; r.pts.forEach(function(p){ if(p[0]<=r0) a0=p; }); if(!a0) a0=r.pts[0]; var s0=bAt(a0[0]), s1=bAt(a1[0]); v=(a0[1]>0&&s0>0&&s1>0)?(a1[1]/a0[1])/(s1/s0)-1:null; }
+        else if(r.raw){ var ps=pmeSeries(r.raw,B,r0); v=ps.last?ps.last.ex:null; }
+        return {r:r,v:v}; }).filter(function(x){ return x&&x.v!==null; }).sort(function(a,b){ return b.v-a.v; }); }
     /* "Desde el inicio": el S&P 500 arranca cuando arrancó la primera cartera. */
     return rkData.rows.map(function(r){ var b=null, e=r.pts[r.pts.length-1], dd=(r.spy&&d0===-Infinity)?first:d0; r.pts.forEach(function(p){ if(p[0]<=dd) b=p; }); if(!b) b=r.pts[0]; return {r:r,v:b[1]>0?e[1]/b[1]-1:null}; })
       .filter(function(x){ return x.v!==null; }).sort(function(a,b){ return b.v-a.v; }); }
@@ -4852,7 +4890,7 @@
       if(!r.spy) pos++;
       row.appendChild(el("span","rk-n",r.spy?"·":(pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":String(pos))));
       var nm=el("span","rk-name",r.n); nm.appendChild(el("small",null,r.spy?"Referencia: el índice":(r.f?(r.o?"De "+r.o:"Compartida"):(r.me?"Vos · la que estás viendo":"Tuya")))); row.appendChild(nm);
-      row.appendChild(el("b",x.v>=0?"pos":"neg",shPct(x.v))); list.appendChild(row); });
+      var vb=el("b",x.v>=0?"pos":"neg",shPct(x.v)); if(pmeOn()) vb.appendChild(el("small",null,"vs S&P 500")); row.appendChild(vb); list.appendChild(row); });
   }
   /* Imagen del ranking: se arma y se comparte directo (sin vista previa). */
   function rkShare(){
@@ -4887,6 +4925,7 @@
     var today=todayStr(), tn=dayNum(today);
     if(!hist.SPY){ st.textContent="No se pudo traer el S&P 500. Probá de nuevo en un rato."; return; }
     var starts=[];
+    cmpCash=pmeOn(); /* con tu plata: cuenta la plata de las ventas como tuya */
     ents.forEach(function(x){ if(x.spy) return; x.curve=cmpCurve(x.e.ev,hist,today,cmpCash); if(x.curve) starts.push(x.curve.pts[0][0]); x.stats=cmpStats(x.e.items,hist); });
     if(ents.some(function(x){ return !x.spy&&!x.curve; })){ st.textContent="No hay precios históricos suficientes para armar la comparación."; return; }
     var csMin=Math.min.apply(null,starts), csMax=Math.max.apply(null,starts), capped=false, cap=tn-5*365+10;
@@ -4901,18 +4940,8 @@
     var real=ents.filter(function(x){return !x.spy;});
     var hasFi=real.some(function(x){ return Object.keys(x.e.fis).length>0; });
     var TR=Object.keys(hist).some(function(tk){ return tk.indexOf("FI:")!==0 && hist[tk].pts[0].length>2; });
-    st.textContent="Rendimiento ponderado por tiempo"+(TR?", con dividendos reinvertidos":"")+": no cuenta cuánta plata puso cada uno."+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"")+(hasFi?" En la renta fija el precio va de lo que pagaste al de hoy (no tengo el historial) y cada cupón suma el día que se cobra.":"");
-    var hasCash=real.some(function(x){ return x.e.ev.some(function(e){ return e.t==="s"||e.t==="c"; }); });
-    if(hasCash){
-      var cc=el("div","cmpchips"); cc.id="cmpCashChips"; body.appendChild(cc);
-      [[true,"Con efectivo"],[false,"Solo inversiones"]].forEach(function(o){
-        var b=el("button",cmpCash===o[0]?"on":"",o[1]); b.type="button";
-        b.addEventListener("click",function(){ if(cmpCash!==o[0]){ cmpCash=o[0]; buildCompare(cmpCtx.ents,cmpCtx.hist,cmpCtx.missing); } });
-        cc.appendChild(b);
-      });
-      var idle=real.map(function(x){ return (cmpCash&&x.curve&&x.curve.cash>0.5)?x.name+": "+dtxt(x.curve.cash):""; }).filter(Boolean);
-      body.appendChild(el("div","help",cmpCash?"Cuenta el efectivo de tus ventas y depósitos como parte de la cartera, aunque en tu broker ya no esté."+(idle.length?" Efectivo sin invertir hoy según tus movimientos → "+idle.join(" · ")+". Si ya lo usaste o lo retiraste, cargalo como retiro en Efectivo.":""):"Mide solo las inversiones: el efectivo no cuenta y lo que vendés sale de la cartera. Es lo más parecido a tu broker si no dejás plata parada."));
-    }
+    st.textContent=(pmeOn()?"Con tu plata"+(TR?" (dividendos reinvertidos)":"")+": cada vez que pusiste plata nueva, la misma plata va al índice ese día.":"Rendimiento ponderado por tiempo"+(TR?", con dividendos reinvertidos":"")+": no cuenta cuánta plata puso cada uno.")+(capped?" Se compara hasta los últimos 5 años.":"")+(missing.length?" Sin precio histórico: "+missing.join(", ")+".":"")+(hasFi?" En la renta fija el precio va de lo que pagaste al de hoy (no tengo el historial) y cada cupón suma el día que se cobra.":"");
+    body.appendChild(cmpMethodEl(function(){ if(cmpCtx) buildCompare(cmpCtx.ents,cmpCtx.hist,cmpCtx.missing); }));
     if(csMax>csMin) body.appendChild(el("div","cmpchips")).id="cmpStartChips";
     body.appendChild(el("div","cmpchips")).id="cmpChips";
     var leg=el("div","cmpleg"); leg.id="cmpLeg"; body.appendChild(leg);
@@ -4961,6 +4990,7 @@
     var cur_=RANGES.filter(function(r){return r[0]===cmpRange;})[0]||RANGES[RANGES.length-1];
     var short=cur_[1]&&cur_[1]>=span;
     var r0=(cur_[1]&&!short)?D.tn-cur_[1]:csBase;
+    if(pmeOn()){ drawCmpPme(D,r0,short); return; }
     var E=D.ents.map(function(x,k){
       var color=x.spy?"#5b6b9a":(k===0?"#0f9488":"#f08a24");
       var p=x.spy?rebaseSeries(x.pxs,r0):rebaseSeries(x.curve.pts.map(function(r){ return [r[0],1+r[1]/100]; }),r0);
@@ -5000,6 +5030,28 @@
     var wb=$("cmpWhy"); wb.textContent="";
     if(why.length){ wb.appendChild(el("div","k","¿Por qué?")); var ul=el("ul","cmpwhy"); why.forEach(function(t){ ul.appendChild(el("li",null,t)); }); wb.appendChild(ul); }
   }
+  /* Comparar "con tu plata": cada cartera contra su cartera espejo en el índice elegido (o el S&P 500 si comparás dos carteras). */
+  function drawCmpPme(D,r0,short){
+    var idx=D.ents.filter(function(x){ return x.spy; })[0], bench=idx?idx.pxs:D.sp, bName=idx?idx.name:SPY_NAME;
+    var E=D.ents.filter(function(x){ return !x.spy; }).map(function(x,k){ var ps=pmeSeries(x.curve.pts,bench,r0); return {n:x.name,c:k===0?"#0f9488":"#f08a24",p:ps.p,x:x,last:ps.last,t:ps.last&&ps.last.ex!==null?ps.last.ex*100:null}; });
+    if(E.some(function(e){ return e.t===null||!e.p.length; })){ $("cmpVerd").textContent="No hay datos suficientes en este período."; $("cmpChartBox").textContent=""; $("cmpLeg").textContent=""; $("cmpWhy").textContent=""; return; }
+    var leg=$("cmpLeg"); leg.textContent="";
+    function lg(color,name,v,dash){ var s=el("span"); var i=el("i",dash?"dash":""); if(!dash) i.style.background=color; s.appendChild(i); s.appendChild(document.createTextNode(name+" ")); if(v!==null) s.appendChild(el("span",cls(v),pctTxt(v))); leg.appendChild(s); }
+    E.forEach(function(e){ lg(e.c,e.n+" vs "+bName,e.t); }); lg("","Todo en "+bName+" (0%)",null,true);
+    var box=$("cmpChartBox"); box.textContent="";
+    box.appendChild(el("div","cmpnote",fmtD(r0)+" → "+fmtD(D.tn)+(short?" · hay datos solo desde esa fecha":"")+" · cuánto le ganás a poner lo mismo en "+bName));
+    box.appendChild(cmpChart(E.map(function(e){ return {n:e.n,c:e.c,p:e.p}; }),[[r0,0],[D.tn,0]],r0,D.tn));
+    function money(x){ return ui.hide?MASK:"US$ "+Math.round(x).toLocaleString("es-AR"); }
+    function canMoney(e){ var pr=e.x.pr; return pr&&!pr.readOnly; }
+    var v=$("cmpVerd");
+    if(E.length===1){ var e=E[0], L=e.last, dif=L.real-L.sh;
+      var cs=e.x.curve&&e.x.curve.cash>0.5?e.x.curve.cash:0;
+      v.textContent=canMoney(e)?"Si todo lo que pusiste hubiera ido al "+bName+", hoy tendrías "+money(L.sh)+". Tenés "+money(L.real)+(cs?" (con "+money(cs)+" de ventas sin reinvertir)":"")+": "+(dif>=0?"le ganaste por "+money(dif):"te ganó por "+money(-dif))+" ("+pctTxt(e.t)+").":e.n+(e.t>=0?" le gana":" queda por debajo")+" a poner la misma plata en el "+bName+": "+pctTxt(e.t)+"."; }
+    else { var w=E[0].t>=E[1].t?E[0]:E[1], o=w===E[0]?E[1]:E[0];
+      v.textContent="Contra poner la misma plata en el "+bName+": "+w.n+" "+pctTxt(w.t)+" y "+o.n+" "+pctTxt(o.t)+". Mejor le fue a "+w.n+"."; }
+    var why=[]; E.forEach(function(e){ var st=e.x.stats; if(st&&st.topC&&(cmpRange==="all"||cmpRange==="Todo")) why.push((E.length>1?e.n+": lo":"Lo")+" que más aportó fue "+st.topC.tk+" ("+fmtPct(st.topC.pct)+")."); });
+    why.push("La plata de las ventas sigue contando como tuya, aunque no la hayas reinvertido: si estuvo parada, en el índice habría seguido rindiendo.");
+    var wb=$("cmpWhy"); wb.textContent=""; wb.appendChild(el("div","k","Cómo se calcula")); var ul=el("ul","cmpwhy"); why.forEach(function(t){ ul.appendChild(el("li",null,t)); }); wb.appendChild(ul); }
   function cmpChart(series, bench, d0, d1){
     var NS="http://www.w3.org/2000/svg", W=600, H=320, L=44, R=16, T=14, B=28;
     var sv=document.createElementNS(NS,"svg"); sv.setAttribute("viewBox","0 0 "+W+" "+H); sv.setAttribute("class","cmpchart");
@@ -5060,13 +5112,15 @@
   var retHub=false;
   function setSub(id,title){ var f=$("formSet"), ids=[].concat(id||[]); [].forEach.call(f.querySelectorAll(":scope>.sec"),function(x){ x.classList.toggle("cur",ids.indexOf(x.id)>=0); }); f.className=id?"sub":"hub"; $("setTitle").textContent=id?title:"Ajustes"; window.scrollTo(0,0); }
   function subOpen(id,title){ setSub(id,title); try{ history.pushState({scr:1,sub:1},""); }catch(e){} }
-  function hubRender(){ var b=$("hubMe"); b.textContent=""; if(!auth){ b.hidden=true; } else { b.hidden=false; b.appendChild(avEl(meName(),meProf.ph)); var t=el("span"); t.appendChild(el("b",null,meName())); t.appendChild(el("small",null,(auth.email||"")+" · editar nombre y foto")); b.appendChild(t); b.appendChild(el("i",null,"›")); }
+  function hubRender(){ try{ $("hubCmpSub").textContent=pmeOn()?"Con tu plata":"Solo %"; }catch(e){} var b=$("hubMe"); b.textContent=""; if(!auth){ b.hidden=true; } else { b.hidden=false; b.appendChild(avEl(meName(),meProf.ph)); var t=el("span"); t.appendChild(el("b",null,meName())); t.appendChild(el("small",null,(auth.email||"")+" · editar nombre y foto")); b.appendChild(t); b.appendChild(el("i",null,"›")); }
     var sa=$("secAcct"); sa.textContent=""; if(auth){ sa.appendChild(el("small",null,"Entrás con Google")); sa.appendChild(el("b",null,auth.email||"")); sa.appendChild(el("small",null,"Holdy no tiene contraseña propia: tu cuenta está protegida por la de Google (contraseña y verificación en dos pasos se cambian en tu cuenta de Google).")); }
     sa.hidden=!auth; $("secOut").hidden=!auth; lockWhenRender(); $("hideTg").checked=!!load(LS_HIDEOPEN,false); }
   function menuUserRender(){ var b=$("menuUser"); b.textContent=""; b.hidden=!auth; if(!auth) return; b.appendChild(avEl(meName(),meProf.ph)); var t=el("span"); t.appendChild(el("b",null,meName())); t.appendChild(el("small",null,"Ajustes y cuenta")); b.appendChild(t); b.appendChild(el("i",null,"›")); }
   $("menuUser").addEventListener("click",function(){ dlgMenu.close(); openSettings(); });
   $("hubMe").addEventListener("click",function(){ subOpen("meSec","Tu perfil"); });
   $("hubSec").addEventListener("click",function(){ subOpen("lockSec","Seguridad"); });
+  function cmpSecRender(){ var b=$("cmpSecBody"); b.textContent=""; cmpMethodOpts(b,cmpSecRender); $("hubCmpSub").textContent=pmeOn()?"Con tu plata":"Solo %"; }
+  $("hubCmp").addEventListener("click",function(){ cmpSecRender(); subOpen("cmpSec","Comparar con el S&P 500"); });
   $("hubBk").addEventListener("click",function(){ subOpen(["acctSec","backupSec"],"Datos y copias"); });
   $("secOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
   $("hideTg").addEventListener("change",function(){ save(LS_HIDEOPEN,this.checked); });
