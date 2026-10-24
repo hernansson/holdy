@@ -4654,11 +4654,13 @@
      pts = [día, %, valor, plata nueva del día] (de cmpCurve con efectivo). Devuelve la serie de "cuánto le ganás" en % y el último punto con los montos. */
   function pmeSeries(pts,bench,r0){ var bm={}, bd=[]; bench.forEach(function(b){ bm[b[0]]=b[1]; bd.push(b[0]); });
     function bp(d){ for(var k=d;k>d-12;k--){ if(bm[k]>0) return bm[k]; } return null; }
-    var units=0, V0=0, started=false, out=[], last=null;
+    var units=0, V0=0, started=false, out=[], last=null, put=0, pr=[], ps=[];
     pts.forEach(function(p){ var d=p[0]; if(d<=r0){ V0=p[2]||0; return; } var b=bp(d); if(!b) return;
-      if(!started){ var b0=bp(r0)||b; units=V0>0?V0/b0:0; started=true; }
-      if(p[3]) units+=p[3]/b; var sh=units*b; last={d:d,real:p[2],sh:sh,ex:sh>0?p[2]/sh-1:null}; if(sh>0) out.push([d,(p[2]/sh-1)*100]); });
-    return {p:out,last:last}; }
+      if(!started){ var b0=bp(r0)||b; units=V0>0?V0/b0:0; put=V0>0?V0:0; started=true; }
+      if(p[3]){ units+=p[3]/b; put+=p[3]; } var sh=units*b; last={d:d,real:p[2],sh:sh,put:put,ex:sh>0?p[2]/sh-1:null}; if(sh>0) out.push([d,(p[2]/sh-1)*100]);
+      if(put>0){ pr.push([d,(p[2]/put-1)*100]); ps.push([d,(sh/put-1)*100]); } });
+    /* p: cuánto le ganás al índice; real/shadow: % sobre la plata que pusiste, tu cartera y la espejo */
+    return {p:out,last:last,real:pr,shadow:ps}; }
   function cmpMethodTxt(){ return pmeOn()?"Comparando con tu plata: como si todo lo que pusiste hubiera ido al índice":"Comparando en %: cuánto rindió cada dólar invertido"; }
   function cmpMethodEl(onChange){ var w=el("div","cmpm"); w.appendChild(el("span",null,cmpMethodTxt()+" · ")); var b=el("button","linkbtn","Cambiar"); b.type="button";
     b.addEventListener("click",function(){ cmpMethodSheet(onChange); }); w.appendChild(b); return w; }
@@ -5037,10 +5039,14 @@
     if(E.some(function(e){ return e.t===null||!e.p.length; })){ $("cmpVerd").textContent="No hay datos suficientes en este período."; $("cmpChartBox").textContent=""; $("cmpLeg").textContent=""; $("cmpWhy").textContent=""; return; }
     var leg=$("cmpLeg"); leg.textContent="";
     function lg(color,name,v,dash){ var s=el("span"); var i=el("i",dash?"dash":""); if(!dash) i.style.background=color; s.appendChild(i); s.appendChild(document.createTextNode(name+" ")); if(v!==null) s.appendChild(el("span",cls(v),pctTxt(v))); leg.appendChild(s); }
-    E.forEach(function(e){ lg(e.c,e.n+" vs "+bName,e.t); }); lg("","Todo en "+bName+" (0%)",null,true);
     var box=$("cmpChartBox"); box.textContent="";
-    box.appendChild(el("div","cmpnote",fmtD(r0)+" → "+fmtD(D.tn)+(short?" · hay datos solo desde esa fecha":"")+" · cuánto le ganás a poner lo mismo en "+bName));
-    box.appendChild(cmpChart(E.map(function(e){ return {n:e.n,c:e.c,p:e.p}; }),[[r0,0],[D.tn,0]],r0,D.tn));
+    if(E.length===1){ var e1=E[0], ps1=pmeSeries(e1.x.curve.pts,bench,r0), lr=ps1.real.length?ps1.real[ps1.real.length-1][1]:null, ls=ps1.shadow.length?ps1.shadow[ps1.shadow.length-1][1]:null;
+      lg(e1.c,e1.n,lr); lg("","Misma plata en "+bName,ls,true);
+      box.appendChild(el("div","cmpnote",fmtD(r0)+" → "+fmtD(D.tn)+(short?" · hay datos solo desde esa fecha":"")+" · ganancia sobre la plata que pusiste"));
+      box.appendChild(cmpChart([{n:e1.n,c:e1.c,p:ps1.real}],ps1.shadow,r0,D.tn)); }
+    else { E.forEach(function(e){ lg(e.c,e.n+" vs "+bName,e.t); }); lg("","Igual que "+bName+" (0%)",null,true);
+      box.appendChild(el("div","cmpnote",fmtD(r0)+" → "+fmtD(D.tn)+(short?" · hay datos solo desde esa fecha":"")+" · cuánto le gana cada uno a poner su misma plata en "+bName));
+      box.appendChild(cmpChart(E.map(function(e){ return {n:e.n,c:e.c,p:e.p}; }),[[r0,0],[D.tn,0]],r0,D.tn)); }
     function money(x){ return ui.hide?MASK:"US$ "+Math.round(x).toLocaleString("es-AR"); }
     function canMoney(e){ var pr=e.x.pr; return pr&&!pr.readOnly; }
     var v=$("cmpVerd");
