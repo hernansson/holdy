@@ -3236,14 +3236,22 @@
       .catch(function(e){ if(my!==rptSeq) return; try{ console.error("holdy-rpt",e); }catch(x){} st.textContent="No se pudo armar el reporte. Revisá tu conexión y probá de nuevo."; }).then(function(){ ui.bk=keep; });
   }
   /* Junta los números del período. Montos en la moneda elegida arriba (CCL, MEP o $), igual que en la pantalla. */
+  /* S&P 500 para comparar: pedido aparte (no depende de tus acciones), con un reintento y guardado en memoria por un rato. */
+  var spyMemo={};
+  function spyHist(from){ var m=spyMemo[from]; if(m&&Date.now()-m.t<3600000) return Promise.resolve(m.h);
+    function once(){ return fetchHistory(["SPY"],from).then(function(j){ var h=j.data&&j.data.SPY; return h&&h.pts&&h.pts.length?h:null; }).catch(function(){ return null; }); }
+    return once().then(function(h){ return h||new Promise(function(r){ setTimeout(r,1500); }).then(once); }).then(function(h){ if(h) spyMemo[from]={t:Date.now(),h:h}; return h; }); }
   function rptData(P,scoped){ scoped=scoped||function(f){ return f(); };
     var info=evoInfo(), c=evoCache[info.key], dFrom=dayNum(P.from), dTo=dayNum(P.to);
     var evoP=(c&&Date.now()-c.t<EVO_TTL)?Promise.resolve(c):(info.ev.length&&navigator.onLine?evoBuild(info).then(function(r){ if(r){ evoCache[info.key]={t:Date.now(),pts:r.pts,skipped:r.skipped,sk:r.skippedTk}; save(LS_EVO,evoCache); } return evoCache[info.key]||null; }):Promise.resolve(c||null));
     var PS=vPos(), CL=vClosed();
     var stk=[]; PS.forEach(function(p){ if(!p.fi&&!isFci(p)&&p.ccy==="USD"&&p.source!=="manual"&&stk.indexOf(p.ticker)<0) stk.push(p.ticker); });
     var hFrom=dayStr(dFrom-10);
-    var histP=navigator.onLine?fetchHistory(stk.concat(["SPY"]),hFrom).catch(function(){ return {data:{}}; }):Promise.resolve({data:{}});
-    return Promise.all([evoP,histP]).then(function(R){ return scoped(function(){
+    var histP=navigator.onLine?Promise.all([stk.length?fetchHistory(stk,hFrom).catch(function(){ return {data:{}}; }):Promise.resolve({data:{}}),spyHist(hFrom)]).then(function(x){ var d=x[0].data||{}; if(x[1]) d.SPY=x[1]; return {data:d}; }):Promise.resolve({data:{}});
+    /* Tu % del período para comparar con el S&P 500: el mismo cálculo que el ranking (no depende de cuánta plata pusiste ni de cuándo empezaste). */
+    var twrP=navigator.onLine?scoped(function(){ return twrRows([vProf()]); }).then(function(R){ var row=(R.rows||[]).filter(function(r){ return !r.spy; })[0]; if(!row||!row.pts.length) return null;
+      var b=null, e=null; row.pts.forEach(function(p){ if(p[0]<=dFrom-1) b=p; if(p[0]<=dTo) e=p; }); if(!b) b=row.pts[0]; if(!e) return null; return b[1]>0?e[1]/b[1]-1:null; }).catch(function(){ return null; }):Promise.resolve(null);
+    return Promise.all([evoP,histP,twrP]).then(function(R){ return scoped(function(){
       var ev=R[0], H=(R[1]&&R[1].data)||{}, fT=dcF(), D={};
       function conv(p){ if(p.length<7||ui.dc==="CCL"||!fxToday()) return [p[0],p[1],p[2]]; var c_=p[5]||1, m_=p[6]||1; return [p[0],(ui.dc==="ARS"?p[1]*c_:p[1]*c_/m_)/fT,(ui.dc==="ARS"?p[3]:p[4])/fT]; }
       var pts=ev&&ev.pts?ev.pts.map(conv):[];
@@ -3268,7 +3276,7 @@
       D.real=real; D.cpn=cpn; D.dvs=dvs; D.cobs=cobs.sort(function(a,b){ return a.d<b.d?-1:1; }); D.next=it.next.slice(0,3);
       /* Por acción: variación del precio en el período (desde la compra, si fue durante el mes). */
       function hpx(tk,d){ var h=H[tk]; if(!h||!h.pts) return null; var b=null; h.pts.forEach(function(r){ if(dayNum(r[0])<=d) b=r[1]; }); return b; }
-      var spy0=hpx("SPY",dFrom-1), spy1=hpx("SPY",dTo); D.spy=(spy0>0&&spy1>0)?spy1/spy0-1:null;
+      var spy0=hpx("SPY",dFrom-1), spy1=hpx("SPY",dTo); D.spy=(spy0>0&&spy1>0)?spy1/spy0-1:null; D.twr=(typeof R[2]==="number"&&isFinite(R[2]))?R[2]:null;
       D.pos=PS.map(function(p){ var cp=curPx(p), v=cp===null?null:p.qty*cp, cst=pCost(p), inc=p.fi?fiIncomeE(p):0;
         var m=null; if(!p.fi&&!isFci(p)&&H[p.ticker]){ var fd=(p.lots||[]).map(function(l){return l.d;}).filter(Boolean).sort()[0]||"", st=fd&&fd>P.from?dayNum(fd):dFrom-1, a0=hpx(p.ticker,st), a1=P.closed?hpx(p.ticker,dTo):(prices[p.ticker]&&prices[p.ticker].price)||hpx(p.ticker,dTo); if(fd&&fd>P.from){ var lb=(p.lots||[]).filter(function(l){return l.d===fd;})[0]; if(lb&&lb.b>0) a0=lb.b; } if(a0>0&&a1>0) m=a1/a0-1; }
         return {t:p.ticker,b:p.broker,k:p.fi?"Renta fija":(isFci(p)?(isRF(p)?"Renta fija":"Acciones"):"Acciones"),fci:isFci(p),v:v,c:cst,r:v===null?null:v-cst+inc,rp:(v!==null&&cst>0)?(v-cst+inc)/cst:null,m:m}; })
@@ -3316,8 +3324,8 @@
       if(P.all) h.push('<div class="rp-kpi"><span>Compraste en total</span><b>'+M(D.costAll)+'</b><small>incluye lo que después vendiste</small></div>'); else
       h.push('<div class="rp-kpi"><span>Resultado total</span><b class="'+C(D.totalAll)+'">'+MS(D.totalAll)+'</b><small>'+(D.costAll>0?PC(D.totalAll/D.costAll)+" sobre lo invertido":"")+'</small></div>');
       /* Comparación: tu % del mes contra lo que hizo el S&P 500 (el índice de las 500 empresas más grandes de EE.UU.) en el mismo período. */
-      var myP=(D.month!==null&&D.base>0)?D.month/D.base:null, dif=(myP!==null&&D.spy!==null)?myP-D.spy:null;
-      h.push('<div class="rp-kpi"><span>Contra el S&amp;P 500</span><b class="'+C(dif)+'">'+(dif===null?"—":(dif>=0?"Le ganaste":"Te ganó"))+'</b><small>'+(dif===null?"sin datos del índice":"Vos "+PC(myP)+" · S&amp;P 500 "+PC(D.spy)+" "+P.en)+'</small></div></div>');
+      var myP=D.twr!==null?D.twr:((D.month!==null&&D.base>0)?D.month/D.base:null), dif=(myP!==null&&D.spy!==null)?myP-D.spy:null;
+      h.push('<div class="rp-kpi"><span>Contra el S&amp;P 500</span><b class="'+C(dif)+'">'+(dif===null?"—":(dif>=0?"Le ganaste":"Te ganó"))+'</b><small>'+(dif===null?(D.spy===null?"no se pudo traer el S&amp;P 500; probá de nuevo":"sin historial de tu cartera en el período"):"Vos "+PC(myP)+" · S&amp;P 500 "+PC(D.spy)+" "+P.en)+'</small></div></div>');
       if(D.month!==null){ h.push('<div class="rp-sec"><h3>De dónde salió el resultado '+P.del+'</h3><table class="rp-t">');
         [["Variación de precios",D.price],["Cupones cobrados",D.cpn],["Dividendos cobrados",D.dvs],["Ganancia de lo que vendiste",D.real]].forEach(function(r){ if(r[1]===null||(Math.abs(r[1])<0.005&&r[0]!=="Variación de precios")) return; h.push('<tr><td>'+r[0]+'</td><td class="'+C(r[1])+'">'+MS(r[1],true)+'</td></tr>'); });
         h.push('<tr class="tot"><td>Total '+P.del+'</td><td class="'+C(D.month)+'">'+MS(D.month,true)+'</td></tr></table></div>'); }
@@ -4737,10 +4745,12 @@
   // El Worker acepta hasta 20 símbolos por pedido: se parte en tandas y se juntan los resultados.
   function fetchHistory(list,from){
     var parts=[]; for(var i=0;i<list.length;i+=20) parts.push(list.slice(i,i+20));
+    /* Si una tanda falla, se usan las demás (antes fallaba todo junto, por ejemplo el S&P 500 del reporte). Si fallan todas, error. */
+    var bad=0;
     return Promise.all(parts.map(function(pt){
       return fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(pt.join(","))+"&from="+from,{cache:"no-store"})
-        .then(function(r){ if(!r.ok) throw new Error("http"+r.status); return r.json(); });
-    })).then(function(js){ var data={}; js.forEach(function(j){ Object.keys(j.data||{}).forEach(function(k){ data[k]=j.data[k]; }); }); return {data:data}; });
+        .then(function(r){ if(!r.ok) throw new Error("http"+r.status); return r.json(); }).catch(function(){ bad++; return {data:{}}; });
+    })).then(function(js){ if(bad&&bad===parts.length) throw new Error("history"); var data={}; js.forEach(function(j){ Object.keys(j.data||{}).forEach(function(k){ data[k]=j.data[k]; }); }); return {data:data}; });
   }
   function runCompare(){
     var my=++cmpRun, body=$("cmpBody"), st=$("cmpStatus"); body.textContent=""; cmpData=null;
