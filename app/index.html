@@ -252,6 +252,14 @@
   
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
   .sim-bar{display:grid; gap:8px; align-items:stretch; justify-content:stretch; grid-template-columns:minmax(0,1fr)}
+  .wz{display:grid; gap:14px; padding:18px 18px 20px; border-radius:18px; background:var(--card); border:1px solid var(--line)} .wz-dots{display:flex; gap:6px} .wz-dots i{flex:1; height:4px; border-radius:2px; background:var(--line)} .wz-dots i.on{background:var(--brand)}
+  .wz-q{margin:6px 0 0; font-size:22px; line-height:1.25} .wz-s,.wz-h{margin:0; color:var(--muted); font-size:14px} .wz-h{font-size:13px}
+  .wz-in{display:flex; align-items:center; gap:10px; padding:0 16px; border-radius:14px; background:var(--bg); border:1px solid var(--line)} .wz-in i{font-style:normal; color:var(--muted); font-size:20px; font-weight:700} .wz-in input{flex:1; min-width:0; border:0; background:transparent; font-size:30px; font-weight:800; padding:12px 0; outline:none; color:var(--text)}
+  .wz-in:focus-within{border-color:var(--brand)}
+  .wz-opt{display:flex; text-align:left; width:100%; padding:14px 16px; border-radius:14px; background:var(--bg); border:1px solid var(--line); box-shadow:none; color:var(--text); font-weight:700; font-size:16px} .wz-opt span{display:grid; gap:2px} .wz-opt small{font-weight:400; color:var(--muted); font-size:13px} .wz-opt.on{border-color:var(--brand)}
+  .wz-nav{display:flex; gap:10px; margin-top:4px} .wz-nav button{flex:1; min-height:48px} .wz-nav .primary{flex:2} .wz-skip{justify-self:center}
+  .sim-redo{justify-self:center; margin-top:4px; font-size:13.5px}
+  .wz.shake{animation:wzShake .3s} @keyframes wzShake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
   /* El título y el resultado van juntos y fijos: así el título no queda cortado al deslizar. */
   .sim-top{position:sticky; top:calc(var(--hdrH,60px) - 8px); z-index:4; background:var(--bg); margin:-14px -16px 0; padding:14px 16px 10px; display:grid; gap:12px}
   #simView .sim-bar{position:static} #simView .sim-bar::before{display:none}
@@ -2633,7 +2641,44 @@
   /* Pantalla: modo + resumen de tus datos (tocás y se abre la hoja para ajustar). */
   /* Sombra cuando el resultado queda pegado arriba (al deslizar los ajustes). */
   window.addEventListener("scroll",function(){ var b=$("simBar"); if(!b||simView.hidden) return; var t=b.parentNode; if(t) t.classList.toggle("stuck",window.scrollY>10); },{passive:true});
+  /* Primera vez: preguntas de a una (qué querés saber, tu edad, con cuánto arrancás, cuánto ponés o querés, cuándo te retirás) y recién al final el resultado. */
+  var simWz=null;
+  function simWizard(){ var box=$("simForm"), w=simWz||(simWz={i:0}); box.textContent=""; $("simBar").hidden=true; $("simOut").textContent=""; $("simAs").textContent="";
+    var mode=simIn.mode==="have"?"have":simIn.goal, yr=+todayStr().slice(0,4);
+    var steps=[{k:"mode"},{k:"age"},{k:"cap"}].concat(mode==="have"?[{k:"ap"},{k:"ret"}]:(mode==="cap"?[{k:"goalAmt"},{k:"yrs"}]:[{k:"liveN"},{k:"ret"}]));
+    if(w.i>=steps.length) w.i=steps.length-1; var st=steps[w.i];
+    var c=el("div","wz"); box.appendChild(c);
+    var dots=el("div","wz-dots"); steps.forEach(function(_,i){ dots.appendChild(el("i",i<=w.i?"on":"")); }); c.appendChild(dots);
+    function q(t,sub){ c.appendChild(el("h3","wz-q",t)); if(sub) c.appendChild(el("p","wz-s",sub)); }
+    function num(key,money,ph,hint,min,max){ var wr=el("label","wz-in"); if(money) wr.appendChild(el("i",null,simCy())); var i=document.createElement("input"); i.inputMode="numeric"; i.placeholder=ph||"";
+      var v=key==="_yrs"?Math.max(1,Math.round(simIn.ret-simIn.age)):+simIn[key]; i.value=v>0?Math.round(v).toLocaleString("es-AR"):""; wr.appendChild(i); c.appendChild(wr); if(hint) c.appendChild(el("p","wz-h",hint));
+      setTimeout(function(){ try{ i.focus({preventScroll:true}); i.select(); }catch(e){} },250);
+      return function(){ var x=pnum(i.value.replace(/\./g,"")); if(!(isFinite(x)&&x>=(min||0))) return false; if(max&&x>max) x=max; return x; }; }
+    var get=null;
+    if(st.k==="mode"){ q("¿Qué querés saber?","Elegí una; después podés cambiarla.");
+      [["have","¿Cuánto voy a tener?","Con lo que tengo y lo que pongo por mes"],["cap","¿Cuánto tengo que poner para juntar una meta?","Por ejemplo, US$ 1.000.000"],["live","¿Cuánto tengo que poner para vivir de rentas?","Cobrar un monto por mes cuando me retire"]].forEach(function(o){
+        var b=el("button","wz-opt"+(mode===o[0]?" on":"")); b.type="button"; var t=el("span",null,o[1]); t.appendChild(el("small",null,o[2])); b.appendChild(t);
+        b.addEventListener("click",function(){ if(o[0]==="have") simIn.mode="have"; else { simIn.mode="need"; simIn.goal=o[0]; } simSave(); w.i++; simWizard(); }); c.appendChild(b); }); }
+    else if(st.k==="age"){ q("¿Cuántos años tenés?"); get=num("age",0,"35",meProf&&meProf.by?"Lo saqué de tu año de nacimiento.":"",15,90); }
+    else if(st.k==="cap"){ q("¿Con cuánta plata arrancás?","Lo que ya tenés invertido."); get=num("cap",1,"10.000",vPos().length?"Lo completé con el valor de tu cartera.":""); }
+    else if(st.k==="ap"){ q("¿Cuánto podés poner por mes?","Si no vas a sumar nada, dejalo en 0."); get=num("ap",1,"500"); }
+    else if(st.k==="goalAmt"){ q("¿Cuánto querés juntar?"); get=num("goalAmt",1,"1.000.000","En dólares de ese año (con la inflación de por medio)."); }
+    else if(st.k==="yrs"){ q("¿En cuántos años?"); get=num("_yrs",0,"20","",1,60); }
+    else if(st.k==="liveN"){ q("¿Cuánto querés cobrar por mes cuando te retires?"); get=num("liveN",1,"3.000","En dólares de ese año."); }
+    else if(st.k==="ret"){ q("¿A qué edad te querés retirar?"); get=num("ret",0,"65","",Math.round(simIn.age)+1,95); }
+    var nav=el("div","wz-nav");
+    if(w.i>0){ var bk=el("button",null,"Atrás"); bk.type="button"; bk.addEventListener("click",function(){ w.i--; simWizard(); }); nav.appendChild(bk); }
+    if(get){ var last=w.i===steps.length-1, nx=el("button","primary",last?"Ver mi proyección":"Siguiente"); nx.type="submit";
+      var go=function(){ var v=get(); if(v===false){ c.classList.remove("shake"); void c.offsetWidth; c.classList.add("shake"); return; }
+        if(st.k==="yrs"){ simIn.ret=Math.round(simIn.age)+Math.round(v); } else simIn[st.k]=v;
+        if(st.k==="age"||st.k==="ret"||st.k==="yrs"){ if(simIn.ret<=simIn.age) simIn.ret=Math.min(95,Math.round(simIn.age)+1); if(simIn.end<=simIn.ret) simIn.end=Math.min(100,simIn.ret+20); }
+        if(st.k==="cap") simIn.capR=1; simSave();
+        if(last){ simIn.guided=1; simSave(); simWz=null; simForm(); simCalcNow(); window.scrollTo(0,0); } else { w.i++; simWizard(); } };
+      nx.addEventListener("click",go); c.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); go(); } }); nav.appendChild(nx); }
+    c.appendChild(nav);
+    if(w.i===0&&simIn.guided){ var sk=el("button","linkbtn wz-skip","Saltar las preguntas"); sk.type="button"; sk.addEventListener("click",function(){ simWz=null; simForm(); simCalcNow(); }); c.appendChild(sk); } }
   function simForm(){
+    if(!simIn.guided){ simWizard(); return; }
     var box=$("simForm"); box.textContent="";
     var g0=el("div","pe-grp vw-g"); box.appendChild(g0);
     var r=el("div","vw-r"), sg=el("div","seg sm vw-seg");
@@ -2687,6 +2732,7 @@
   function simOpenA(){
     if(!simIn.adjSeen){ simIn.adjSeen=1; simSave(); var pe=document.querySelector(".sim-edit.pulse"); if(pe) pe.classList.remove("pulse"); }
     var box=$("simAdj"); if(!box) return; box.textContent="";
+    setTimeout(function(){ var fm=$("simForm"); if(fm&&!fm.querySelector(".sim-redo")&&!simWz){ var rd=el("button","linkbtn sim-redo","Hacer las preguntas de nuevo"); rd.type="button"; rd.addEventListener("click",function(){ simWz={i:0}; simWizard(); window.scrollTo(0,0); }); fm.appendChild(rd); } },0);
     function seg(parent,opts,key){ var r=el("div","sim-sg"), sg=el("div","seg sm vw-seg");
       opts.forEach(function(o){ var b=el("button",String(simIn[key])===String(o[0])?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(String(simIn[key])===String(o[0])) return; simIn[key]=o[0]; simSave(); simCalcNow(); simSumUpd(); simOpenA(); }); sg.appendChild(b); });
       r.appendChild(sg); parent.appendChild(r); }
@@ -2730,6 +2776,7 @@
   function simCalc(){ clearTimeout(simT); simT=setTimeout(simCalcNow,30); }
   var simPC={k:"",p:null};
   function simCalcNow(){
+    if(simWz||!simIn.guided){ $("simBar").hidden=true; $("simOut").textContent=""; return; }
     var out=$("simOut"); out.textContent=""; var cy=simCy(), M=simM;
     var age=Math.round(simIn.age), ret=Math.round(simIn.ret), end=Math.round(simIn.end), cap=+simIn.cap||0, R=(+simIn.r||0)/100, V=Math.max(0,(+simIn.v||0)/100), INF=(+simIn.inf||0)/100;
     var bar=$("simBar"); bar.hidden=false; try{ var hd=document.querySelector("header"); simView.style.setProperty("--hdrH",((hd&&getComputedStyle(hd).position==="sticky"?hd.offsetHeight:0)+8)+"px"); }catch(e){} bar.textContent="";
