@@ -257,8 +257,8 @@
   .wz-in{display:flex; align-items:center; gap:10px; padding:0 16px; border-radius:14px; background:var(--bg); border:1px solid var(--line)} .wz-in i{font-style:normal; color:var(--muted); font-size:20px; font-weight:700} .wz-in input{flex:1; min-width:0; border:0; background:transparent; font-size:30px; font-weight:800; padding:12px 0; outline:none; color:var(--text)}
   .wz-in:focus-within{border-color:var(--brand)}
   .wz-opt{display:flex; text-align:left; width:100%; padding:14px 16px; border-radius:14px; background:var(--bg); border:1px solid var(--line); box-shadow:none; color:var(--text); font-weight:700; font-size:16px} .wz-opt span{display:grid; gap:2px} .wz-opt small{font-weight:400; color:var(--muted); font-size:13px} .wz-opt.on{border-color:var(--brand)}
-  .wz-nav{display:flex; gap:10px; margin-top:4px} .wz-nav button{flex:1; min-height:48px} .wz-nav .primary{flex:2} .wz-skip{justify-self:center}
-  .sim-redo{justify-self:center; margin-top:4px; font-size:13.5px}
+  .wz-nav{display:flex; gap:10px; margin-top:4px} .wz-nav button{flex:1; min-height:48px} .wz-nav .primary{flex:2} .wz-skip{justify-self:center; color:var(--muted)!important; font-size:13px; font-weight:600}
+  .cmphdr .hlp{margin-left:auto; flex:0 0 28px; width:28px!important; min-width:28px; max-width:28px; height:28px!important; min-height:28px; padding:0!important; border-radius:50%; background:transparent; border:1.5px solid var(--line); box-shadow:none; color:var(--muted); font-size:14px; font-weight:800; line-height:1}
   .wz.shake{animation:wzShake .3s} @keyframes wzShake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
   /* El título y el resultado van juntos y fijos: así el título no queda cortado al deslizar. */
   .sim-top{position:sticky; top:calc(var(--hdrH,60px) - 8px); z-index:4; background:var(--bg); margin:-14px -16px 0; padding:14px 16px 10px; display:grid; gap:12px}
@@ -1039,7 +1039,7 @@
 </section>
 
 <section id="simView" hidden>
-  <div class="sim-top"><div class="cmphdr"><button type="button" id="simBack" aria-label="Volver">←</button><h2>Proyección</h2></div>
+  <div class="sim-top"><div class="cmphdr"><button type="button" id="simBack" aria-label="Volver">←</button><h2>Proyección</h2><button type="button" class="hlp" id="simHelp" aria-label="¿Cómo se usa? Ver las preguntas de nuevo" title="¿Cómo se usa?">?</button></div>
   <div id="simBar" class="sim-bar" hidden></div></div>
   <div id="simForm"></div>
   <div id="simOut"></div>
@@ -2676,7 +2676,8 @@
         if(last){ simIn.guided=1; simSave(); simWz=null; simForm(); simCalcNow(); window.scrollTo(0,0); } else { w.i++; simWizard(); } };
       nx.addEventListener("click",go); c.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); go(); } }); nav.appendChild(nx); }
     c.appendChild(nav);
-    if(w.i===0&&simIn.guided){ var sk=el("button","linkbtn wz-skip","Saltar las preguntas"); sk.type="button"; sk.addEventListener("click",function(){ simWz=null; simForm(); simCalcNow(); }); c.appendChild(sk); } }
+    if(w.i===0){ var sk=el("button","linkbtn wz-skip","Saltar las preguntas"); sk.type="button"; sk.addEventListener("click",function(){ simWz=null; simIn.guided=1; simSave(); simForm(); simCalcNow(); }); c.appendChild(sk); } }
+  $("simHelp").addEventListener("click",function(){ simWz={i:0}; simWizard(); window.scrollTo(0,0); });
   function simForm(){
     if(!simIn.guided){ simWizard(); return; }
     var box=$("simForm"); box.textContent="";
@@ -2732,7 +2733,6 @@
   function simOpenA(){
     if(!simIn.adjSeen){ simIn.adjSeen=1; simSave(); var pe=document.querySelector(".sim-edit.pulse"); if(pe) pe.classList.remove("pulse"); }
     var box=$("simAdj"); if(!box) return; box.textContent="";
-    setTimeout(function(){ var fm=$("simForm"); if(fm&&!fm.querySelector(".sim-redo")&&!simWz){ var rd=el("button","linkbtn sim-redo","Hacer las preguntas de nuevo"); rd.type="button"; rd.addEventListener("click",function(){ simWz={i:0}; simWizard(); window.scrollTo(0,0); }); fm.appendChild(rd); } },0);
     function seg(parent,opts,key){ var r=el("div","sim-sg"), sg=el("div","seg sm vw-seg");
       opts.forEach(function(o){ var b=el("button",String(simIn[key])===String(o[0])?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ if(String(simIn[key])===String(o[0])) return; simIn[key]=o[0]; simSave(); simCalcNow(); simSumUpd(); simOpenA(); }); sg.appendChild(b); });
       r.appendChild(sg); parent.appendChild(r); }
