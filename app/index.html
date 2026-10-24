@@ -253,7 +253,10 @@
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
   .sim-bar{display:grid; gap:8px; align-items:stretch; justify-content:stretch; grid-template-columns:minmax(0,1fr)}
   /* El título y el resultado van juntos y fijos: así el título no queda cortado al deslizar. */
-  .sim-top{position:sticky; top:calc(var(--hdrH,60px) - 8px); z-index:4; background:var(--bg); margin:-14px -16px 0; padding:14px 16px 10px; display:grid; gap:12px}
+  /* Resultado abajo, fijo: primero se lee qué te pregunta y tus datos; la respuesta queda siempre a la vista al pie. */
+  .sim-bot{position:sticky; bottom:0; z-index:6; margin:0 -16px; padding:14px 16px calc(10px + env(safe-area-inset-bottom)); background:linear-gradient(to top,var(--bg) 75%,transparent)}
+  .sim-bot>.sim-bar{box-shadow:0 -6px 24px rgba(0,0,0,.35)}
+  #simView.leave .sim-bot{display:none}
   #simView .sim-bar{position:static} #simView .sim-bar::before{display:none}
   .sim-bar div.sim-cols{display:grid !important; grid-template-columns:1fr 1fr; align-items:end; gap:12px}
   /* El resultado es lo principal: fondo con el color de la marca, borde marcado y sombra más fuerte cuando queda fijo arriba. */
@@ -1031,11 +1034,11 @@
 </section>
 
 <section id="simView" hidden>
-  <div class="sim-top"><div class="cmphdr"><button type="button" id="simBack" aria-label="Volver">←</button><h2>Proyección</h2></div>
-  <div id="simBar" class="sim-bar" hidden></div></div>
+  <div class="cmphdr"><button type="button" id="simBack" aria-label="Volver">←</button><h2>Proyección</h2></div>
   <div id="simForm"></div>
   <div id="simOut"></div>
   <div id="simAs"></div>
+  <div class="sim-bot"><div id="simBar" class="sim-bar" hidden></div></div>
 </section>
 
 <section id="rptView" hidden>
@@ -2632,7 +2635,9 @@
   function simM(n){ return simCy()+" "+Math.round(n).toLocaleString("es-AR"); }
   /* Pantalla: modo + resumen de tus datos (tocás y se abre la hoja para ajustar). */
   /* Sombra cuando el resultado queda pegado arriba (al deslizar los ajustes). */
-  window.addEventListener("scroll",function(){ var b=$("simBar"); if(!b||simView.hidden) return; var t=b.parentNode; if(t) t.classList.toggle("stuck",window.scrollY>10); },{passive:true});
+  /* (el resultado ahora va fijo abajo; se deja lugar al pie para que no tape lo último) */
+  function simPad(){}
+  window.addEventListener("resize",function(){ try{ simPad(); }catch(e){} });
   function simForm(){
     var box=$("simForm"); box.textContent="";
     var g0=el("div","pe-grp vw-g"); box.appendChild(g0);
@@ -2766,7 +2771,7 @@
     else { hq="Con "+M(cap)+(ap>0?" + "+M(ap)+"/mes":"")+" hasta los "+ret;
       L.appendChild(el("small",null,"A los "+ret+" ("+yrRet+") tenés")); L.appendChild(el("b",null,M(p50*fRet))); L.appendChild(el("small",null,"≈ "+M(p50)+" de hoy"));
       Rr.appendChild(el("small",null,"Gastás por mes "+(inf?"para siempre":"hasta los "+end))); Rr.appendChild(el("b",null,M(p50*sPlan*fRet))); Rr.appendChild(el("small",null,"≈ "+M(p50*sPlan)+" de hoy")); }
-    bar.appendChild(el("div","sim-hq",hq)); var cols=el("div","sim-cols"); cols.appendChild(L); cols.appendChild(Rr); bar.appendChild(cols);
+    bar.appendChild(el("div","sim-hq",hq)); var cols=el("div","sim-cols"); cols.appendChild(L); cols.appendChild(Rr); bar.appendChild(cols); requestAnimationFrame(simPad);
     if(need&&!isFinite(ap)) card().appendChild(el("div","sim-n","Con este rendimiento no se llega. Probá con más años o una meta más chica."));
   }
   function simChart(box,runs,age,ret,end,cy,title){
