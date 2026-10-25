@@ -252,6 +252,7 @@
   
   .sim-bar{position:sticky; top:var(--hdrH,60px); z-index:4; display:flex; justify-content:space-between; align-items:end; gap:12px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.10)}
   .sim-bar{display:grid; gap:8px; align-items:stretch; justify-content:stretch; grid-template-columns:minmax(0,1fr)}
+  .sim-bar div.sim-hq small{display:block; font-weight:600; font-size:12px; opacity:.85; margin-top:2px}
   .wz{display:grid; gap:14px; padding:18px 18px 20px; border-radius:18px; background:var(--card); border:1px solid var(--line)} .wz-dots{display:flex; gap:6px} .wz-dots i{flex:1; height:4px; border-radius:2px; background:var(--line)} .wz-dots i.on{background:var(--brand)}
   .wz-q{margin:6px 0 0; font-size:22px; line-height:1.25} .wz-s,.wz-h{margin:0; color:var(--muted); font-size:14px} .wz-h{font-size:13px}
   .wz-in{display:flex; align-items:center; gap:10px; padding:0 16px; border-radius:14px; background:var(--bg); border:1px solid var(--line)} .wz-in i{font-style:normal; color:var(--muted); font-size:20px; font-weight:700} .wz-in input{flex:1; min-width:0; border:0; background:transparent; font-size:30px; font-weight:800; padding:12px 0; outline:none; color:var(--text)}
@@ -2814,7 +2815,9 @@
     /* Arriba, fijo: lo más importante de cada modo. */
     /* Arriba: una frase con lo que estás calculando y dos números con su nombre. Igual en los tres modos. */
     var L=el("div"), Rr=el("div","r"), hq;
-    if(need){ hq=live?"Para cobrar "+M(+simIn.liveN||0)+"/mes "+(inf?"desde los "+ret+", para siempre":"de los "+ret+" a los "+end):"Para juntar "+M(+simIn.goalAmt||0)+" en "+yAcc+(yAcc===1?" año":" años");
+    if(need){ hq=live?"Para cobrar "+M(+simIn.liveN||0)+"/mes "+(inf?"desde los "+ret+", para siempre":"de los "+ret+" a los "+end):"Para juntar "+M(+simIn.goalAmt||0)+" en "+yAcc+(yAcc===1?" año":" años")+" ("+yrRet+")";
+      /* Meta: el monto es en dólares de ese año; abajo, cuánto es en plata de hoy */
+      var hqSub=live?"≈ "+M((+simIn.liveN||0)/fRet)+"/mes de hoy":"≈ "+M((+simIn.goalAmt||0)/fRet)+" de hoy";
       L.appendChild(el("small",null,"Tenés que poner por mes")); L.appendChild(el("b",null,!isFinite(ap)?"—":(ap>0?M(ap):"Nada"))); L.appendChild(el("small",null,!isFinite(ap)?"con este rendimiento no se puede":(ap>0?"durante "+yAcc+" años":"ya te alcanza")));
       if(live){ Rr.appendChild(el("small",null,"Necesitás juntar")); Rr.appendChild(el("b",null,M(p50*fRet))); Rr.appendChild(el("small",null,"≈ "+M(p50)+" de hoy")); }
       else { /* la meta ya está en la frase de arriba: acá, cuánto ponés vos y cuánto el mercado */
@@ -2823,7 +2826,7 @@
     else { hq="Con "+M(cap)+(ap>0?" + "+M(ap)+"/mes":"")+" hasta los "+ret;
       L.appendChild(el("small",null,"A los "+ret+" ("+yrRet+") tenés")); L.appendChild(el("b",null,M(p50*fRet))); L.appendChild(el("small",null,"≈ "+M(p50)+" de hoy"));
       Rr.appendChild(el("small",null,"Gastás por mes "+(inf?"para siempre":"hasta los "+end))); Rr.appendChild(el("b",null,M(p50*sPlan*fRet))); Rr.appendChild(el("small",null,"≈ "+M(p50*sPlan)+" de hoy")); }
-    bar.appendChild(el("div","sim-hq",hq)); var cols=el("div","sim-cols"); cols.appendChild(L); cols.appendChild(Rr); bar.appendChild(cols);
+    var hqEl=el("div","sim-hq",hq); if(typeof hqSub==="string"&&need) hqEl.appendChild(el("small",null,hqSub)); bar.appendChild(hqEl); var cols=el("div","sim-cols"); cols.appendChild(L); cols.appendChild(Rr); bar.appendChild(cols);
     if(need&&!isFinite(ap)) card().appendChild(el("div","sim-n","Con este rendimiento no se llega. Probá con más años o una meta más chica."));
   }
   function simChart(box,runs,age,ret,end,cy,title){
