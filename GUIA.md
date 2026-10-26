@@ -1,3 +1,5 @@
+> ⚠️ Guía vieja. La información actualizada y completa está en **CONTEXTO.md**.
+
 # Holdy (PWA) – guía rápida
 
 ## Qué hace
