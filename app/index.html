@@ -458,7 +458,9 @@
   .day-line.pos{color:var(--pos)} .day-line.neg{color:var(--neg)}
   .gain-line{font-size:16px; font-weight:700; margin-top:10px; display:flex; align-items:baseline; gap:8px}
   .gain-line .gl-pct{font-size:14px; font-weight:600; opacity:.9}
-  .day-now{display:flex; gap:6px; align-items:baseline; margin-top:4px; font-size:14px; font-weight:700} .day-now .dn-l{color:var(--muted); font-weight:600} .day-now .dn-p{font-weight:600; opacity:.9}
+  .day-now{display:flex; gap:6px; align-items:baseline; margin-top:4px; font-size:14px; font-weight:700; background:none; border:0; padding:0; color:inherit; font-family:inherit; text-align:left; cursor:pointer} .day-now .dn-l{color:var(--muted); font-weight:600} .day-now .dn-p{font-weight:600; opacity:.9} .day-now .dn-go{color:var(--muted); font-weight:600; margin-left:2px}
+  .kpi-go{cursor:pointer} .dy-hero{display:grid; justify-items:center; gap:2px; text-align:center; padding:6px 0 14px} .dy-d{font-size:13px; color:var(--muted); font-weight:600} .dy-big{font-size:34px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.5px} .dy-p{font-size:16px; font-weight:700} .dy-big.pos,.dy-p.pos{color:var(--pos)} .dy-big.neg,.dy-p.neg{color:var(--neg)} .dy-spy{font-size:13px; color:var(--muted); margin-top:8px}
+  .dy-h{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; padding:0 4px 2px} .dy-list .rk-row{padding:10px 14px} .dy-list .rk-name{font-size:15px} .dy-list .rk-name small{font-variant-numeric:tabular-nums} .dy-list .rk-row b{font-size:16px} .dy-more{justify-self:center; font-size:13px; color:var(--muted)}
   .recibo{margin-top:12px; border-top:1px solid var(--line); display:grid}
   .rrow{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--line)}
   .rrow:last-child{border-bottom:0}
@@ -2013,7 +2015,7 @@
 
   var detMore={};
   function render(){
-    try{ pushSyncSoon(); }catch(e){} try{ feedBadge(); }catch(e){} try{ askHome(); }catch(e){}
+    try{ pushSyncSoon(); }catch(e){} try{ feedBadge(); }catch(e){} try{ askHome(); }catch(e){} try{ dayDraw(); }catch(e){}
     ensureCcl();
     renderProfile();
     syncToolbar();
@@ -2221,7 +2223,7 @@
         gl.appendChild(el("span","gl-pct","("+fmtPct(gb>0?gt/gb:null)+")"));
         card.appendChild(gl);
         /* Lo de hoy, a la vista: es lo primero que uno quiere saber al abrir. */
-        if(g.dayN){ var dl=el("div","day-now"); dl.appendChild(el("span","dn-l","Hoy")); var dv_=el("span",cls(g.day),mRs(g.day,ccy)); dl.appendChild(dv_); if(g.dayBase>0) dl.appendChild(el("span",cls(g.day)+" dn-p","("+fmtPct(g.day/g.dayBase)+")")); card.appendChild(dl); }
+        if(g.dayN){ var dl=el("button","day-now"); dl.type="button"; dl.setAttribute("aria-label","Ver cómo te fue hoy"); dl.appendChild(el("span","dn-l","Hoy")); var dv_=el("span",cls(g.day),mRs(g.day,ccy)); dl.appendChild(dv_); if(g.dayBase>0) dl.appendChild(el("span",cls(g.day)+" dn-p","("+fmtPct(g.day/g.dayBase)+")")); if(ccy==="USD"){ dl.appendChild(el("span","dn-go","›")); dl.addEventListener("click",dayOpen); } card.appendChild(dl); }
         var rc=el("div","recibo"); rc.hidden=!sumOpen[ccy];
         var tg=el("button","sum-tg",""); tg.type="button"; tg.setAttribute("aria-expanded",String(!!sumOpen[ccy]));
         tg.appendChild(el("span",null,"Detalle")); tg.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
@@ -2256,7 +2258,7 @@
         var kp=el("div","kpis");
         function kpi(lbl,val,c,sub){ var k=el("div","kpi"); k.appendChild(el("span","kl",lbl)); k.appendChild(el("span","kv"+(c?" "+c:""),val)); if(sub) k.appendChild(el("span","ks "+(c||""),sub)); kp.appendChild(k); }
         kpi((nCl||dv0>0)?"Ganancia total":"Resultado",mRs(tot+realized+cpC+dv0,ccy),cls(tot+realized+cpC+dv0),nCl?"tenés "+mRs(tot,ccy)+" · vendido "+mRs(realized+cpC,ccy)+(dv0>0?" · dividendos +"+mR(dv0,ccy):""):fmtPct(tot/costPriced));
-        kpi("Hoy",g.dayN?mRs(g.day,ccy):"—",g.dayN?cls(g.day):"",(g.dayN&&g.dayBase>0)?fmtPct(g.day/g.dayBase):"");
+        kpi("Hoy",g.dayN?mRs(g.day,ccy):"—",g.dayN?cls(g.day):"",(g.dayN&&g.dayBase>0)?fmtPct(g.day/g.dayBase):""); if(g.dayN&&ccy==="USD"){ var kh=kp.lastChild; kh.classList.add("kpi-go"); kh.setAttribute("role","button"); kh.tabIndex=0; kh.title="Ver cómo te fue hoy"; kh.addEventListener("click",dayOpen); }
         kpi("Capital invertido",mR(costPriced,ccy),"",nCl?"lo que costó lo que tenés":"lo que pusiste");
         if(cashT>0) kpi("Plata sin invertir",mR(cashT,ccy),"","la cargaste vos, ya está sumada");
         else if(inc>0) kpi("Cupones cobrados","+"+mR(inc,ccy),"pos","suman a la ganancia");
@@ -3209,7 +3211,7 @@
     if(x){ api("GET","/fx/"+encodeURIComponent(x.code)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j||!d.open||d._fx!==x) return;
       var before=JSON.stringify(fxOf(x)); fxData[x.code]=j.k||{}; fxUs[x.code]={us:j.us||{},ow:j.ow||"",owner:j.owner}; if(JSON.stringify(fxOf(x))!==before) fxPaint(); }).catch(function(){}); return; }
     if(!feedView.hidden){ var now=Date.now(); if(now-(fxT._feed||0)<15000) return; fxT._feed=now; fxT={_feed:now}; fxLoad(feedItems()); } },4000);
-  $("dlgSimA").addEventListener("close",function(){ var fm=this.querySelector(".fx-form"); if(fm) fm.remove(); this._fx=null; });
+  $("dlgSimA").addEventListener("close",function(){ var fm=this.querySelector(".fx-form"); if(fm) fm.remove(); this._fx=null; this._day=null; });
   function openFeed(){ setScr(feedView); try{ history.pushState({scr:1},""); }catch(e){} feedRender(); feedMarkSeen(); feedBadge(); }
   $("btnFeed").addEventListener("click",openFeed); $("btnFr").addEventListener("click",openFeed);
   /* Al tocar un aviso de amigos la app abre en #feed. */
@@ -3220,6 +3222,41 @@
       if(code){ var x=feedGroups(feedItems()).filter(function(y){ return y.code===code&&(fxKey(y)===key||y.items.some(function(i){ return fxKey(i)===key; })); })[0]; if(!x) return; var d=$("dlgSimA"); if(d.open) d.close();
         fxThread(x); api("GET","/fx/"+encodeURIComponent(code)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; fxData[code]=j.k||{}; fxUs[code]={us:j.us||{},ow:j.ow||"",owner:j.owner}; if(d.open&&d._fx===x) fxThread(x); fxPaint(); }).catch(function(){}); } },300); }
   window.addEventListener("hashchange",feedFromHash); setTimeout(feedFromHash,800);
+  /* ---------- Cómo te fue hoy: lo abre el aviso de cierre (#hoy) y tocar "Hoy" en el resumen ---------- */
+  var daySpy=null, dayAll=false, DIAS=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  function dayOpen(){ var d=$("dlgSimA"); d._fx=null; d._day=1; dayAll=false; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
+    d.querySelector("h3").textContent="Cómo te fue hoy"; dayDraw();
+    if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); }
+    if(!daySpy||Date.now()-daySpy.at>10*60*1000) fetchQuote("SPY").then(function(q){ daySpy={q:q,at:Date.now()}; dayDraw(); }).catch(function(){}); }
+  function dayDraw(){ var d=$("dlgSimA"), box=$("simABody"); if(!d._day||d.querySelector("h3").textContent!=="Cómo te fue hoy") return; box.textContent="";
+    var rows={}, amt=0, base=0, last=0;
+    vPos().forEach(function(p){ if(p.ccy!=="USD") return; var di=dayInfo(p); if(!di) return; amt+=di.amt; base+=di.base;
+      var c=prices[p.ticker]; if(c&&c.t>last) last=c.t;
+      var k=dispTk(p), r=rows[k]||(rows[k]={t:k,amt:0,base:0}); r.amt+=di.amt; r.base+=di.base; });
+    var list=Object.keys(rows).map(function(k){ return rows[k]; }).filter(function(r){ return r.base>0; });
+    if(!list.length){ box.appendChild(el("div","sh-st rk-st",refreshing?"Actualizando precios…":"Todavía no hay precios de hoy para tu cartera.")); return; }
+    var dt=last?new Date(last):new Date(), ds=dt.getFullYear()+"-"+("0"+(dt.getMonth()+1)).slice(-2)+"-"+("0"+dt.getDate()).slice(-2);
+    var hero=el("div","dy-hero"), lbl=DIAS[dt.getDay()]+" "+dt.getDate()+" de "+MESES[dt.getMonth()];
+    hero.appendChild(el("span","dy-d",ds===todayStr()?"Hoy, "+lbl:"Último día de mercado: "+lbl));
+    hero.appendChild(el("b","dy-big "+cls(amt),mRs(amt,"USD")));
+    hero.appendChild(el("span","dy-p "+cls(amt),fmtPct(base>0?amt/base:null)));
+    var q=daySpy&&daySpy.q;
+    if(q&&q.price>0&&typeof q.d==="number"&&q.t){ var qd=new Date(q.t), qs=qd.getFullYear()+"-"+("0"+(qd.getMonth()+1)).slice(-2)+"-"+("0"+qd.getDate()).slice(-2);
+      if(qs===ds&&base>0){ var sp=q.d/(q.price-q.d), dif=(amt/base-sp)*100, pts=Math.abs(dif).toFixed(1).replace(".",",");
+        hero.appendChild(el("span","dy-spy","S&P 500: "+fmtPct(sp)+" · "+(Math.abs(dif)<0.05?"igual que vos":(dif>0?"le ganaste por "+pts+" puntos":"te ganó por "+pts+" puntos")))); } }
+    box.appendChild(hero);
+    list.sort(function(a,b){ return b.amt/b.base-a.amt/a.base; });
+    var show=list; if(list.length>8&&!dayAll) show=list.slice(0,4).concat(list.slice(-4));
+    if(list.length>1){ box.appendChild(el("div","dy-h","Cómo se movió cada una"));
+      var lw=el("div","rk-list dy-list");
+      show.forEach(function(r,i){ if(show!==list&&i===4){ var mb=el("button","linkbtn dy-more","Ver las "+list.length); mb.type="button"; mb.addEventListener("click",function(){ dayAll=true; dayDraw(); }); lw.appendChild(mb); }
+        var row=el("div","rk-row"), nm=el("span","rk-name",r.t); nm.appendChild(el("small",null,mRs(r.amt,"USD"))); row.appendChild(nm);
+        var p_=r.amt/r.base; row.appendChild(el("b",p_>0?"pos":(p_<0?"neg":""),fmtPct(p_))); lw.appendChild(row); });
+      box.appendChild(lw); }
+  }
+  function dayFromHash(){ if(location.hash!=="#hoy") return; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+    if(!auth||!positions.length) return; setTimeout(dayOpen,300); }
+  window.addEventListener("hashchange",dayFromHash); setTimeout(dayFromHash,800);
   $("btnMenu").addEventListener("click",function(){ feedBadge(); menuUserRender(); });
   $("feedBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   if(!feedSeen) feedMarkSeen(); /* la primera vez no hay nada "nuevo" */

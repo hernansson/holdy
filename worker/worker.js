@@ -901,7 +901,7 @@ async function pushClose(env) {
     const pc = (v) => (v >= 0 ? "+" : "−") + Math.abs(v * 100).toFixed(1).replace(".", ",") + "%";
     let body = "Tus acciones hoy: " + (dAmt >= 0 ? "+" : "") + fmtUS(dAmt) + " (" + pc(dAmt / base) + ").";
     if (mv.length > 1) body += " Subió más " + mv[0].t + " " + pc(mv[0].dp) + "; bajó más " + mv[mv.length - 1].t + " " + pc(mv[mv.length - 1].dp) + ".";
-    await pushTo(env, sub, "close", { title: "Cierre del mercado", body, tag: "close-" + today }, "close:" + today);
+    await pushTo(env, sub, "close", { title: "Cierre del mercado", body, tag: "close-" + today, u: "#hoy" }, "close:" + today);
   }
 }
 function ibCount(csv) { let t = 0, d = 0; String(csv || "").split("\n").forEach((l) => { if (/"(BUY|SELL)"/.test(l) && /"STK"/.test(l)) t++; if (/Dividends/.test(l) && /"DETAIL"/.test(l)) d++; }); return { t, d }; }
