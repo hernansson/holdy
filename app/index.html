@@ -727,6 +727,8 @@
   .advin{display:grid; gap:12px; padding-bottom:12px}
   .btns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
   .help{font-size:12px; color:var(--muted)}
+  .nv-it{display:grid; gap:6px; padding:12px 14px; background:var(--sh-card,var(--card)); border-radius:14px} .nv-it small{font-size:11.5px; color:var(--muted); font-weight:600} .nv-it b{font-size:16px; font-weight:800} .nv-it ul{margin:0; padding-left:18px; display:grid; gap:4px; font-size:14px; line-height:1.4; color:var(--text)}
+  #drVer.nv-on{cursor:pointer}
   a{color:var(--brand)}
   .fp-list{display:grid; gap:10px; max-height:46vh; overflow:auto; padding:2px; margin:0 -2px; outline:0; align-content:start; overscroll-behavior:contain;
     background:linear-gradient(var(--card) 30%,transparent),linear-gradient(transparent,var(--card) 70%) 0 100%,radial-gradient(farthest-side at 50% 0,rgba(0,0,0,.22),transparent),radial-gradient(farthest-side at 50% 100%,rgba(0,0,0,.22),transparent) 0 100%;
@@ -6821,6 +6823,34 @@
     deferredInstall.prompt();
     Promise.resolve(deferredInstall.userChoice).then(function(){ deferredInstall=null; $("installSec").hidden=true; });
   });
+
+  // ---------- Novedades ----------
+  /* Al abrir una versión nueva, una hoja chica con lo que trae. Solo van acá las versiones con algo para contar:
+     si una versión no tiene entrada (arreglos chicos), no aparece nada. La más nueva arriba; 1 a 3 líneas cortas. */
+  var NOVEDADES=[
+    {v:"1.38.0", t:"Ahora te contamos qué hay de nuevo", d:["Cuando Holdy se actualiza, al abrirla vas a ver acá qué cambió, en pocas líneas.","Si la versión nueva solo arregla cosas chicas, no aparece nada.","Para verlo de nuevo, tocá la versión al final del menú."]}
+  ];
+  var LS_NEWS="cartera.news.v1";
+  function verN(v){ return String(v||"0").split(".").reduce(function(a,x){ return a*1000+(+x||0); },0); }
+  function newsSince(seen){ return NOVEDADES.filter(function(x){ return verN(x.v)>verN(seen)&&verN(x.v)<=verN(APP_SEMVER); }).slice(0,3); }
+  function newsSheet(list){
+    var d=$("dlgSimA"), box=$("simABody"); if(d.open) d.close(); d._fx=null; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
+    d.querySelector("h3").textContent="Novedades de Holdy"; box.textContent="";
+    list.forEach(function(x){ var it=el("div","nv-it"); it.appendChild(el("small",null,"Versión "+x.v)); it.appendChild(el("b",null,x.t));
+      var ul=el("ul"); x.d.forEach(function(s){ ul.appendChild(el("li",null,s)); }); it.appendChild(ul); box.appendChild(it); });
+    var ok=el("button","primary sim-ok","Entendido"); ok.type="button"; ok.addEventListener("click",function(){ d.close(); }); box.parentNode.appendChild(ok);
+    d.showModal(); if(document.activeElement) document.activeElement.blur();
+  }
+  /* Espera a que la pantalla esté libre (sin bloqueo, sin otra hoja, pantalla o tour abiertos). Si no se pudo mostrar, queda para la próxima vez que se abra. */
+  (function(){
+    var seen=load(LS_NEWS,null);
+    if(!seen){ seen=hasUserData()?"0":APP_SEMVER; if(seen===APP_SEMVER) save(LS_NEWS,seen); }
+    var list=newsSince(seen), tries=0;
+    if(NOVEDADES.length){ var dv=$("drVer"); dv.classList.add("nv-on"); dv.addEventListener("click",function(){ $("dlgMenu").close(); newsSheet(NOVEDADES.slice(0,3)); }); }
+    if(!list.length){ if(verN(seen)<verN(APP_SEMVER)) save(LS_NEWS,APP_SEMVER); return; }
+    function busy(){ return document.hidden||cmpOpen||!!location.hash||document.documentElement.classList.contains("locked")||!!document.querySelector("dialog[open],.tour")||(!!GOOGLE_CLIENT_ID&&!auth); }
+    (function tryShow(){ if(busy()){ if(++tries<30) setTimeout(tryShow,2000); return; } save(LS_NEWS,APP_SEMVER); newsSheet(list); })();
+  })();
 
   // ---------- Auto-actualización ----------
   setInterval(function(){ if(document.visibilityState==="visible") refresh(false); },REFRESH_MS);
