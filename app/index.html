@@ -6829,11 +6829,12 @@
   });
 
   // ---------- Novedades ----------
-  /* Al abrir una versión nueva, una hoja chica con lo que trae. Solo van acá las versiones con algo para contar:
-     si una versión no tiene entrada (arreglos chicos), no aparece nada. La más nueva arriba; 1 a 3 líneas cortas. */
+  /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
+     si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.39.4", t:"Novedades en cada versión", d:["Esta hoja ahora sale en cada actualización, también cuando son arreglos chicos.","El selector CCL/MEP/$ volvió arriba a la izquierda y el resumen dice “Ver detalle”.","Si tenés la huella activada y tocás “Actualizar” con la app abierta, ya no te la vuelve a pedir."]},
     {v:"1.39.2", t:"Resumen más claro", d:["La ganancia total está al lado del monto.","“Hoy” muestra solo el %; tocándolo ves el detalle del día."]},
-    {v:"1.39.0", t:"Ahora te contamos qué hay de nuevo", d:["Cuando Holdy se actualiza, al abrirla vas a ver acá qué cambió, en pocas líneas.","Si la versión nueva solo arregla cosas chicas, no aparece nada.","Para verlo de nuevo, tocá la versión al final del menú."]},
+    {v:"1.39.0", t:"Ahora te contamos qué hay de nuevo", d:["Cuando Holdy se actualiza, al abrirla vas a ver acá qué cambió, en pocas líneas.","Para verlo de nuevo, tocá la versión al final del menú."]},
     {v:"1.38.0", t:"Cómo te fue hoy", d:["El aviso de cierre del mercado ahora abre cómo te fue en el día: el total, contra el S&P 500 y cada acción.","También lo ves tocando “Hoy” en el resumen."]}
   ];
   var LS_NEWS="cartera.news.v1";
@@ -6853,7 +6854,8 @@
     if(!seen){ seen=hasUserData()?"0":APP_SEMVER; if(seen===APP_SEMVER) save(LS_NEWS,seen); }
     var list=newsSince(seen), tries=0;
     if(NOVEDADES.length){ var dv=$("drVer"); dv.classList.add("nv-on"); dv.addEventListener("click",function(){ $("dlgMenu").close(); newsSheet(NOVEDADES.slice(0,3)); }); }
-    if(!list.length){ if(verN(seen)<verN(APP_SEMVER)) save(LS_NEWS,APP_SEMVER); return; }
+    if(!list.length&&verN(seen)<verN(APP_SEMVER)) list=[{v:APP_SEMVER, t:"Arreglos y mejoras", d:["Arreglamos cosas chicas para que Holdy ande mejor."]}];
+    if(!list.length) return;
     function busy(){ return document.hidden||cmpOpen||!!location.hash||document.documentElement.classList.contains("locked")||!!document.querySelector("dialog[open],.tour")||(!!GOOGLE_CLIENT_ID&&!auth); }
     (function tryShow(){ if(busy()){ if(++tries<30) setTimeout(tryShow,2000); return; } save(LS_NEWS,APP_SEMVER); newsSheet(list); })();
   })();

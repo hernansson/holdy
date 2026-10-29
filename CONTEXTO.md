@@ -71,7 +71,7 @@ git push origin main
 ```
 
   `npm version` corre `tools/sync-version.js`: actualiza `APP_VER` en `app/index.html` y `CACHE` en `app/sw.js`, que tienen que cambiar juntos en cada versión para que el celu se actualice. Para revertir: `git revert <hash>` y release.
-- **Novedades:** si la versión trae algo que el usuario note, agregar una entrada arriba de todo en `NOVEDADES` (app/index.html) con la versión exacta que va a salir, un título y 1 a 3 líneas cortas. Al abrir la versión nueva sale una hoja con eso (espera a que no haya nada abierto). Los arreglos chicos no llevan entrada y no muestran nada.
+- **Novedades:** en **cada** versión (también los arreglos chicos, lo pidió Hernán) agregar una entrada arriba de todo en `NOVEDADES` (app/index.html) con la versión exacta que va a salir, un título y 1 a 3 líneas cortas. Al abrir la versión nueva sale una hoja con eso (espera a que no haya nada abierto). Si una versión queda sin entrada, sale una genérica "Arreglos y mejoras", que es vaga: mejor escribirla.
 - **Ver si el Worker se publicó:** `gh run list -L 3 | grep -i worker`. Los logs a veces dan 403 desde el sandbox; si falla, compilar localmente con `npx wrangler@4 deploy --dry-run --outdir out` (ver §10).
 - **No se puede desde el sandbox:** `curl` a `holdy.pages.dev` o al Worker (el proxy lo bloquea) ni push de tags (403). La verificación real la hace Hernán en el celu.
 
