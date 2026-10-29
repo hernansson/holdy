@@ -117,7 +117,7 @@ git push origin main
 | `GET/POST /fx/<código>` | Social de una cartera compartida (KV `fx:<código>`). POST `{key,re}` reacción (🔥👏😬🤔😂), `{key,t,rp?,h?}` comentario (máx. 300, guarda los últimos 60, `rp` = responder a un id, `h` = "la tiene" con su %), `{key,lk:id}` me gusta, `{key,del:id}` borrar (autor o dueño). GET devuelve `{k, owner, ow, us:{uid:{n,v}}}` |
 
 `key` de un movimiento: `b|TICKER|AAAA-MM-DD` (compra) o `s|...` (venta).
-**Cron (cada hora, minuto 35, UTC):** 11 y 14 → IBKR automático; 12 → avisos de cobros; 21 lun–vie → cierre del mercado.
+**Cron (cada hora, minuto 35, UTC):** 11 y 14 → IBKR automático; 12 → avisos de cobros; 21 lun–vie → cierre del mercado (el aviso abre `#hoy`).
 **Avisos (`pushTo`):** tipos `fr` (amigos, activado por defecto), cierre, cobros, IBKR. Deep link de comentarios: `#feed/<código>/<key>`.
 **Memoria en el Worker:** `PF` (perfiles, 6 h), `histCache` (historial, 6 h).
 **Lección aprendida (dos veces):** un comentario `//` escrito en la misma línea **delante** de código tapó ese código, y `node --check` no lo detectó. Usar `/* */` en línea o el comentario en su propia línea, y compilar siempre con `wrangler deploy --dry-run`.
@@ -136,7 +136,8 @@ Hoja reutilizable: `#dlgSimA` (título `h3`, cuerpo `#simABody`, botón fijo `.s
 
 ### Pantalla principal
 - **Header:** logo · selector de cartera (círculo con tu foto si es tuya; la del amigo si es de un amigo; si no, la inicial) · ícono de amigos con punto de novedades (solo si seguís a alguien) · lupa · ojo (ocultar montos) · menú.
-- **Resumen:** total, resultado total (incluye vendidas y dividendos) y **"Hoy +US$ X (+Y%)"**; "Detalle" desplegable. En la compu se ven KPIs en columnas.
+- **Resumen (celu, desde 1.39.2):** "Tu cartera" + CCL/MEP/$ arriba; el total grande con la ganancia total chica al lado (sin flecha ni etiqueta); abajo "Hoy +0,30% ›" (solo el %) y "Detalle ⌄" a la derecha. A Hernán no le gusta tener mucha info y muchos botones en poco espacio: se probaron cuadritos, pastillas y renglones con etiqueta y no gustaron. "Hoy" queda así "hasta que lo mejoremos". En la compu se ven KPIs en columnas.
+- **Cómo te fue hoy (hoja `#dlgSimA`, `dayOpen`):** total del día en US$ y %, contra el S&P 500 y cada acción ordenada por % (más de 8: 4 arriba y 4 abajo con "Ver las N"). Se abre tocando "Hoy" o el aviso de cierre (deep link `#hoy`).
 - **Evolución** (gráfico 1M/3M/1A/Todo).
 - **Pestañas:** Acciones · Renta fija · Vendidas · **Efectivo**. En el celu van sin número para que entren en una línea; en la compu, con número.
 - **Detalle de cada posición:** invertido, valor, precio de compra y actual; el resto en **"Ver más"** (recuerda si lo abriste); "¿Qué pasó con X?" (IA + noticias), Editar, Eliminar.
