@@ -967,7 +967,7 @@
     .wbar::before,.dbar::before{content:""; position:absolute; inset:0 auto 0 0; width:var(--w); background:var(--brand); border-radius:3px}
   }
 </style>
-<script>/* Bloqueo con huella: se tapa todo antes de dibujar si está activado. */try{ if(localStorage.getItem("cartera.lock.v1")) document.documentElement.classList.add("locked"); }catch(e){}</script>
+<script>/* Bloqueo con huella: se tapa todo antes de dibujar si está activado. Si se recarga por tocar "Actualizar" (ya desbloqueado, hace segundos), no se vuelve a pedir. */try{ var _ur=+sessionStorage.getItem("holdy.updReload")||0; sessionStorage.removeItem("holdy.updReload"); window.__holdyUpdReload=_ur&&Date.now()-_ur<20000; if(localStorage.getItem("cartera.lock.v1")&&!window.__holdyUpdReload) document.documentElement.classList.add("locked"); }catch(e){}</script>
 <style>
   html.locked body > *:not(#lockScr){visibility:hidden !important}
   #lockScr{display:none; position:fixed; inset:0; z-index:9999; background:var(--bg,#0b0e11); color:var(--text,#fff); flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; text-align:center}
@@ -2514,7 +2514,7 @@
       .catch(function(){ $("lockMsg").textContent="No se pudo verificar. Probá de nuevo."; });
   }
   $("lockBtn").addEventListener("click",lockUnlock);
-  if(lockOn()) setTimeout(lockUnlock,300);
+  if(lockOn()&&!window.__holdyUpdReload) setTimeout(lockUnlock,300);
   /* Si la app queda en segundo plano más de 1 minuto, se vuelve a bloquear. */
   var LS_HIDEOPEN="cartera.hideOpen.v1";
   function lockDelay(){ try{ var d=JSON.parse(localStorage.getItem(LS_LOCK)).d; return typeof d==="number"?d:60000; }catch(e){ return 60000; } }
@@ -6891,7 +6891,7 @@
       if($("updBar")) return;
       var bar=el("div","updbar"); bar.id="updBar";
       bar.appendChild(el("span",null,"Hay una versión nueva de Holdy"));
-      var b=el("button",null,"Actualizar"); b.type="button"; b.addEventListener("click",function(){ location.reload(); });
+      var b=el("button",null,"Actualizar"); b.type="button"; b.addEventListener("click",function(){ try{ if(!document.documentElement.classList.contains("locked")) sessionStorage.setItem("holdy.updReload",String(Date.now())); }catch(e){} location.reload(); });
       bar.appendChild(b); document.body.appendChild(bar);
     }
   }
