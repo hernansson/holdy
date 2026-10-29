@@ -6828,13 +6828,14 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Solo van acá las versiones con algo para contar:
      si una versión no tiene entrada (arreglos chicos), no aparece nada. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
-    {v:"1.38.0", t:"Ahora te contamos qué hay de nuevo", d:["Cuando Holdy se actualiza, al abrirla vas a ver acá qué cambió, en pocas líneas.","Si la versión nueva solo arregla cosas chicas, no aparece nada.","Para verlo de nuevo, tocá la versión al final del menú."]}
+    {v:"1.39.0", t:"Ahora te contamos qué hay de nuevo", d:["Cuando Holdy se actualiza, al abrirla vas a ver acá qué cambió, en pocas líneas.","Si la versión nueva solo arregla cosas chicas, no aparece nada.","Para verlo de nuevo, tocá la versión al final del menú."]},
+    {v:"1.38.0", t:"Cómo te fue hoy", d:["El aviso de cierre del mercado ahora abre cómo te fue en el día: el total, contra el S&P 500 y cada acción.","También lo ves tocando “Hoy” en el resumen."]}
   ];
   var LS_NEWS="cartera.news.v1";
   function verN(v){ return String(v||"0").split(".").reduce(function(a,x){ return a*1000+(+x||0); },0); }
   function newsSince(seen){ return NOVEDADES.filter(function(x){ return verN(x.v)>verN(seen)&&verN(x.v)<=verN(APP_SEMVER); }).slice(0,3); }
   function newsSheet(list){
-    var d=$("dlgSimA"), box=$("simABody"); if(d.open) d.close(); d._fx=null; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
+    var d=$("dlgSimA"), box=$("simABody"); if(d.open) d.close(); d._fx=null; d._day=0; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
     d.querySelector("h3").textContent="Novedades de Holdy"; box.textContent="";
     list.forEach(function(x){ var it=el("div","nv-it"); it.appendChild(el("small",null,"Versión "+x.v)); it.appendChild(el("b",null,x.t));
       var ul=el("ul"); x.d.forEach(function(s){ ul.appendChild(el("li",null,s)); }); it.appendChild(ul); box.appendChild(it); });
