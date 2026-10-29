@@ -129,7 +129,7 @@
     html[data-ui="m"] header h1{font-size:17px}
     html[data-ui="m"] main{padding:14px 14px}
     html[data-ui="m"] .status{display:none}
-    html[data-ui="m"] .sum-card h2{font-size:13.5px; letter-spacing:0; text-transform:none; font-weight:600}
+    html[data-ui="m"] .sum-card h2{display:none}
     html[data-ui="m"] .sum-card{position:relative}
     html[data-ui="m"] .sum-hd{position:static; margin:0; justify-content:space-between}
     html[data-ui="m"] .sum-hd .dcseg{margin-left:-2px}
@@ -2232,7 +2232,7 @@
         if(g.dayN){ var dl=el("button","day-now"); dl.type="button"; dl.setAttribute("aria-label","Ver cómo te fue hoy"); dl.appendChild(el("span","dn-l","Hoy")); dl.appendChild(el("span",cls(g.day),g.dayBase>0?fmtPct(g.day/g.dayBase):mRs(g.day,ccy))); if(ccy==="USD"){ dl.appendChild(el("span","dn-go","›")); dl.addEventListener("click",dayOpen); } sub.appendChild(dl); }
         var rc=el("div","recibo"); rc.hidden=!sumOpen[ccy];
         var tg=el("button","sum-tg",""); tg.type="button"; tg.setAttribute("aria-expanded",String(!!sumOpen[ccy]));
-        tg.appendChild(el("span",null,"Detalle")); tg.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
+        tg.appendChild(el("span",null,"Ver detalle")); tg.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
         if(sumOpen[ccy]) tg.classList.add("open");
         tg.addEventListener("click",function(){
           var op=rc.hidden; sumOpen[ccy]=op; tg.classList.toggle("open",op); tg.setAttribute("aria-expanded",String(op));
@@ -6832,7 +6832,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Solo van acá las versiones con algo para contar:
      si una versión no tiene entrada (arreglos chicos), no aparece nada. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
-    {v:"1.39.2", t:"Resumen más claro", d:["Arriba dice “Tu cartera”, y la ganancia total está al lado del monto.","“Hoy” muestra solo el %; tocándolo ves el detalle del día."]},
+    {v:"1.39.2", t:"Resumen más claro", d:["La ganancia total está al lado del monto.","“Hoy” muestra solo el %; tocándolo ves el detalle del día."]},
     {v:"1.39.0", t:"Ahora te contamos qué hay de nuevo", d:["Cuando Holdy se actualiza, al abrirla vas a ver acá qué cambió, en pocas líneas.","Si la versión nueva solo arregla cosas chicas, no aparece nada.","Para verlo de nuevo, tocá la versión al final del menú."]},
     {v:"1.38.0", t:"Cómo te fue hoy", d:["El aviso de cierre del mercado ahora abre cómo te fue en el día: el total, contra el S&P 500 y cada acción.","También lo ves tocando “Hoy” en el resumen."]}
   ];
