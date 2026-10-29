@@ -129,13 +129,13 @@
     html[data-ui="m"] header h1{font-size:17px}
     html[data-ui="m"] main{padding:14px 14px}
     html[data-ui="m"] .status{display:none}
-    html[data-ui="m"] .sum-card h2{display:none}
+    html[data-ui="m"] .sum-card h2{font-size:13.5px; letter-spacing:0; text-transform:none; font-weight:600}
     html[data-ui="m"] .sum-card{position:relative}
     html[data-ui="m"] .sum-hd{position:static; margin:0; justify-content:space-between}
     html[data-ui="m"] .sum-hd .dcseg{margin-left:-2px}
     html[data-ui="m"] .sum-main{margin-top:10px}
     html[data-ui="m"] .big,html[data-ui="m"] .sum-main .big{font-size:30px; font-weight:800; letter-spacing:-.03em}
-    html[data-ui="m"] .gain-line{margin-top:6px; font-size:14px}
+    html[data-ui="m"] .sum-main .gain-line{margin-top:0; font-size:14px}
     html[data-ui="m"] .summary{margin-bottom:16px}
     html[data-ui="m"] .tbar{margin:18px 0 10px} html[data-ui="m"] .tabs{margin:0; gap:6px}
     html[data-ui="m"] .tabs button{min-height:34px; font-size:13.5px; padding:0 10px}
@@ -212,6 +212,8 @@
   .tabs button small{font-size:11.5px; font-weight:600; opacity:.7}
   .sum-main{margin-top:14px}
   .sum-main .big{font-size:32px}
+  .sum-main{display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap} .sum-main .gain-line{margin-top:0; font-size:14px; gap:4px} .sum-main .gain-line .gl-pct{font-size:inherit; font-weight:700; opacity:1}
+  .sum-sub{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:4px} .sum-sub .day-now{margin-top:0; min-height:28px; align-items:center} .sum-sub .sum-tg{margin-left:auto}
   .gain-box{display:flex; flex-direction:column; align-items:flex-start; gap:2px; font-weight:700}
   .gain-box span{font-size:14px; padding:4px 10px; border-radius:999px; background:var(--chip)}
   .gain-box.pos span{background:color-mix(in srgb,var(--pos) 13%,transparent)} .gain-box.neg span{background:color-mix(in srgb,var(--neg) 13%,transparent)}
@@ -888,7 +890,7 @@
     .sum-card{display:grid; grid-template-columns:minmax(280px,380px) 1fr; column-gap:44px; align-items:center; padding:26px 32px}
     .sum-card>.sum-hd,.sum-card>.sum-main,.sum-card>.gain-line,.sum-card>.note{grid-column:1}
     .sum-card>.kpis{grid-column:2; grid-row:1/span 4; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px 0; align-self:stretch}
-    .sum-card>.recibo,.sum-tg,.sum-card>.gain-line,.sum-card>.day-now,.sum-card>.gain-tot{display:none!important}
+    .sum-card>.recibo,.sum-tg,.sum-card .gain-line,.sum-card .day-now,.sum-card>.gain-tot,.sum-sub{display:none!important}
     .sum-main .big{font-size:44px; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
     .sum-card>.kpis.k6{grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:22px}
     .kpi{display:flex; flex-direction:column; justify-content:center; gap:5px; padding:0 22px; border-left:1px solid var(--line)}
@@ -2203,7 +2205,7 @@
 
       var card=el("div","sum-card");
       var npos=PS.filter(function(p){return p.ccy===ccy;}).length, inc=g.inc||0;
-      var hd=el("div","sum-hd"); hd.appendChild(el("h2",null,"Tu cartera hoy"));
+      var hd=el("div","sum-hd"); hd.appendChild(el("h2",null,"Tu cartera"));
       var dcs=el("div","seg sm dcseg"); dcs.setAttribute("aria-label","Moneda para mostrar");
       [["CCL","CCL"],["MEP","MEP"],["ARS","$"]].forEach(function(o){ var b=el("button",ui.dc===o[0]?"on":"",o[1]); b.type="button"; b.title={CCL:"En dólar CCL",MEP:"En dólar MEP",ARS:"En pesos"}[o[0]]+": lo que pagaste con el dólar de cada compra; lo que vale, con el de hoy";
         b.addEventListener("click",function(){ if(ui.dc===o[0]) return; ui.dc=o[0]; save(LS_UI,ui); render(); if(!cedInfo) fetchCedFactor().then(render); fetchFxHist().then(render); });
@@ -2221,11 +2223,13 @@
         /* Arriba, un solo resultado: lo que tenés + lo que ya vendiste. El % es sobre todo lo que pusiste (lo que tenés + lo que costó lo vendido). */
         var rz0=0, cz0=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ var cc_=pCost(c); rz0+=pProceeds(c)-cc_+(c.fi?fiIncomeE(c):0); cz0+=cc_; } });
         var dv0=ccy==="USD"?divSum(vDiv()):0, gt=tot+rz0+dv0, gb=costPriced+cz0;
-        var gl=el("div","gain-line "+cls(gt)); gl.appendChild(el("span",null,arrow(gt)+mRs(gt,ccy)));
+        var gl=el("div","gain-line "+cls(gt)); gl.appendChild(el("span",null,mRs(gt,ccy)));
         gl.appendChild(el("span","gl-pct","("+fmtPct(gb>0?gt/gb:null)+")"));
-        card.appendChild(gl);
+        mainRow.appendChild(gl); /* la ganancia va al lado del total: se entiende que es de ese número */
+        var sub=el("div","sum-sub"); card.appendChild(sub);
         /* Lo de hoy, a la vista: es lo primero que uno quiere saber al abrir. */
-        if(g.dayN){ var dl=el("button","day-now"); dl.type="button"; dl.setAttribute("aria-label","Ver cómo te fue hoy"); dl.appendChild(el("span","dn-l","Hoy")); var dv_=el("span",cls(g.day),mRs(g.day,ccy)); dl.appendChild(dv_); if(g.dayBase>0) dl.appendChild(el("span",cls(g.day)+" dn-p","("+fmtPct(g.day/g.dayBase)+")")); if(ccy==="USD"){ dl.appendChild(el("span","dn-go","›")); dl.addEventListener("click",dayOpen); } card.appendChild(dl); }
+        /* Solo el %: el monto y cada acción están en la hoja del día. */
+        if(g.dayN){ var dl=el("button","day-now"); dl.type="button"; dl.setAttribute("aria-label","Ver cómo te fue hoy"); dl.appendChild(el("span","dn-l","Hoy")); dl.appendChild(el("span",cls(g.day),g.dayBase>0?fmtPct(g.day/g.dayBase):mRs(g.day,ccy))); if(ccy==="USD"){ dl.appendChild(el("span","dn-go","›")); dl.addEventListener("click",dayOpen); } sub.appendChild(dl); }
         var rc=el("div","recibo"); rc.hidden=!sumOpen[ccy];
         var tg=el("button","sum-tg",""); tg.type="button"; tg.setAttribute("aria-expanded",String(!!sumOpen[ccy]));
         tg.appendChild(el("span",null,"Detalle")); tg.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
@@ -2234,7 +2238,7 @@
           var op=rc.hidden; sumOpen[ccy]=op; tg.classList.toggle("open",op); tg.setAttribute("aria-expanded",String(op));
           if(op){ rc.hidden=false; slide(rc,true); } else slide(rc,false,function(){ rc.hidden=true; });
         });
-        hd.appendChild(tg);
+        sub.appendChild(tg);
         function rhead(t){ rc.appendChild(el("div","rhd",t)); }
         function rrow(lbl,val,c,strong,sub,mut){
           var r=el("div","rrow"+(strong?" strong":"")+(mut?" mut":"")); var l=el("span","rl",lbl); if(sub) l.appendChild(el("small",null,sub)); r.appendChild(l);
@@ -6828,6 +6832,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Solo van acá las versiones con algo para contar:
      si una versión no tiene entrada (arreglos chicos), no aparece nada. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.39.2", t:"Resumen más claro", d:["Arriba dice “Tu cartera”, y la ganancia total está al lado del monto.","“Hoy” muestra solo el %; tocándolo ves el detalle del día."]},
     {v:"1.39.0", t:"Ahora te contamos qué hay de nuevo", d:["Cuando Holdy se actualiza, al abrirla vas a ver acá qué cambió, en pocas líneas.","Si la versión nueva solo arregla cosas chicas, no aparece nada.","Para verlo de nuevo, tocá la versión al final del menú."]},
     {v:"1.38.0", t:"Cómo te fue hoy", d:["El aviso de cierre del mercado ahora abre cómo te fue en el día: el total, contra el S&P 500 y cada acción.","También lo ves tocando “Hoy” en el resumen."]}
   ];
