@@ -1,6 +1,6 @@
 {
   "name": "holdy",
-  "version": "1.39.7",
+  "version": "1.39.8",
   "private": true,
   "description": "Holdy: seguimiento de cartera (PWA)",
   "scripts": {
