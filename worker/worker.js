@@ -417,7 +417,9 @@ async function yahooHistory(symbol, p1, p2) {
       pts.push([new Date((res.timestamp[i] + off) * 1000).toISOString().slice(0, 10), Math.round(c * k * 1e6) / 1e6, Math.round(a * k * 1e6) / 1e6]);
     }
     if (pts.length < 2) return null;
-    return { currency: cur.toUpperCase(), pts };
+    // Nombre de la empresa o del ETF (la app lo muestra en chiquito en el detalle).
+    const name = String((res.meta && (res.meta.longName || res.meta.shortName)) || "").trim().slice(0, 80);
+    return name ? { currency: cur.toUpperCase(), pts, n: name } : { currency: cur.toUpperCase(), pts };
   } catch (e) {
     return null;
   }

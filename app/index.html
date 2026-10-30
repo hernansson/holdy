@@ -578,6 +578,7 @@
   .lotrow{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:8px}
   .lothead{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600}
   .lothead button{min-height:32px;padding:4px 10px;font-size:13px}
+  .acc-nm{font-size:13px; color:var(--muted); margin:0 0 10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .dmore{margin-top:12px} .dmore>summary{cursor:pointer; list-style:none; display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:13.5px; font-weight:700; padding:4px 0} .dmore>summary::-webkit-details-marker{display:none}
   .dmore>summary::after{content:""; width:7px; height:7px; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(45deg) translateY(-2px); transition:transform .2s} .dmore[open]>summary::after{transform:rotate(-135deg) translateY(-2px)} .dmore[open]>summary{margin-bottom:10px}
   .lotlist{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:grid;gap:4px}
@@ -3727,6 +3728,9 @@
       det.appendChild(sum);
 
       var body=el("div","acc-body");
+      if(!p.fi&&!isFci(p)){ var nmE=el("div","acc-nm",tkName(p.ticker)); nmE.hidden=!nmE.textContent; body.appendChild(nmE);
+        if(nmE.hidden) det.addEventListener("toggle",function(){ if(!det.open||!nmE.hidden||nameAsked[p.ticker]) return; nameAsked[p.ticker]=1;
+          fetchHistory([p.ticker],dayStr(dayNum(todayStr())-10)).then(function(){ var n=tkName(p.ticker); if(n){ nmE.textContent=n; nmE.hidden=false; } }).catch(function(){}); }); }
       var g=el("div","dwrap");
       var tiles=el("div","dtiles");
       function tile(k,v,c){ var t=el("div","dtile"); t.appendChild(el("span","k",k)); t.appendChild(el("span","v"+(c?" "+c:""),v)); tiles.appendChild(t); }
@@ -4822,6 +4826,12 @@
   function pctTxt(v){ return fmtPct(v/100); }
   function fmtD(n){ return dayStr(n).split("-").reverse().join("/"); }
   // El Worker acepta hasta 20 símbolos por pedido: se parte en tandas y se juntan los resultados.
+  /* Nombre de la empresa o del ETF (viene con el historial de Yahoo); se muestra en chiquito en el detalle. */
+  var LS_NAMES="cartera.names.v1", tkNames=load(LS_NAMES,{}), nameAsked={};
+  function cleanName(n){ var s=String(n||"").replace(/\s+/g," ").trim().replace(/^The /i,""), o;
+    do { o=s; s=s.replace(/,?\s+(Inc\.?|Incorporated|Corporation|Corp\.?|Company|Co\.?|plc|Limited|Ltd\.?|N\.V\.|S\.A\.(B\.)?|SA|AG|SE)$/i,"").replace(/[,\s]+$/,""); } while(s!==o);
+    return s; }
+  function tkName(tk){ var n=tkNames[tk]; return n&&n.toUpperCase()!==String(tk).toUpperCase()?n:""; }
   function fetchHistory(list,from){
     var parts=[]; for(var i=0;i<list.length;i+=20) parts.push(list.slice(i,i+20));
     /* Si una tanda falla, se usan las demás (antes fallaba todo junto, por ejemplo el S&P 500 del reporte). Si fallan todas, error. */
@@ -4829,7 +4839,7 @@
     return Promise.all(parts.map(function(pt){
       return fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(pt.join(","))+"&from="+from,{cache:"no-store"})
         .then(function(r){ if(!r.ok) throw new Error("http"+r.status); return r.json(); }).catch(function(){ bad++; return {data:{}}; });
-    })).then(function(js){ if(bad&&bad===parts.length) throw new Error("history"); var data={}; js.forEach(function(j){ Object.keys(j.data||{}).forEach(function(k){ data[k]=j.data[k]; }); }); return {data:data}; });
+    })).then(function(js){ if(bad&&bad===parts.length) throw new Error("history"); var data={}, nw=0; js.forEach(function(j){ Object.keys(j.data||{}).forEach(function(k){ var h=j.data[k]; data[k]=h; if(h&&h.n){ var cn=cleanName(h.n); if(cn&&tkNames[k]!==cn){ tkNames[k]=cn; nw=1; } } }); }); if(nw) save(LS_NAMES,tkNames); return {data:data}; });
   }
   function runCompare(){
     var my=++cmpRun, body=$("cmpBody"), st=$("cmpStatus"); body.textContent=""; cmpData=null;
@@ -6832,6 +6842,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.39.5", t:"Nombre de la empresa", d:["Al abrir una acción ves en chiquito el nombre de la empresa (por ejemplo “Coca-Cola” en KO)."]},
     {v:"1.39.4", t:"Novedades en cada versión", d:["Esta hoja ahora sale en cada actualización, también cuando son arreglos chicos.","El selector CCL/MEP/$ volvió arriba a la izquierda y el resumen dice “Ver detalle”.","Si tenés la huella activada y tocás “Actualizar” con la app abierta, ya no te la vuelve a pedir."]},
     {v:"1.39.2", t:"Resumen más claro", d:["La ganancia total está al lado del monto.","“Hoy” muestra solo el %; tocándolo ves el detalle del día."]},
     {v:"1.39.0", t:"Ahora te contamos qué hay de nuevo", d:["Cuando Holdy se actualiza, al abrirla vas a ver acá qué cambió, en pocas líneas.","Para verlo de nuevo, tocá la versión al final del menú."]},
