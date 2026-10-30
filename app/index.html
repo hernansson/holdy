@@ -1679,6 +1679,9 @@
   }
   function mR(n,ccy){ return ui.hide?MASK:fmtR(n,ccy); }
   function mRs(n,ccy){ return ui.hide?MASK:((n>=0?"+":"−")+fmtR(Math.abs(n),ccy)); }
+  /* Resumen de arriba: sin "+" ni "US$" (el color y el total grande ya lo dicen); el "−" queda. */
+  function numS(n,ccy){ return ui.hide?MASK:((n<0?"−":"")+fmtR(Math.abs(n),ccy).replace(/^[^\d]+/,"")); }
+  function pctS(p){ return fmtPct(p).replace(/^\+/,""); }
   function qq(q){ return ui.hide?MASK:qtyFmt(q); }
   // Acepta coma o punto decimal (teclado de iPhone en español solo trae coma)
   function pnum(v){ v=String(v==null?"":v).trim().replace(/\s/g,""); if(v.indexOf(",")>=0) v=v.replace(/\./g,"").replace(",","."); return v===""?NaN:Number(v); }
@@ -2214,7 +2217,7 @@
       hd.appendChild(dcs); card.appendChild(hd);
       if(costPriced<=0 && refreshing){
         var mk=el("div","sum-main"); mk.appendChild(el("div","big",el("span","skel","US$ 000.000"))); card.appendChild(mk);
-        var gk=el("div","gain-line"); gk.appendChild(el("span","skel","+US$ 0.000 (+0,00%)")); card.appendChild(gk);
+        var gk=el("div","gain-line"); gk.appendChild(el("span","skel","0.000 (0,00%)")); card.appendChild(gk);
       } else {
       var mainRow=el("div","sum-main"); card.appendChild(mainRow);
       var cashT=ccy==="USD"?vBalTotal():0;
@@ -2224,13 +2227,13 @@
         /* Arriba, un solo resultado: lo que tenés + lo que ya vendiste. El % es sobre todo lo que pusiste (lo que tenés + lo que costó lo vendido). */
         var rz0=0, cz0=0; vClosed().forEach(function(c){ if(c.ccy===ccy&&c.sold){ var cc_=pCost(c); rz0+=pProceeds(c)-cc_+(c.fi?fiIncomeE(c):0); cz0+=cc_; } });
         var dv0=ccy==="USD"?divSum(vDiv()):0, gt=tot+rz0+dv0, gb=costPriced+cz0;
-        var gl=el("div","gain-line "+cls(gt)); gl.appendChild(el("span",null,mRs(gt,ccy)));
-        gl.appendChild(el("span","gl-pct","("+fmtPct(gb>0?gt/gb:null)+")"));
+        var gl=el("div","gain-line "+cls(gt)); gl.appendChild(el("span",null,numS(gt,ccy)));
+        gl.appendChild(el("span","gl-pct","("+pctS(gb>0?gt/gb:null)+")"));
         mainRow.appendChild(gl); /* la ganancia va al lado del total: se entiende que es de ese número */
         var sub=el("div","sum-sub"); card.appendChild(sub);
         /* Lo de hoy, a la vista: es lo primero que uno quiere saber al abrir. */
         /* Solo el %: el monto y cada acción están en la hoja del día. */
-        if(g.dayN){ var dl=el("button","day-now"); dl.type="button"; dl.setAttribute("aria-label","Ver cómo te fue hoy"); dl.appendChild(el("span","dn-l","Hoy")); dl.appendChild(el("span",cls(g.day),g.dayBase>0?fmtPct(g.day/g.dayBase):mRs(g.day,ccy))); if(ccy==="USD"){ dl.appendChild(el("span","dn-go","›")); dl.addEventListener("click",dayOpen); } sub.appendChild(dl); }
+        if(g.dayN){ var dl=el("button","day-now"); dl.type="button"; dl.setAttribute("aria-label","Ver cómo te fue hoy"); dl.appendChild(el("span","dn-l","Hoy")); dl.appendChild(el("span",cls(g.day),g.dayBase>0?pctS(g.day/g.dayBase):numS(g.day,ccy))); if(ccy==="USD"){ dl.appendChild(el("span","dn-go","›")); dl.addEventListener("click",dayOpen); } sub.appendChild(dl); }
         var rc=el("div","recibo"); rc.hidden=!sumOpen[ccy];
         var tg=el("button","sum-tg",""); tg.type="button"; tg.setAttribute("aria-expanded",String(!!sumOpen[ccy]));
         tg.appendChild(el("span",null,"Ver detalle")); tg.insertAdjacentHTML("beforeend",'<svg width="10" height="7" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>');
@@ -6842,6 +6845,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.39.6", t:"Resumen más limpio", d:["La ganancia al lado del total y “Hoy” van sin “+” ni “US$”: el color ya dice si subió o bajó."]},
     {v:"1.39.5", t:"Nombre de la empresa", d:["Al abrir una acción ves en chiquito el nombre de la empresa (por ejemplo “Coca-Cola” en KO)."]},
     {v:"1.39.4", t:"Novedades en cada versión", d:["Esta hoja ahora sale en cada actualización, también cuando son arreglos chicos.","El selector CCL/MEP/$ volvió arriba a la izquierda y el resumen dice “Ver detalle”.","Si tenés la huella activada y tocás “Actualizar” con la app abierta, ya no te la vuelve a pedir."]},
     {v:"1.39.2", t:"Resumen más claro", d:["La ganancia total está al lado del monto.","“Hoy” muestra solo el %; tocándolo ves el detalle del día."]},
