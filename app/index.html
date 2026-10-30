@@ -1679,8 +1679,8 @@
   }
   function mR(n,ccy){ return ui.hide?MASK:fmtR(n,ccy); }
   function mRs(n,ccy){ return ui.hide?MASK:((n>=0?"+":"−")+fmtR(Math.abs(n),ccy)); }
-  /* Resumen de arriba: sin "+" (el color ya lo dice); el "−" queda. */
-  function numS(n,ccy){ return ui.hide?MASK:((n<0?"−":"")+fmtR(Math.abs(n),ccy)); }
+  /* Resumen de arriba: sin "+" (el color ya lo dice) y "$" en vez de "US$"; el "−" queda. */
+  function numS(n,ccy){ return ui.hide?MASK:((n<0?"−":"")+fmtR(Math.abs(n),ccy).replace(/^US\$/,"$")); }
   function pctS(p){ return fmtPct(p).replace(/^\+/,""); }
   function qq(q){ return ui.hide?MASK:qtyFmt(q); }
   // Acepta coma o punto decimal (teclado de iPhone en español solo trae coma)
@@ -2217,7 +2217,7 @@
       hd.appendChild(dcs); card.appendChild(hd);
       if(costPriced<=0 && refreshing){
         var mk=el("div","sum-main"); mk.appendChild(el("div","big",el("span","skel","US$ 000.000"))); card.appendChild(mk);
-        var gk=el("div","gain-line"); gk.appendChild(el("span","skel","US$ 0.000 (0,00%)")); card.appendChild(gk);
+        var gk=el("div","gain-line"); gk.appendChild(el("span","skel","$ 0.000 (0,00%)")); card.appendChild(gk);
       } else {
       var mainRow=el("div","sum-main"); card.appendChild(mainRow);
       var cashT=ccy==="USD"?vBalTotal():0;
@@ -6845,7 +6845,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
-    {v:"1.39.7", t:"Resumen más limpio", d:["La ganancia al lado del total y “Hoy” van sin “+”: el color ya dice si subió o bajó.","“Hoy” vuelve a mostrar el monto, además del %."]},
+    {v:"1.39.8", t:"Resumen más limpio", d:["La ganancia al lado del total y “Hoy” van sin “+” y con “$” en vez de “US$”.","“Hoy” vuelve a mostrar el monto, además del %."]},
     {v:"1.39.5", t:"Nombre de la empresa", d:["Al abrir una acción ves en chiquito el nombre de la empresa (por ejemplo “Coca-Cola” en KO)."]},
     {v:"1.39.4", t:"Novedades en cada versión", d:["Esta hoja ahora sale en cada actualización, también cuando son arreglos chicos.","El selector CCL/MEP/$ volvió arriba a la izquierda y el resumen dice “Ver detalle”.","Si tenés la huella activada y tocás “Actualizar” con la app abierta, ya no te la vuelve a pedir."]},
     {v:"1.39.2", t:"Resumen más claro", d:["La ganancia total está al lado del monto.","“Hoy” muestra solo el %; tocándolo ves el detalle del día."]},
