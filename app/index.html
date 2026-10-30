@@ -880,7 +880,7 @@
       grid-template-areas:"ban" "no1" "no2" "pb" "st" "sum" "tabs" "list" "sold" "ask" "dist"}
     main>#askHome{grid-area:ask}
     main>#banners{grid-area:ban} main>#notice{grid-area:no1} main>#notice2{grid-area:no2}
-    main>#profbar{grid-area:pb} main>#status{grid-area:st}
+    main>#profbar{grid-area:pb} main>#status{grid-area:st} main>#demoBar{grid-column:1/-1; margin:0 0 12px}
     main>#summary{grid-area:sum; margin-bottom:8px}
     main>#tbar{grid-area:tabs; margin:14px 0 12px} #tbar .tabs{flex:0 1 auto} #tbar .toolbar{margin-left:auto}
     main>#list{grid-area:list; padding-bottom:0} main>#soldBox{grid-area:sold}
@@ -898,7 +898,7 @@
     .kl{font-size:12.5px; color:var(--muted); font-weight:500}
     .kv{font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.01em; white-space:nowrap}
     .ks{font-size:12.5px; color:var(--muted); font-weight:500}
-    .ks.pos,.kv.pos{color:var(--pos)} .ks.neg,.kv.neg{color:var(--neg)}
+    .ks .nw{white-space:nowrap} .ks.pos,.kv.pos{color:var(--pos)} .ks.neg,.kv.neg{color:var(--neg)}
     /* tabla */
     #list{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); overflow:hidden; gap:0; display:block}
     #list>.empty,#list>.grp{padding:20px}
@@ -915,7 +915,7 @@
     .acc-l,.acc-r,.acc-x{display:contents}
     .acc-l .tick{grid-column:1; grid-row:1; font-size:16px; font-weight:700}
     .cx{font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-    .cx-bk{grid-column:2; color:var(--muted); font-size:13px}
+    .cx-bk{grid-column:2; color:var(--muted); font-size:13px; white-space:normal; line-height:1.25}
     .cx-n{text-align:right}
     .acc-x>.cx:nth-child(2){grid-column:3} .acc-x>.cx:nth-child(3){grid-column:4} .acc-x>.cx:nth-child(4){grid-column:5} .acc-x>.cx:nth-child(5){grid-column:6}
     .cx-w{grid-column:7; display:flex; flex-direction:column; align-items:flex-end; gap:5px; font-size:13px}
@@ -945,16 +945,24 @@
   @media (min-width:1400px){
     main{grid-template-columns:minmax(0,1fr) 340px; column-gap:28px;
       grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum sum" "tabs dist" "tb dist" "list dist" "sold dist" "ask dist"; grid-template-rows:repeat(10,auto) 1fr}
-    main>#dist{grid-template-columns:1fr; position:sticky; top:20px; align-self:start; margin-top:14px}
+    main>#dist{grid-template-columns:1fr; position:sticky; top:20px; align-self:start; margin-top:14px; max-height:calc(100dvh - 130px); overflow:auto; border-radius:14px}
   }
   @media (min-width:1100px) and (max-width:1300px){ .sum-card>.kpis{grid-template-columns:repeat(2,1fr); row-gap:18px} .kpi:nth-child(3){border-left:0} .sum-card{column-gap:28px} }
+  /* ---- Fold abierto angosto (600–699px): misma vista del celu, con el peso de cada posición para llenar el renglón ---- */
+  @media (min-width:600px) and (max-width:699px){
+    .acc-x{display:flex; flex:0 0 112px; align-items:center} .acc-x>.cx{display:none}
+    .acc-x>.cx-w{display:flex; flex-direction:row-reverse; align-items:center; gap:8px; width:100%; font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+    .acc-x>.cx-w>span{flex:0 0 40px; text-align:right}
+    .acc-x .wbar{display:block; height:4px; border-radius:3px; background:var(--chip); position:relative; flex:1; overflow:hidden}
+    .acc-x .wbar::before{content:""; position:absolute; inset:0 auto 0 0; width:var(--w); background:var(--brand); border-radius:3px}
+  }
   /* ---- Tablet / Fold abierto (700–1099px): dos columnas ---- */
   @media (min-width:700px) and (max-width:1099px){
     main{max-width:1060px; padding:20px 20px 100px; display:grid; grid-template-columns:minmax(300px,360px) minmax(0,1fr); column-gap:20px; align-items:start;
       grid-template-areas:"ban ban" "no1 no1" "no2 no2" "pb pb" "st st" "sum tabs" "sum list" "dist list" "ask list" "ask sold"; grid-template-rows:repeat(8,auto) 1fr auto}
     main>#askHome{grid-area:ask}
     main>#banners{grid-area:ban} main>#notice{grid-area:no1} main>#notice2{grid-area:no2}
-    main>#profbar{grid-area:pb} main>#status{grid-area:st}
+    main>#profbar{grid-area:pb} main>#status{grid-area:st} main>#demoBar{grid-column:1/-1; margin:0 0 12px}
     main>#summary{grid-area:sum; margin:0 0 14px}
     main>#tbar{grid-area:tabs; margin:0 0 12px}
     main>#list{grid-area:list} main>#soldBox{grid-area:sold}
@@ -2267,8 +2275,10 @@
         card.appendChild(rc);
         var kp=el("div","kpis");
         function kpi(lbl,val,c,sub){ var k=el("div","kpi"); k.appendChild(el("span","kl",lbl)); k.appendChild(el("span","kv"+(c?" "+c:""),val)); if(sub) k.appendChild(el("span","ks "+(c||""),sub)); kp.appendChild(k); }
-        kpi((nCl||dv0>0)?"Ganancia total":"Resultado",mRs(tot+realized+cpC+dv0,ccy),cls(tot+realized+cpC+dv0),nCl?"tenés "+mRs(tot,ccy)+" · vendido "+mRs(realized+cpC,ccy)+(dv0>0?" · dividendos +"+mR(dv0,ccy):""):fmtPct(tot/costPriced));
-        kpi("Hoy",g.dayN?mRs(g.day,ccy):"—",g.dayN?cls(g.day):"",(g.dayN&&g.dayBase>0)?fmtPct(g.day/g.dayBase):""); if(g.dayN&&ccy==="USD"){ var kh=kp.lastChild; kh.classList.add("kpi-go"); kh.setAttribute("role","button"); kh.tabIndex=0; kh.title="Ver cómo te fue hoy"; kh.addEventListener("click",dayOpen); }
+        /* En la compu, igual que arriba en el celu: sin "+", "$" en vez de "US$" y el % debajo; lo vendido, en una línea gris. */
+        kpi((nCl||dv0>0)?"Ganancia total":"Resultado",numS(gt,ccy),cls(gt),gb>0?pctS(gt/gb):"");
+        if(nCl||dv0>0){ var kb=el("span","ks"); [["tenés",tot],["vendido",realized+cpC],["dividendos",dv0]].forEach(function(x,i){ if(i&&!x[1]) return; if(i) kb.appendChild(document.createTextNode(" · ")); kb.appendChild(el("span","nw",x[0]+" "+numS(x[1],ccy))); }); kp.lastChild.appendChild(kb); }
+        kpi("Hoy",g.dayN?numS(g.day,ccy):"—",g.dayN?cls(g.day):"",(g.dayN&&g.dayBase>0)?pctS(g.day/g.dayBase):""); if(g.dayN&&ccy==="USD"){ var kh=kp.lastChild; kh.classList.add("kpi-go"); kh.setAttribute("role","button"); kh.tabIndex=0; kh.title="Ver cómo te fue hoy"; kh.addEventListener("click",dayOpen); }
         kpi("Capital invertido",mR(costPriced,ccy),"",nCl?"lo que costó lo que tenés":"lo que pusiste");
         if(cashT>0) kpi("Plata sin invertir",mR(cashT,ccy),"","la cargaste vos, ya está sumada");
         else if(inc>0) kpi("Cupones cobrados","+"+mR(inc,ccy),"pos","suman a la ganancia");
@@ -6845,6 +6855,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.39.9", t:"Mejor en la compu y el Fold", d:["En la compu, la ganancia y “Hoy” van como en el celu: sin “+” y con “$”.","En el Fold abierto, cada posición muestra cuánto pesa en tu cartera."]},
     {v:"1.39.8", t:"Resumen más limpio", d:["La ganancia al lado del total y “Hoy” van sin “+” y con “$” en vez de “US$”.","“Hoy” vuelve a mostrar el monto, además del %."]},
     {v:"1.39.5", t:"Nombre de la empresa", d:["Al abrir una acción ves en chiquito el nombre de la empresa (por ejemplo “Coca-Cola” en KO)."]},
     {v:"1.39.4", t:"Novedades en cada versión", d:["Esta hoja ahora sale en cada actualización, también cuando son arreglos chicos.","El selector CCL/MEP/$ volvió arriba a la izquierda y el resumen dice “Ver detalle”.","Si tenés la huella activada y tocás “Actualizar” con la app abierta, ya no te la vuelve a pedir."]},
