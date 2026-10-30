@@ -136,11 +136,11 @@ Hoja reutilizable: `#dlgSimA` (título `h3`, cuerpo `#simABody`, botón fijo `.s
 
 ### Pantalla principal
 - **Header:** logo · selector de cartera (círculo con tu foto si es tuya; la del amigo si es de un amigo; si no, la inicial) · ícono de amigos con punto de novedades (solo si seguís a alguien) · lupa · ojo (ocultar montos) · menú.
-- **Resumen (celu, desde 1.39.3):** CCL/MEP/$ arriba a la izquierda (no moverlo: no le gustó a la derecha); el total grande con la ganancia total chica al lado (sin flecha ni etiqueta); abajo "Hoy +0,30% ›" (solo el %) y "Ver detalle ⌄" a la derecha (tiene que decir "Ver detalle"). A Hernán no le gusta tener mucha info y muchos botones en poco espacio: se probaron cuadritos, pastillas y renglones con etiqueta y no gustaron. "Hoy" queda así "hasta que lo mejoremos". En la compu se ven KPIs en columnas.
+- **Resumen (celu, desde 1.39.3):** CCL/MEP/$ arriba a la izquierda (no moverlo: no le gustó a la derecha); el total grande con la ganancia total chica al lado (sin flecha ni etiqueta y, desde 1.39.6, sin "+" ni "US$": "1.980 (22,50%)"; el "−" sí queda); abajo "Hoy +0,30% ›" (solo el %) y "Ver detalle ⌄" a la derecha (tiene que decir "Ver detalle"). A Hernán no le gusta tener mucha info y muchos botones en poco espacio: se probaron cuadritos, pastillas y renglones con etiqueta y no gustaron. "Hoy" queda así "hasta que lo mejoremos". En la compu se ven KPIs en columnas.
 - **Cómo te fue hoy (hoja `#dlgSimA`, `dayOpen`):** total del día en US$ y %, contra el S&P 500 y cada acción ordenada por % (más de 8: 4 arriba y 4 abajo con "Ver las N"). Se abre tocando "Hoy" o el aviso de cierre (deep link `#hoy`).
 - **Evolución** (gráfico 1M/3M/1A/Todo).
 - **Pestañas:** Acciones · Renta fija · Vendidas · **Efectivo**. En el celu van sin número para que entren en una línea; en la compu, con número.
-- **Detalle de cada posición:** invertido, valor, precio de compra y actual; el resto en **"Ver más"** (recuerda si lo abriste); "¿Qué pasó con X?" (IA + noticias), Editar, Eliminar.
+- **Detalle de cada posición:** arriba, en gris chico, el nombre de la empresa (desde 1.39.5; viene en el campo `n` de `/history`, sacado de Yahoo, limpio de "Inc."/"Corporation" con `cleanName`, guardado en `cartera.names.v1`). Después invertido, valor, precio de compra y actual; el resto en **"Ver más"** (recuerda si lo abriste); "¿Qué pasó con X?" (IA + noticias), Editar, Eliminar.
 - **Vendidas:** "¿Y si no vendías?" (lo que valdría hoy).
 - **Efectivo:** plata sin invertir por broker, "Cargar o cambiar".
 - **"✦ Preguntale a tu cartera ›":** una línea chica al final de la lista (antes era una caja grande y no le gustó).
