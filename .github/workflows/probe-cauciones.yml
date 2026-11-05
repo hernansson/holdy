@@ -1,0 +1,24 @@
+# Temporal: prueba qué devuelve BYMA para cauciones (se borra antes de mergear).
+name: Probar BYMA cauciones
+on:
+  push:
+    branches: ["claude/project-thread-gcle0l"]
+    paths: [".github/workflows/probe-cauciones.yml"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cadena TLS
+        run: echo | openssl s_client -connect open.bymadata.com.ar:443 -servername open.bymadata.com.ar 2>&1 | grep -E "depth|verify|Verify" | head -20 || true
+      - name: Cauciones
+        run: |
+          B=https://open.bymadata.com.ar/vanoms-be-core/rest/api/bymadata/free
+          for body in '{"excludeZeroPxAndQty":true,"T2":true,"T1":false,"T0":false,"Content-Type":"application/json"}' '{}' ; do
+            echo "== body $body"
+            curl -sS --cacert /etc/ssl/certs/ca-certificates.crt -m 30 -X POST -H "Content-Type: application/json" -H "Accept: application/json" -H "Origin: https://open.bymadata.com.ar" -H "Referer: https://open.bymadata.com.ar/" -A "Mozilla/5.0" -d "$body" "$B/cauciones" -o c.json -w "http %{http_code}\n" || echo "fallo curl $?"
+            head -c 300 c.json; echo
+            jq -c 'if type=="array" then (length|tostring) else (keys) end' c.json || true
+            jq -c '(if type=="array" then . else .data end) | .[0:3]' c.json || true
+            jq -c '(if type=="array" then . else .data end) | map({symbol, denominationCcy, daysToMaturity, settlementType, trade, closingPrice, vwap, bidPrice, offerPrice, volume, tradeHour, maturityDate}) | sort_by(.daysToMaturity) | .[0:40][]' c.json || true
+          done
+          date -u
