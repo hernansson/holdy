@@ -26,6 +26,8 @@ export default {
   // Todas las mañanas (cron en wrangler.toml): trae el reporte de IBKR de cada usuario conectado y lo deja listo.
   // Una sola tarea por hora (minuto 35); según la hora hace cada cosa. 11 y 14 UTC: IBKR · 12 UTC: cobros · 21 UTC (lun-vie): cierre.
   async scheduled(event, env, ctx) {
+    // Cada 5 minutos en horario de cauciones (lun-vie): revisa las alarmas de tasa. Es otro cron, aparte del de cada hora.
+    if (event.cron && event.cron !== "35 * * * *") { ctx.waitUntil(cauCron(env)); return; }
     const d = new Date(event.scheduledTime || Date.now()), h = d.getUTCHours(), wd = d.getUTCDay();
     if (h === 11 || h === 14) ctx.waitUntil(ibCron(env));
     if (h === 12) ctx.waitUntil(pushCobros(env));
@@ -63,6 +65,7 @@ export default {
     if (url.pathname === "/fx") return fxHistory(cors);
     if (url.pathname === "/insight") return insight(url, env, cors);
     if (url.pathname === "/search") return searchSym(url, env, cors);
+    if (url.pathname === "/cauciones") return cauciones(cors);
     if (url.pathname !== "/quote") return json({ error: "not_found" }, 404, cors);
 
     const symbol = (url.searchParams.get("symbol") || "").toUpperCase();
@@ -829,7 +832,7 @@ async function vapidAuth(env, endpoint) {
 // once: clave para no repetir el mismo aviso (con ttl en segundos).
 async function pushTo(env, sub, kind, msg, once, ttl) {
   const rec = await env.HOLDY_KV.get("push:" + sub, "json");
-  if (!rec || !rec.subs || !rec.subs.length || !(rec.prefs && (rec.prefs[kind] || (kind === "fr" && rec.prefs.fr === undefined)))) return 0;
+  if (!rec || !rec.subs || !rec.subs.length || !(rec.prefs && (rec.prefs[kind] || ((kind === "fr" || kind === "cau") && rec.prefs[kind] === undefined)))) return 0;
   if (once) { const ok = await env.HOLDY_KV.get("pushonce:" + sub + ":" + once); if (ok) return 0; await env.HOLDY_KV.put("pushonce:" + sub + ":" + once, "1", { expirationTtl: ttl || 86400 * 2 }); }
   let sent = 0; const keep = [];
   for (const s of rec.subs) {
@@ -859,13 +862,14 @@ async function pushMe(request, env, url, user, h) {
     const n = await pushTo(env, user.sub, "test", { title: "Holdy", body: "Listo: los avisos llegan a este celu." });
     return json({ ok: true, sent: n }, 200, h);
   }
-  if (request.method === "GET") return json({ prefs: rec.prefs, n: rec.subs.length }, 200, h);
+  if (request.method === "GET") return json({ prefs: rec.prefs, n: rec.subs.length, cau: rec.cau || [] }, 200, h);
   let b; try { b = JSON.parse(await request.text() || "{}"); } catch (e) { return json({ error: "bad_json" }, 400, h); }
   if (request.method === "DELETE") { const ep = String(b.ep || ""); rec.subs = rec.subs.filter((s) => s.ep !== ep); await env.HOLDY_KV.put(key, JSON.stringify(rec)); return json({ ok: true }, 200, h); }
   if (request.method === "PUT") {
     if (b.sub && /^https:\/\//.test(b.sub.endpoint || "") && b.sub.endpoint.length < 1000) { if (!rec.subs.some((s) => s.ep === b.sub.endpoint)) rec.subs = rec.subs.concat({ ep: b.sub.endpoint, at: Date.now() }).slice(-5); }
-    if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, fr: b.prefs.fr === 0 ? 0 : 1, test: 1 };
+    if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, fr: b.prefs.fr === 0 ? 0 : 1, cau: b.prefs.cau === 0 ? 0 : 1, test: 1 };
     rec.prefs.test = 1;
+    if (Array.isArray(b.cau)) { rec.cau = cauClean(b.cau); await cauIndex(env, user.sub, rec.cau); }
     if (Array.isArray(b.agenda)) rec.agenda = b.agenda.slice(0, 60).map((x) => ({ d: String(x.d || "").slice(0, 10), t: String(x.t || "").slice(0, 16), k: String(x.k || "").slice(0, 20), a: Math.round((+x.a || 0) * 100) / 100, cy: String(x.cy || "US$").slice(0, 4) })).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.d));
     if (Array.isArray(b.pos)) rec.pos = b.pos.slice(0, 200).map((x) => ({ t: String(x.t || "").toUpperCase().slice(0, 12), q: +x.q || 0 })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && x.q > 0);
     if (b.name) rec.name = String(b.name).slice(0, 40);
@@ -904,6 +908,63 @@ async function pushClose(env) {
     let body = "Tus acciones hoy: " + (dAmt >= 0 ? "+" : "") + fmtUS(dAmt) + " (" + pc(dAmt / base) + ").";
     if (mv.length > 1) body += " Subió más " + mv[0].t + " " + pc(mv[0].dp) + "; bajó más " + mv[mv.length - 1].t + " " + pc(mv[mv.length - 1].dp) + ".";
     await pushTo(env, sub, "close", { title: "Cierre del mercado", body, tag: "close-" + today, u: "#hoy" }, "close:" + today);
+  }
+}
+// ---------- Cauciones: panel de BYMA (datos abiertos, con demora) y alarmas de tasa ----------
+// BYMA devuelve la tasa como decimal (1.9 = 190% TNA). PESOS = ARS, DOLAR = dólar MEP, CABLE = dólar cable (EXT).
+const CAU_URL = "https://open.bymadata.com.ar/vanoms-be-core/rest/api/bymadata/free/cauciones";
+const CAU_M = { ARS: "Pesos", USD: "Dólar MEP", EXT: "Dólar cable" };
+let cauMem = null;
+async function cauFetch() {
+  if (cauMem && Date.now() - cauMem.at < 60 * 1000) return cauMem;
+  const r = await fetch(CAU_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; Holdy/1.0)" }, body: "{}" });
+  if (!r.ok) throw new Error("byma_" + r.status);
+  const raw = await r.json(), list = Array.isArray(raw) ? raw : (raw && raw.data) || [];
+  const items = list.filter((x) => x && x.securityType === "QS" && CAU_M[x.denominationCcy] && x.daysToMaturity > 0).map((x) => ({
+    s: String(x.symbol || ""), m: x.denominationCcy, d: x.daysToMaturity | 0, v: String(x.maturityDate || "").slice(0, 10),
+    t: +x.trade || 0, c: +x.closingPrice || 0, p: +x.vwap || 0, hi: +x.tradingHighPrice || 0, lo: +x.tradingLowPrice || 0,
+    b: +x.bidPrice || 0, o: +x.offerPrice || 0, vol: +x.volumeAmount || +x.volume || 0, h: x.tradeHour || null,
+  })).sort((a, b) => (a.m < b.m ? -1 : a.m > b.m ? 1 : a.d - b.d));
+  cauMem = { at: Date.now(), items };
+  return cauMem;
+}
+async function cauciones(cors) {
+  try { const c = await cauFetch(); return json({ at: c.at, items: c.items, src: "BYMA (datos abiertos, con demora)" }, 200, { ...cors, "Cache-Control": "public, max-age=60" }); }
+  catch (e) { return json({ error: "upstream_unreachable", detail: String(e && e.message || e) }, 502, cors); }
+}
+// Alarma: {id, m: ARS|USD|EXT, d: plazo máximo en días, r: tasa límite (decimal)}. Salta cuando la última operación de algún plazo hasta d días supera r.
+function cauClean(list) {
+  return list.slice(0, 6).map((a) => ({ id: String(a.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 12) || Math.random().toString(36).slice(2, 8), m: CAU_M[a.m] ? a.m : "ARS", d: Math.max(1, Math.min(60, a.d | 0 || 7)), r: Math.max(0.001, Math.min(20, +a.r || 0.5)) }));
+}
+async function cauIndex(env, sub, al) {
+  const idx = (await env.HOLDY_KV.get("cauidx", "json")) || {}, had = JSON.stringify(idx[sub] || null);
+  if (al.length) idx[sub] = al; else delete idx[sub];
+  if (JSON.stringify(idx[sub] || null) !== had) await env.HOLDY_KV.put("cauidx", JSON.stringify(idx));
+}
+const pctAR = (r) => (r * 100).toLocaleString("es-AR", { maximumFractionDigits: r * 100 >= 100 ? 0 : 1 }) + "%";
+async function cauCron(env) {
+  const idx = (await env.HOLDY_KV.get("cauidx", "json")) || {}, subs = Object.keys(idx); if (!subs.length) return;
+  let c; try { c = await cauFetch(); } catch (e) { return; }
+  const today = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  for (const sub of subs) {
+    const fire = [];
+    for (const a of idx[sub]) {
+      // Solo lo que se operó (t > 0): el cierre de otro día no cuenta.
+      const hit = c.items.filter((x) => x.m === a.m && x.d <= a.d && x.t > 0 && x.t >= a.r).sort((x, y) => y.t - x.t)[0];
+      if (hit) fire.push({ a, hit });
+    }
+    if (!fire.length) continue;
+    const lk = "caul:" + sub, last = (await env.HOLDY_KV.get(lk, "json")) || {};
+    let changed = false;
+    for (const { a, hit } of fire) {
+      // Una vez por alarma por día, y nunca dos veces por la misma operación (por si BYMA repite el último dato en un feriado).
+      const fp = hit.s + "|" + hit.h + "|" + hit.t, l = last[a.id];
+      if (l && (l.day === today || l.fp === fp)) continue;
+      const body = "Caución en " + CAU_M[a.m].toLowerCase() + " a " + hit.d + (hit.d === 1 ? " día" : " días") + ": " + pctAR(hit.t) + " TNA" + (hit.h ? " (" + hit.h.slice(0, 5) + ")" : "") + ". Tu límite: " + pctAR(a.r) + "." + (hit.p > 0 ? " Promedio del día: " + pctAR(hit.p) + "." : "");
+      await pushTo(env, sub, "cau", { title: "Alarma de caución", body, tag: "cau-" + a.id, u: "#cauciones" });
+      last[a.id] = { day: today, fp }; changed = true;
+    }
+    if (changed) await env.HOLDY_KV.put(lk, JSON.stringify(last), { expirationTtl: 30 * 86400 });
   }
 }
 function ibCount(csv) { let t = 0, d = 0; String(csv || "").split("\n").forEach((l) => { if (/"(BUY|SELL)"/.test(l) && /"STK"/.test(l)) t++; if (/Dividends/.test(l) && /"DETAIL"/.test(l)) d++; }); return { t, d }; }

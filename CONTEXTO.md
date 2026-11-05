@@ -112,11 +112,13 @@ git push origin main
 | `GET /av/<uid>?v=<versión>` | Foto de perfil como imagen, caché "immutable" (cambia la versión → se baja de nuevo) |
 | `/me/ibkr`, `/me/ibkr/sync` | IBKR automático (Flex Query; token del usuario en KV `ib:`/`ibc:`) |
 | `/me/push`, `/me/push/test`, `GET /push/key`, `POST /push/inbox` | Suscripción, preferencias, prueba, clave pública, bandeja (`pin:<sha(endpoint)>`) |
+| `GET /cauciones` | Panel de cauciones de BYMA (datos abiertos, ~15-20 min de demora), caché 60 s. Tasa en decimal (1.9 = 190% TNA). `m`: ARS=pesos, USD=MEP, EXT=cable |
 | `POST /me/ask` | Preguntale a tu cartera (la app manda los números ya calculados; la IA solo redacta) |
 | `GET/PUT/DELETE /p/<código>[/...]` | Cartera compartida. KV `p:<código>` = `{secretHash, data, updated, o:{s,n}}`; quién mira en `pv:<código>` (config de qué ve cada uno, revocados) |
 | `GET/POST /fx/<código>` | Social de una cartera compartida (KV `fx:<código>`). POST `{key,re}` reacción (🔥👏😬🤔😂), `{key,t,rp?,h?}` comentario (máx. 300, guarda los últimos 60, `rp` = responder a un id, `h` = "la tiene" con su %), `{key,lk:id}` me gusta, `{key,del:id}` borrar (autor o dueño). GET devuelve `{k, owner, ow, us:{uid:{n,v}}}` |
 
 `key` de un movimiento: `b|TICKER|AAAA-MM-DD` (compra) o `s|...` (venta).
+**Cron de cauciones (`*/5 14-20 * * MON-FRI`):** revisa las alarmas de `cauidx` (`{sub:[{id,m,d,r}]}`, se guardan con `PUT /me/push {cau}`) y avisa (tipo `cau`) una vez por día por alarma; el último aviso queda en `caul:<sub>`.
 **Cron (cada hora, minuto 35, UTC):** 11 y 14 → IBKR automático; 12 → avisos de cobros; 21 lun–vie → cierre del mercado (el aviso abre `#hoy`).
 **Avisos (`pushTo`):** tipos `fr` (amigos, activado por defecto), cierre, cobros, IBKR. Deep link de comentarios: `#feed/<código>/<key>`.
 **Memoria en el Worker:** `PF` (perfiles, 6 h), `histCache` (historial, 6 h).

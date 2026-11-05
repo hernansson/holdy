@@ -232,6 +232,25 @@
   .cob-hd{padding:4px 2px 12px}
   #pushView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #pushView[hidden]{display:none}
   #pushBody > button{min-height:46px}
+  #cauView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #cauView[hidden]{display:none}
+  #cauBody{display:grid;gap:10px}
+  .cau-src{font-size:12.5px;color:var(--muted);line-height:1.4;padding:0 2px}
+  .cau-hero{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:2px}
+  .cau-hero .cau-k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .cau-hero b{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15}
+  .cau-hero span{font-size:13px;color:var(--muted)}
+  .cau-row{display:flex;align-items:center;gap:12px;padding:11px 14px}
+  .cau-g{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .cau-g .cau-row + .cau-row{border-top:1px solid var(--line)}
+  .cau-row .rk-name{font-size:15px}
+  .cau-row .cau-r{text-align:right;display:grid;gap:1px;font-variant-numeric:tabular-nums}
+  .cau-row .cau-r b{font-size:16px} .cau-row .cau-r small{font-size:12px;color:var(--muted)}
+  .cau-row.best .cau-r b{color:var(--pos)}
+  .cau-al{display:flex;align-items:center;gap:10px;padding:11px 14px} .cau-g .cau-al + .cau-al{border-top:1px solid var(--line)}
+  .cau-al .pe-t{flex:1} .cau-al button{flex:0 0 auto;min-height:32px;padding:0 10px;background:transparent;border:0;box-shadow:none;color:var(--muted)}
+  .cau-new{display:grid;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .cau-new .sim-in input{width:70px}
+  .cau-lim{display:flex;align-items:center;justify-content:space-between;gap:10px}
   #simView{max-width:860px;margin:0 auto;padding:14px 16px 16px;display:grid;gap:12px} #simView[hidden]{display:none} #simForm{display:grid; gap:12px} .sim-adjw{display:grid; gap:12px}
   #simForm,#simOut,#simAs{display:grid; gap:6px} #simOut{gap:10px}
   .sim-r{cursor:default} .sim-in{display:flex; align-items:center; gap:6px; background:var(--chip); border-radius:10px; padding:0 10px; flex:0 0 auto}
@@ -540,8 +559,8 @@
   @keyframes vinR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
   @keyframes vinL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
   .vin-r{animation:vinR .26s cubic-bezier(.2,.8,.2,1)} .vin-l{animation:vinL .26s cubic-bezier(.2,.8,.2,1)}
-  .scr.enter,#cmpView.enter,#rptView.enter,#simView.enter,#pushView.enter,#askView.enter,#feedView.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
-  .scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave,#askView.leave,#feedView.leave{position:fixed;top:0;left:0;right:0;bottom:auto;min-height:100vh;align-content:start;box-shadow:-8px 0 24px rgba(0,0,0,.18);z-index:4;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
+  .scr.enter,#cmpView.enter,#rptView.enter,#simView.enter,#pushView.enter,#cauView.enter,#askView.enter,#feedView.enter{animation:scrIn .26s cubic-bezier(.2,.8,.2,1)}
+  .scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave,#cauView.leave,#askView.leave,#feedView.leave{position:fixed;top:0;left:0;right:0;bottom:auto;min-height:100vh;align-content:start;box-shadow:-8px 0 24px rgba(0,0,0,.18);z-index:4;background:var(--bg);overflow:hidden;pointer-events:none;animation:scrOut .26s cubic-bezier(.4,0,.8,.4) forwards}
   main.enter-back{animation:mainBack .28s cubic-bezier(.2,.8,.2,1)}
   @media (prefers-reduced-motion:reduce){.scr.enter,main.enter-back,.vin-r,.vin-l{animation:none}.scr.leave,#cmpView.leave,#rptView.leave,#simView.leave,#pushView.leave{animation:none;display:none}}
   .scr .cmphdr{padding:0 16px}
@@ -1020,6 +1039,7 @@
     <button type="button" class="dr-item" id="btnAsk" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5"/><path d="M12 16.5h.01"/></svg><span>Preguntale a tu cartera</span></button>
     <button type="button" class="dr-item" id="btnRpt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Reportes</span></button>
     <button type="button" class="dr-item" id="btnSim"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg><span>Proyección</span></button>
+    <button type="button" class="dr-item" id="btnCau"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg><span>Cauciones</span></button>
     <button type="button" class="dr-item" id="btnCash" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Plata sin invertir</span></button>
     <div class="dr-k" hidden>Con amigos</div>
     <button type="button" class="dr-item" id="btnPerfHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Rendimiento</span><i class="dr-go">›</i></button>
@@ -1054,6 +1074,11 @@
 <section id="pushView" hidden>
   <div class="cmphdr"><button type="button" id="pushBack" aria-label="Volver">←</button><h2>Avisos</h2></div>
   <div id="pushBody" style="display:grid;gap:8px"></div>
+</section>
+
+<section id="cauView" hidden>
+  <div class="cmphdr"><button type="button" id="cauBack" aria-label="Volver">←</button><h2>Cauciones</h2></div>
+  <div id="cauBody"></div>
 </section>
 
 <section id="simView" hidden>
@@ -2580,7 +2605,7 @@
   $("xlsBtn").addEventListener("click",exportXlsx);
 
   // ---------- Avisos al celu (Web Push): cierre del mercado, cobros del día e IBKR ----------
-  var LS_PUSH="cartera.push.v1", pushA=load(LS_PUSH,null)||{on:0,prefs:{close:1,cob:1,ib:1,fr:1},h:""}; if(pushA.prefs.fr===undefined) pushA.prefs.fr=1;
+  var LS_PUSH="cartera.push.v1", pushA=load(LS_PUSH,null)||{on:0,prefs:{close:1,cob:1,ib:1,fr:1,cau:1},h:""}; if(pushA.prefs.fr===undefined) pushA.prefs.fr=1; if(pushA.prefs.cau===undefined) pushA.prefs.cau=1;
   function pushSupported(){ return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
   function isIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1); }
   function isStandalone(){ return (window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true; }
@@ -2619,7 +2644,7 @@
     box.appendChild(b);
     box.appendChild(el("div","pe-k","Qué avisos"));
     var g=el("div","pe-grp vw-g"); box.appendChild(g);
-    [["fr","Amigos","Cuando un amigo compra o vende, y cuando comentan o reaccionan a tus movimientos"],["close","Cierre del mercado","Lun a vie, 18:35: cuánto ganaron o perdieron hoy tus acciones y cuál subió y bajó más"],["cob","Cobros del día","9:00: el día que cobrás un cupón, un vencimiento o un dividendo (estimado)"],["ib","IBKR","Cuando llegan operaciones o dividendos nuevos, o si el token vence"]].forEach(function(o){
+    [["fr","Amigos","Cuando un amigo compra o vende, y cuando comentan o reaccionan a tus movimientos"],["close","Cierre del mercado","Lun a vie, 18:35: cuánto ganaron o perdieron hoy tus acciones y cuál subió y bajó más"],["cob","Cobros del día","9:00: el día que cobrás un cupón, un vencimiento o un dividendo (estimado)"],["ib","IBKR","Cuando llegan operaciones o dividendos nuevos, o si el token vence"],["cau","Cauciones","Cuando una tasa supera el límite de tus alarmas (las ponés en Cauciones)"]].forEach(function(o){
       var l=el("label","vw-r vw-t"), t=el("span","pe-t",o[1]); t.appendChild(el("small",null,o[2])); l.appendChild(t);
       var i=document.createElement("input"); i.type="checkbox"; i.className="sw"; i.checked=!!pushA.prefs[o[0]];
       i.addEventListener("change",function(){ pushA.prefs[o[0]]=i.checked?1:0; save(LS_PUSH,pushA); if(auth) api("PUT","/me/push",{prefs:pushA.prefs}).catch(function(){}); }); l.appendChild(i); g.appendChild(l); });
@@ -2629,6 +2654,71 @@
   }
   $("btnPush").addEventListener("click",function(){ if(!auth){ alert("Para recibir avisos tenés que entrar con tu cuenta de Google."); return; } setScr(pushView); try{ history.pushState({scr:1},""); }catch(e){} renderPush(); });
   $("pushBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
+  // ---------- Cauciones: las mejores tasas (BYMA, con demora) y alarmas cuando una tasa supera tu límite ----------
+  var CAU_M={ARS:"Pesos",USD:"MEP",EXT:"Cable"}, CAU_ML={ARS:"pesos",USD:"dólar MEP",EXT:"dólar cable"}, CAU_D=[[1,"1 día"],[7,"7 días"],[14,"14 días"],[30,"30 días"]];
+  var cauData=null, cauErr="", cauM=load("cartera.cau.m",null)||"ARS", cauNew=null, cauBusy=false;
+  if(!Array.isArray(pushA.cau)) pushA.cau=[];
+  function cauPct(r){ var v=r*100; return v.toLocaleString("es-AR",{minimumFractionDigits:v>=100?0:1,maximumFractionDigits:v>=100?0:(v<10?2:1)})+"%"; }
+  function cauDay(v){ var d=new Date(v+"T12:00:00"); return isNaN(d)?v:["dom","lun","mar","mié","jue","vie","sáb"][d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1); }
+  function cauLoad(){ cauBusy=true; return fetch(PROXY_URL+"/cauciones",{cache:"no-store"}).then(function(r){ return r.json(); }).then(function(j){ if(!j||!Array.isArray(j.items)) throw new Error((j&&j.error)||"sin datos"); cauData=j; cauErr=""; })
+    .catch(function(){ cauErr="No pude traer las tasas de BYMA. Probá de nuevo en un rato."; }).then(function(){ cauBusy=false; if(!cauView.hidden) cauRender(); }); }
+  function cauSaveAl(){ save(LS_PUSH,pushA); if(auth) return api("PUT","/me/push",{cau:pushA.cau}).then(function(r){ if(!r.ok) throw 0; }).catch(function(){ alert("No pude guardar la alarma en el servidor. Revisá la conexión y probá de nuevo."); }); return Promise.resolve(); }
+  function cauRender(){
+    var box=$("cauBody"); box.textContent="";
+    var sg=el("div","seg sm"); Object.keys(CAU_M).forEach(function(m){ var b=el("button",m===cauM?"on":"",CAU_M[m]); b.type="button"; b.addEventListener("click",function(){ cauM=m; save("cartera.cau.m",m); cauRender(); }); sg.appendChild(b); }); box.appendChild(sg);
+    if(!cauData){ box.appendChild(el("div","ib-st"+(cauErr?" err":" busy"),cauErr||"Trayendo las tasas de BYMA…")); }
+    else {
+      var all=cauData.items.filter(function(x){ return x.m===cauM; }), live=all.filter(function(x){ return x.t>0; }), old=!live.length;
+      var rows=old?all.filter(function(x){ return x.c>0; }):live, last="";
+      rows.forEach(function(x){ if(x.h&&x.h>last) last=x.h; });
+      if(!rows.length) box.appendChild(el("div","ib-st","Hoy todavía no hubo cauciones en "+CAU_ML[cauM]+"."));
+      else {
+        var best=rows.reduce(function(a,x){ var r=old?x.c:x.t; return !a||r>(old?a.c:a.t)?x:a; },null), br=old?best.c:best.t;
+        var hero=el("div","cau-hero"); hero.appendChild(el("span","cau-k",old?"Mejor tasa del último cierre":"Mejor tasa ahora"));
+        hero.appendChild(el("b","pos",cauPct(br)+" TNA"));
+        hero.appendChild(el("span",null,best.d+(best.d===1?" día":" días")+" · vence "+cauDay(best.v)+(best.h&&!old?" · "+best.h.slice(0,5):"")));
+        if(!old&&best.p>0&&Math.abs(best.p-best.t)>0.02) hero.appendChild(el("span",null,"Promedio del día en ese plazo: "+cauPct(best.p)+". Una sola operación puede mover mucho la última tasa."));
+        box.appendChild(hero);
+        var g=el("div","cau-g");
+        rows.forEach(function(x){ var r=el("div","cau-row"+(x===best?" best":"")), nm=el("span","rk-name",x.d+(x.d===1?" día":" días")); nm.appendChild(el("small",null,"vence "+cauDay(x.v))); r.appendChild(nm);
+          var rr=el("span","cau-r"); rr.appendChild(el("b",null,cauPct(old?x.c:x.t))); if(!old&&x.p>0) rr.appendChild(el("small",null,"prom. "+cauPct(x.p))); r.appendChild(rr); g.appendChild(r); });
+        box.appendChild(g);
+      }
+      box.appendChild(el("div","cau-src",(old?"Cierre de la última rueda":"Última operación"+(last?" "+last.slice(0,5):""))+" · BYMA, con unos 15 a 20 minutos de demora. Tasa nominal anual (TNA)."));
+    }
+    // Alarmas
+    box.appendChild(el("div","pe-k","Alarmas"));
+    if(pushA.cau.length){ var ag=el("div","cau-g");
+      pushA.cau.forEach(function(a,i){ var r=el("div","cau-al"), t=el("span","pe-t","Más de "+cauPct(a.r)+" en "+CAU_ML[a.m]); t.appendChild(el("small",null,a.d===1?"A 1 día":"Plazos de hasta "+a.d+" días")); r.appendChild(t);
+        var x=el("button",null,"✕"); x.type="button"; x.setAttribute("aria-label","Borrar alarma"); x.addEventListener("click",function(){ pushA.cau.splice(i,1); cauSaveAl(); cauRender(); }); r.appendChild(x); ag.appendChild(r); });
+      box.appendChild(ag); }
+    if(cauNew){ var f=el("div","cau-new"), ms=el("div","seg sm"), ds=el("div","seg sm");
+      Object.keys(CAU_M).forEach(function(m){ var b=el("button",m===cauNew.m?"on":"",CAU_M[m]); b.type="button"; b.addEventListener("click",function(){ cauNew.m=m; cauRender(); }); ms.appendChild(b); });
+      CAU_D.forEach(function(o){ var b=el("button",o[0]===cauNew.d?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ cauNew.d=o[0]; cauRender(); }); ds.appendChild(b); });
+      f.appendChild(ms); var dl=el("div","cau-lim"); dl.appendChild(el("span","pe-t","Plazos de hasta")); f.appendChild(dl); f.appendChild(ds);
+      var lim=el("label","cau-lim"); lim.appendChild(el("span","pe-t","Avisarme si la tasa supera")); var w=el("span","sim-in"), inp=document.createElement("input"); inp.inputMode="decimal"; inp.value=cauNew.v; inp.setAttribute("aria-label","Tasa límite en %");
+      inp.addEventListener("input",function(){ cauNew.v=inp.value; }); w.appendChild(inp); w.appendChild(el("i",null,"% TNA")); lim.appendChild(w); f.appendChild(lim);
+      var nav=el("div","wz-nav"), cn=el("button",null,"Cancelar"), ok=el("button","primary","Guardar alarma"); cn.type=ok.type="button";
+      cn.addEventListener("click",function(){ cauNew=null; cauRender(); });
+      ok.addEventListener("click",function(){ var v=parseFloat(String(cauNew.v).replace(",",".")); if(!(v>0&&v<2000)){ inp.focus(); return; }
+        pushA.cau.push({id:Math.random().toString(36).slice(2,8),m:cauNew.m,d:cauNew.d,r:Math.round(v*10)/1000}); cauNew=null; cauSaveAl(); cauRender(); });
+      nav.appendChild(cn); nav.appendChild(ok); f.appendChild(nav); box.appendChild(f);
+      setTimeout(function(){ try{ inp.focus(); }catch(e){} },50);
+    } else if(pushA.cau.length<6){ var nb=el("button",null,"+ Nueva alarma"); nb.type="button";
+      nb.addEventListener("click",function(){ if(!auth){ alert("Para las alarmas tenés que entrar con tu cuenta de Google."); return; } var t=cauData&&cauData.items.filter(function(x){ return x.m===cauM&&x.d<=7&&x.p>0; })[0];
+        cauNew={m:cauM,d:7,v:t?String(Math.ceil(t.p*100+5)):""}; cauRender(); }); box.appendChild(nb); }
+    if(pushA.cau.length&&!pushA.on){ var st=el("div","ib-st","Para que la alarma te llegue al celu, activá los avisos en este celu."); box.appendChild(st);
+      var pb=el("button","primary","Activar avisos"); pb.type="button"; pb.addEventListener("click",function(){ pb.disabled=true; pushEnable().then(function(){ return cauSaveAl(); }).then(cauRender).catch(function(e){ st.className="ib-st err"; st.textContent=(e&&e.message)||"No se pudo."; pb.disabled=false; }); }); box.appendChild(pb); }
+    else if(pushA.cau.length&&!pushA.prefs.cau) box.appendChild(el("div","ib-st","Tenés apagados los avisos de cauciones en Avisos."));
+    box.appendChild(el("div","sim-foot","Las alarmas las revisa el servidor de Holdy cada 5 minutos, de lunes a viernes de 11 a 18, aunque tengas la app cerrada. Te avisa una vez por día por alarma."));
+  }
+  function openCau(){ setScr(cauView); try{ history.pushState({scr:1},""); }catch(e){} cauRender(); if(!cauBusy&&(!cauData||Date.now()-cauData.at>60*1000)) cauLoad();
+    if(auth) api("GET","/me/push").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j&&Array.isArray(j.cau)&&JSON.stringify(j.cau)!==JSON.stringify(pushA.cau)){ pushA.cau=j.cau; save(LS_PUSH,pushA); if(!cauView.hidden&&!cauNew) cauRender(); } }).catch(function(){}); }
+  $("btnCau").addEventListener("click",openCau);
+  $("cauBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
+  function cauFromHash(){ if(location.hash!=="#cauciones") return; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} setTimeout(openCau,300); }
+  window.addEventListener("hashchange",cauFromHash); setTimeout(cauFromHash,800);
+
 
   // ---------- Proyección: cuánto tendrías al retirarte y cuánto podrías gastar por mes ----------
   /* Rendimientos REALES (ya sin inflación de EE.UU.) en dólares, de largo plazo; σ = volatilidad anual.
@@ -4793,7 +4883,7 @@
   var cmpView=$("cmpView"), cmpRun=0, cmpOpen=false, cmpData=null, cmpRange="all";
   var MES3=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
   var dlgProf=$("dlgProf"), dlgSet=$("dlgSet");
-  var rptView=$("rptView"), simView=$("simView"), pushView=$("pushView"), askView=$("askView"), feedView=$("feedView"), hubView=$("hubView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView,simView,pushView,askView,feedView,hubView];
+  var rptView=$("rptView"), simView=$("simView"), pushView=$("pushView"), askView=$("askView"), feedView=$("feedView"), hubView=$("hubView"), cauView=$("cauView"), SCREENS=[cmpView,dlgProf,dlgSet,rptView,simView,pushView,askView,feedView,hubView,cauView];
   function setScr(el){
     var prev=SCREENS.filter(function(x){ return !x.hidden; })[0]||null, prevTop=prev?prev.getBoundingClientRect().top:0;
     SCREENS.forEach(function(x){ x.hidden=x!==el; x.classList.remove("enter","leave"); });
@@ -5177,7 +5267,7 @@
   dlgMenu.addEventListener("click",function(e){ if(e.target===dlgMenu) dlgMenu.close(); });
   $("btnMenu").addEventListener("click",function(){ renderProfile(); dlgMenu.showModal(); });
   $("menuClose").addEventListener("click",function(){ dlgMenu.close(); });
-  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash","btnRpt","btnSim","btnPush","btnShare","btnRank","btnAsk","btnFeed"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
+  ["btnRefresh","btnSettings","btnCmp","menuOut","btnProfAdm","btnCash","btnRpt","btnSim","btnCau","btnPush","btnShare","btnRank","btnAsk","btnFeed"].forEach(function(id){ $(id).addEventListener("click",function(){ dlgMenu.close(); }); });
   $("btnCmp").addEventListener("click",openCmp);
   $("menuOut").addEventListener("click",function(){ setTimeout(doLogout,0); });
 
@@ -6855,6 +6945,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.40.0", t:"Cauciones y alarma de tasa", d:["En el menú, “Cauciones”: las tasas de hoy en pesos, MEP y cable para cada plazo, con la mejor arriba.","Poné una alarma y te llega un aviso al celu cuando una tasa supera tu límite."]},
     {v:"1.39.9", t:"Mejor en la compu y el Fold", d:["En la compu, la ganancia y “Hoy” van como en el celu: sin “+” y con “$”.","En el Fold abierto, cada posición muestra cuánto pesa en tu cartera."]},
     {v:"1.39.8", t:"Resumen más limpio", d:["La ganancia al lado del total y “Hoy” van sin “+” y con “$” en vez de “US$”.","“Hoy” vuelve a mostrar el monto, además del %."]},
     {v:"1.39.5", t:"Nombre de la empresa", d:["Al abrir una acción ves en chiquito el nombre de la empresa (por ejemplo “Coca-Cola” en KO)."]},
