@@ -2659,6 +2659,7 @@
   var cauData=null, cauErr="", cauM=load("cartera.cau.m",null)||"ARS", cauNew=null, cauBusy=false;
   if(!Array.isArray(pushA.cau)) pushA.cau=[];
   function cauPct(r){ var v=r*100; return v.toLocaleString("es-AR",{minimumFractionDigits:v>=100?0:1,maximumFractionDigits:v>=100?0:(v<10?2:1)})+"%"; }
+  function cauAgo(h){ var n=new Date(Date.now()-3*3600e3), m=n.getUTCHours()*60+n.getUTCMinutes()-(+h.slice(0,2)*60+ +h.slice(3,5)); return m>=0&&m<=90&&n.getUTCDay()%6?" (hace "+m+" min)":""; }
   function cauDay(v){ var d=new Date(v+"T12:00:00"); return isNaN(d)?v:["dom","lun","mar","mié","jue","vie","sáb"][d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1); }
   function cauLoad(){ cauBusy=true; return fetch(PROXY_URL+"/cauciones",{cache:"no-store"}).then(function(r){ return r.json(); }).then(function(j){ if(!j||!Array.isArray(j.items)) throw new Error((j&&j.error)||"sin datos"); cauData=j; cauErr=""; })
     .catch(function(){ cauErr="No pude traer las tasas de BYMA. Probá de nuevo en un rato."; }).then(function(){ cauBusy=false; if(!cauView.hidden) cauRender(); }); }
@@ -2684,39 +2685,49 @@
           var rr=el("span","cau-r"); rr.appendChild(el("b",null,cauPct(old?x.c:x.t))); if(!old&&x.p>0) rr.appendChild(el("small",null,"prom. "+cauPct(x.p))); r.appendChild(rr); g.appendChild(r); });
         box.appendChild(g);
       }
-      box.appendChild(el("div","cau-src",(old?"Cierre de la última rueda":"Última operación"+(last?" "+last.slice(0,5):""))+" · BYMA, con unos 15 a 20 minutos de demora. Tasa nominal anual (TNA)."));
+      box.appendChild(el("div","cau-src",(old?"Cierre de la última rueda":"Última operación"+(last?" "+last.slice(0,5)+cauAgo(last):""))+" · BYMA, con unos 15 a 20 minutos de demora. Tasa nominal anual (TNA)."));
     }
     // Alarmas
     box.appendChild(el("div","pe-k","Alarmas"));
     if(pushA.cau.length){ var ag=el("div","cau-g");
-      pushA.cau.forEach(function(a,i){ var r=el("div","cau-al"), t=el("span","pe-t","Más de "+cauPct(a.r)+" en "+CAU_ML[a.m]); t.appendChild(el("small",null,a.d===1?"A 1 día":"Plazos de hasta "+a.d+" días")); r.appendChild(t);
+      pushA.cau.forEach(function(a,i){ var r=el("div","cau-al"), t=el("span","pe-t","Caución en "+CAU_ML[a.m]+(a.d===1?" a 1 día":" hasta "+a.d+" días")), bits=[];
+        if(a.r>0) bits.push("aviso "+cauPct(a.r)); if(a.r2>0) bits.push("🚨 fuerte "+cauPct(a.r2)); if(a.j>0) bits.push("salto de "+Math.round(a.j*100)+" puntos");
+        t.appendChild(el("small",null,bits.join(" · "))); r.appendChild(t);
         var x=el("button",null,"✕"); x.type="button"; x.setAttribute("aria-label","Borrar alarma"); x.addEventListener("click",function(){ pushA.cau.splice(i,1); cauSaveAl(); cauRender(); }); r.appendChild(x); ag.appendChild(r); });
       box.appendChild(ag); }
     if(cauNew){ var f=el("div","cau-new"), ms=el("div","seg sm"), ds=el("div","seg sm");
       Object.keys(CAU_M).forEach(function(m){ var b=el("button",m===cauNew.m?"on":"",CAU_M[m]); b.type="button"; b.addEventListener("click",function(){ cauNew.m=m; cauRender(); }); ms.appendChild(b); });
       CAU_D.forEach(function(o){ var b=el("button",o[0]===cauNew.d?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ cauNew.d=o[0]; cauRender(); }); ds.appendChild(b); });
       f.appendChild(ms); var dl=el("div","cau-lim"); dl.appendChild(el("span","pe-t","Plazos de hasta")); f.appendChild(dl); f.appendChild(ds);
-      var lim=el("label","cau-lim"); lim.appendChild(el("span","pe-t","Avisarme si la tasa supera")); var w=el("span","sim-in"), inp=document.createElement("input"); inp.inputMode="decimal"; inp.value=cauNew.v; inp.setAttribute("aria-label","Tasa límite en %");
-      inp.addEventListener("input",function(){ cauNew.v=inp.value; }); w.appendChild(inp); w.appendChild(el("i",null,"% TNA")); lim.appendChild(w); f.appendChild(lim);
+      function fld(k,lbl,sub,unit){ var l=el("label","cau-lim"), t=el("span","pe-t",lbl); t.appendChild(el("small",null,sub)); l.appendChild(t); var w=el("span","sim-in"), i=document.createElement("input"); i.inputMode="decimal"; i.value=cauNew[k]; i.placeholder="—"; i.setAttribute("aria-label",lbl);
+        i.addEventListener("input",function(){ cauNew[k]=i.value; }); w.appendChild(i); w.appendChild(el("i",null,unit)); l.appendChild(w); f.appendChild(l); return i; }
+      var inp=fld("v","Aviso","Un aviso cuando la tasa pasa este %","% TNA");
+      fld("v2","🚨 Alarma fuerte","Suena cada minuto hasta que la tocás","% TNA");
+      fld("vj","Salto rápido","Si sube estos puntos en 15 minutos","puntos");
       var nav=el("div","wz-nav"), cn=el("button",null,"Cancelar"), ok=el("button","primary","Guardar alarma"); cn.type=ok.type="button";
       cn.addEventListener("click",function(){ cauNew=null; cauRender(); });
-      ok.addEventListener("click",function(){ var v=parseFloat(String(cauNew.v).replace(",",".")); if(!(v>0&&v<2000)){ inp.focus(); return; }
-        pushA.cau.push({id:Math.random().toString(36).slice(2,8),m:cauNew.m,d:cauNew.d,r:Math.round(v*10)/1000}); cauNew=null; cauSaveAl(); cauRender(); });
+      ok.addEventListener("click",function(){ function n(x){ var v=parseFloat(String(x||"").replace(",",".")); return v>0&&v<2000?Math.round(v*10)/1000:0; }
+        var a={id:Math.random().toString(36).slice(2,8),m:cauNew.m,d:cauNew.d,r:n(cauNew.v),r2:n(cauNew.v2),j:n(cauNew.vj)};
+        if(!a.r&&!a.r2&&!a.j){ inp.focus(); return; }
+        if(a.r&&a.r2&&a.r2<=a.r){ alert("La alarma fuerte tiene que ser más alta que el aviso."); return; }
+        pushA.cau.push(a); cauNew=null; cauSaveAl(); cauRender(); });
       nav.appendChild(cn); nav.appendChild(ok); f.appendChild(nav); box.appendChild(f);
       setTimeout(function(){ try{ inp.focus(); }catch(e){} },50);
     } else if(pushA.cau.length<6){ var nb=el("button",null,"+ Nueva alarma"); nb.type="button";
       nb.addEventListener("click",function(){ if(!auth){ alert("Para las alarmas tenés que entrar con tu cuenta de Google."); return; } var t=cauData&&cauData.items.filter(function(x){ return x.m===cauM&&x.d<=7&&x.p>0; })[0];
-        cauNew={m:cauM,d:7,v:t?String(Math.ceil(t.p*100+5)):""}; cauRender(); }); box.appendChild(nb); }
+        cauNew={m:cauM,d:7,v:t?String(Math.ceil(t.p*100+5)):"",v2:"",vj:""}; cauRender(); }); box.appendChild(nb); }
     if(pushA.cau.length&&!pushA.on){ var st=el("div","ib-st","Para que la alarma te llegue al celu, activá los avisos en este celu."); box.appendChild(st);
       var pb=el("button","primary","Activar avisos"); pb.type="button"; pb.addEventListener("click",function(){ pb.disabled=true; pushEnable().then(function(){ return cauSaveAl(); }).then(cauRender).catch(function(e){ st.className="ib-st err"; st.textContent=(e&&e.message)||"No se pudo."; pb.disabled=false; }); }); box.appendChild(pb); }
     else if(pushA.cau.length&&!pushA.prefs.cau) box.appendChild(el("div","ib-st","Tenés apagados los avisos de cauciones en Avisos."));
-    box.appendChild(el("div","sim-foot","Las alarmas las revisa el servidor de Holdy cada 5 minutos, de lunes a viernes de 11 a 18, aunque tengas la app cerrada. Te avisa una vez por día por alarma."));
+    box.appendChild(el("div","sim-foot","El servidor de Holdy las revisa cada minuto, de lunes a viernes de 11 a 18, aunque tengas la app cerrada. El aviso llega una vez por día; la alarma fuerte insiste hasta que la tocás (y vuelve si la tasa sube 20 puntos más)."));
   }
   function openCau(){ setScr(cauView); try{ history.pushState({scr:1},""); }catch(e){} cauRender(); if(!cauBusy&&(!cauData||Date.now()-cauData.at>60*1000)) cauLoad();
     if(auth) api("GET","/me/push").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j&&Array.isArray(j.cau)&&JSON.stringify(j.cau)!==JSON.stringify(pushA.cau)){ pushA.cau=j.cau; save(LS_PUSH,pushA); if(!cauView.hidden&&!cauNew) cauRender(); } }).catch(function(){}); }
   $("btnCau").addEventListener("click",openCau);
   $("cauBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
-  function cauFromHash(){ if(location.hash!=="#cauciones") return; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} setTimeout(openCau,300); }
+  function cauFromHash(){ var h=location.hash; if(h!=="#cauciones"&&h!=="#cauciones/ok") return; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+    if(h==="#cauciones/ok"&&auth) api("PUT","/me/push",{cauAck:1}).catch(function(){}); /* tocaste la alarma fuerte: deja de insistir */
+    setTimeout(openCau,300); }
   window.addEventListener("hashchange",cauFromHash); setTimeout(cauFromHash,800);
 
 

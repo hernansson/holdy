@@ -26,8 +26,8 @@ export default {
   // Todas las mañanas (cron en wrangler.toml): trae el reporte de IBKR de cada usuario conectado y lo deja listo.
   // Una sola tarea por hora (minuto 35); según la hora hace cada cosa. 11 y 14 UTC: IBKR · 12 UTC: cobros · 21 UTC (lun-vie): cierre.
   async scheduled(event, env, ctx) {
-    // Cada 5 minutos en horario de cauciones (lun-vie): revisa las alarmas de tasa. Es otro cron, aparte del de cada hora.
-    if (event.cron && event.cron !== "35 * * * *") { ctx.waitUntil(cauCron(env)); return; }
+    // Cada minuto en horario de cauciones (lun-vie): revisa las alarmas de tasa. Es otro cron, aparte del de cada hora.
+    if (event.cron && event.cron !== "35 * * * *") { ctx.waitUntil(cauCron(env, event.scheduledTime)); return; }
     const d = new Date(event.scheduledTime || Date.now()), h = d.getUTCHours(), wd = d.getUTCDay();
     if (h === 11 || h === 14) ctx.waitUntil(ibCron(env));
     if (h === 12) ctx.waitUntil(pushCobros(env));
@@ -870,6 +870,7 @@ async function pushMe(request, env, url, user, h) {
     if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, fr: b.prefs.fr === 0 ? 0 : 1, cau: b.prefs.cau === 0 ? 0 : 1, test: 1 };
     rec.prefs.test = 1;
     if (Array.isArray(b.cau)) { rec.cau = cauClean(b.cau); await cauIndex(env, user.sub, rec.cau); }
+    if (b.cauAck) { await cauAck(env, user.sub); if (Object.keys(b).length === 1) return json({ ok: true }, 200, h); }
     if (Array.isArray(b.agenda)) rec.agenda = b.agenda.slice(0, 60).map((x) => ({ d: String(x.d || "").slice(0, 10), t: String(x.t || "").slice(0, 16), k: String(x.k || "").slice(0, 20), a: Math.round((+x.a || 0) * 100) / 100, cy: String(x.cy || "US$").slice(0, 4) })).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.d));
     if (Array.isArray(b.pos)) rec.pos = b.pos.slice(0, 200).map((x) => ({ t: String(x.t || "").toUpperCase().slice(0, 12), q: +x.q || 0 })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && x.q > 0);
     if (b.name) rec.name = String(b.name).slice(0, 40);
@@ -932,39 +933,84 @@ async function cauciones(cors) {
   try { const c = await cauFetch(); return json({ at: c.at, items: c.items, src: "BYMA (datos abiertos, con demora)" }, 200, { ...cors, "Cache-Control": "public, max-age=60" }); }
   catch (e) { return json({ error: "upstream_unreachable", detail: String(e && e.message || e) }, 502, cors); }
 }
-// Alarma: {id, m: ARS|USD|EXT, d: plazo máximo en días, r: tasa límite (decimal)}. Salta cuando la última operación de algún plazo hasta d días supera r.
+// Alarma: {id, m: ARS|USD|EXT, d: plazo máximo en días, r: aviso (decimal), r2: alarma fuerte (0 = no), j: salto en puntos en 15 min (0 = no)}.
+// Mira la última operación de cada plazo hasta d días. Aviso: una vez por día. Fuerte: insiste cada minuto (hasta 15 veces) hasta que tocás "Ya lo vi".
+const lim = (v, a, b) => Math.max(a, Math.min(b, +v || 0));
 function cauClean(list) {
-  return list.slice(0, 6).map((a) => ({ id: String(a.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 12) || Math.random().toString(36).slice(2, 8), m: CAU_M[a.m] ? a.m : "ARS", d: Math.max(1, Math.min(60, a.d | 0 || 7)), r: Math.max(0.001, Math.min(20, +a.r || 0.5)) }));
+  return list.slice(0, 6).map((a) => ({ id: String(a.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 12) || Math.random().toString(36).slice(2, 8), m: CAU_M[a.m] ? a.m : "ARS", d: Math.max(1, Math.min(60, a.d | 0 || 7)), r: lim(a.r, 0, 20), r2: lim(a.r2, 0, 20), j: lim(a.j, 0, 20) })).filter((a) => a.r > 0 || a.r2 > 0 || a.j > 0);
 }
 async function cauIndex(env, sub, al) {
   const idx = (await env.HOLDY_KV.get("cauidx", "json")) || {}, had = JSON.stringify(idx[sub] || null);
   if (al.length) idx[sub] = al; else delete idx[sub];
   if (JSON.stringify(idx[sub] || null) !== had) await env.HOLDY_KV.put("cauidx", JSON.stringify(idx));
 }
+// "Ya lo vi": frena la alarma fuerte por hoy (vuelve a sonar si la tasa sube 20 puntos más).
+async function cauAck(env, sub) {
+  const lk = "caul:" + sub, last = await env.HOLDY_KV.get(lk, "json"); if (!last) return;
+  let ch = false; for (const k in last) { const s2 = last[k].s2; if (s2 && !s2.ack) { s2.ack = 1; ch = true; } }
+  if (ch) await env.HOLDY_KV.put(lk, JSON.stringify(last), { expirationTtl: 30 * 86400 });
+}
 const pctAR = (r) => (r * 100).toLocaleString("es-AR", { maximumFractionDigits: r * 100 >= 100 ? 0 : 1 }) + "%";
-async function cauCron(env) {
+const SNAP_MIN = 15;
+async function cauCron(env, now) {
+  now = now || Date.now();
   const idx = (await env.HOLDY_KV.get("cauidx", "json")) || {}, subs = Object.keys(idx); if (!subs.length) return;
   let c; try { c = await cauFetch(); } catch (e) { return; }
-  const today = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const art = new Date(now - 3 * 3600 * 1000), today = art.toISOString().slice(0, 10), live = c.items.filter((x) => x.t > 0);
+  // Solo con datos de hoy: la última operación del panel tiene que ser de la última hora (en un feriado BYMA deja el panel del día anterior).
+  const nowMin = art.getUTCHours() * 60 + art.getUTCMinutes(), lastMin = Math.max(-1, ...live.map((x) => (x.h ? +x.h.slice(0, 2) * 60 + +x.h.slice(3, 5) : -1)));
+  if (lastMin < 0 || lastMin > nowMin + 2 || nowMin - lastMin > 60) return;
+  // Fotos de las tasas cada 5 minutos (solo si alguien tiene alarma de salto) para ver cuánto subió en los últimos 15.
+  let snaps = [];
+  if (subs.some((s) => idx[s].some((a) => a.j > 0))) {
+    snaps = ((await env.HOLDY_KV.get("causnap", "json")) || []).filter((x) => now - x.at < 40 * 60 * 1000);
+    if (new Date(now).getUTCMinutes() % 5 === 0 && !snaps.some((x) => now - x.at < 4 * 60 * 1000)) {
+      const r = {}; live.forEach((x) => { r[x.s] = x.t; });
+      snaps.push({ at: now, r }); await env.HOLDY_KV.put("causnap", JSON.stringify(snaps.slice(-8)), { expirationTtl: 86400 });
+    }
+  }
+  const before = (sym) => { let v = null; for (const x of snaps) if (now - x.at >= (SNAP_MIN - 2) * 60 * 1000 && now - x.at <= (SNAP_MIN + 10) * 60 * 1000 && x.r[sym] > 0) { v = v === null ? x.r[sym] : Math.min(v, x.r[sym]); } return v; };
+  const plazo = (x) => x.d + (x.d === 1 ? " día" : " días");
   for (const sub of subs) {
-    const fire = [];
+    let last = null, changed = false;
+    const getLast = async () => last || (last = (await env.HOLDY_KV.get("caul:" + sub, "json")) || {});
     for (const a of idx[sub]) {
-      // Solo lo que se operó (t > 0): el cierre de otro día no cuenta.
-      const hit = c.items.filter((x) => x.m === a.m && x.d <= a.d && x.t > 0 && x.t >= a.r).sort((x, y) => y.t - x.t)[0];
-      if (hit) fire.push({ a, hit });
+      const mine = live.filter((x) => x.m === a.m && x.d <= a.d), top = mine.slice().sort((x, y) => y.t - x.t)[0];
+      if (!top) continue;
+      const name = "Caución en " + CAU_M[a.m].toLowerCase() + " a " + plazo(top), hora = top.h ? " (" + top.h.slice(0, 5) + ")" : "", prom = top.p > 0 ? " Promedio del día: " + pctAR(top.p) + "." : "";
+      const fp = top.s + "|" + top.h + "|" + top.t;
+      // 1) Alarma fuerte
+      if (a.r2 > 0 && top.t >= a.r2) {
+        const L = await getLast(), s2 = (L[a.id] && L[a.id].s2) || {};
+        // Nuevo día (con una operación distinta a la última que sonó: en un feriado BYMA repite el dato viejo) o, ya vista, si sube 20 puntos más.
+        const fresh = (s2.day !== today && s2.fp !== fp) || (s2.day === today && s2.ack && top.t >= (s2.peak || 0) + 0.2);
+        if (fresh || (s2.day === today && !s2.ack && (s2.n || 0) < 15)) {
+          const n = fresh ? 1 : (s2.n || 0) + 1;
+          await pushTo(env, sub, "cau", { title: "🚨 ALARMA: caución " + pctAR(top.t), body: name + ": " + pctAR(top.t) + " TNA" + hora + ". Superó tu alarma fuerte de " + pctAR(a.r2) + "." + prom + " Tocá para frenarla.", tag: "cau2-" + a.id, u: "#cauciones/ok", ri: 1, lv: 2 });
+          L[a.id] = { ...(L[a.id] || {}), day: today, fp, s2: { day: today, n, fp, ack: fresh ? 0 : s2.ack, peak: Math.max(top.t, fresh ? 0 : s2.peak || 0) } }; changed = true;
+        }
+        continue; // si sonó la fuerte, el aviso común sobra
+      }
+      // 2) Salto rápido
+      if (a.j > 0) {
+        const jump = mine.map((x) => ({ x, b: before(x.s) })).filter((o) => o.b !== null && o.x.t - o.b >= a.j).sort((p, q) => (q.x.t - q.b) - (p.x.t - p.b))[0];
+        if (jump) {
+          const L = await getLast(), lj = (L[a.id] && L[a.id].jat) || 0;
+          if (now - lj > 30 * 60 * 1000) {
+            await pushTo(env, sub, "cau", { title: "📈 Caución subiendo rápido", body: "Caución en " + CAU_M[a.m].toLowerCase() + " a " + plazo(jump.x) + ": de " + pctAR(jump.b) + " a " + pctAR(jump.x.t) + " en " + SNAP_MIN + " minutos" + (jump.x.h ? " (" + jump.x.h.slice(0, 5) + ")" : "") + ".", tag: "cauj-" + a.id, u: "#cauciones", ri: 1, lv: 1 });
+            L[a.id] = { ...(L[a.id] || {}), jat: now }; changed = true;
+          }
+        }
+      }
+      // 3) Aviso común: una vez por día, y nunca dos veces por la misma operación (por si BYMA repite el último dato en un feriado).
+      if (a.r > 0 && top.t >= a.r) {
+        const L = await getLast(), l = L[a.id];
+        if (l && (l.day === today || l.fp === fp)) continue;
+        await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(top.t), body: name + ": " + pctAR(top.t) + " TNA" + hora + ". Tu aviso: " + pctAR(a.r) + "." + prom, tag: "cau-" + a.id, u: "#cauciones", lv: 1 });
+        L[a.id] = { ...(l || {}), day: today, fp }; changed = true;
+      }
     }
-    if (!fire.length) continue;
-    const lk = "caul:" + sub, last = (await env.HOLDY_KV.get(lk, "json")) || {};
-    let changed = false;
-    for (const { a, hit } of fire) {
-      // Una vez por alarma por día, y nunca dos veces por la misma operación (por si BYMA repite el último dato en un feriado).
-      const fp = hit.s + "|" + hit.h + "|" + hit.t, l = last[a.id];
-      if (l && (l.day === today || l.fp === fp)) continue;
-      const body = "Caución en " + CAU_M[a.m].toLowerCase() + " a " + hit.d + (hit.d === 1 ? " día" : " días") + ": " + pctAR(hit.t) + " TNA" + (hit.h ? " (" + hit.h.slice(0, 5) + ")" : "") + ". Tu límite: " + pctAR(a.r) + "." + (hit.p > 0 ? " Promedio del día: " + pctAR(hit.p) + "." : "");
-      await pushTo(env, sub, "cau", { title: "Alarma de caución", body, tag: "cau-" + a.id, u: "#cauciones" });
-      last[a.id] = { day: today, fp }; changed = true;
-    }
-    if (changed) await env.HOLDY_KV.put(lk, JSON.stringify(last), { expirationTtl: 30 * 86400 });
+    if (changed) await env.HOLDY_KV.put("caul:" + sub, JSON.stringify(last), { expirationTtl: 30 * 86400 });
   }
 }
 function ibCount(csv) { let t = 0, d = 0; String(csv || "").split("\n").forEach((l) => { if (/"(BUY|SELL)"/.test(l) && /"STK"/.test(l)) t++; if (/Dividends/.test(l) && /"DETAIL"/.test(l)) d++; }); return { t, d }; }

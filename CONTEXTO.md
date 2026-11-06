@@ -118,7 +118,7 @@ git push origin main
 | `GET/POST /fx/<código>` | Social de una cartera compartida (KV `fx:<código>`). POST `{key,re}` reacción (🔥👏😬🤔😂), `{key,t,rp?,h?}` comentario (máx. 300, guarda los últimos 60, `rp` = responder a un id, `h` = "la tiene" con su %), `{key,lk:id}` me gusta, `{key,del:id}` borrar (autor o dueño). GET devuelve `{k, owner, ow, us:{uid:{n,v}}}` |
 
 `key` de un movimiento: `b|TICKER|AAAA-MM-DD` (compra) o `s|...` (venta).
-**Cron de cauciones (`*/5 14-20 * * MON-FRI`):** revisa las alarmas de `cauidx` (`{sub:[{id,m,d,r}]}`, se guardan con `PUT /me/push {cau}`) y avisa (tipo `cau`) una vez por día por alarma; el último aviso queda en `caul:<sub>`.
+**Cron de cauciones (`* 14-20 * * MON-FRI`, cada minuto):** revisa las alarmas de `cauidx` (`{sub:[{id,m,d,r,r2,j}]}`, se guardan con `PUT /me/push {cau}`). `r` = aviso (1 por día), `r2` = alarma fuerte (insiste cada minuto, máx. 15, hasta `PUT /me/push {cauAck:1}`, que manda la app al tocar el aviso `#cauciones/ok`), `j` = salto en puntos contra las fotos de hace 15 min (`causnap`, una cada 5 min). Estado en `caul:<sub>`. Solo actúa si la última operación del panel es de la última hora (feriados).
 **Cron (cada hora, minuto 35, UTC):** 11 y 14 → IBKR automático; 12 → avisos de cobros; 21 lun–vie → cierre del mercado (el aviso abre `#hoy`).
 **Avisos (`pushTo`):** tipos `fr` (amigos, activado por defecto), cierre, cobros, IBKR. Deep link de comentarios: `#feed/<código>/<key>`.
 **Memoria en el Worker:** `PF` (perfiles, 6 h), `histCache` (historial, 6 h).
