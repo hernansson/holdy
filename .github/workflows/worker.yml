@@ -78,6 +78,8 @@ jobs:
           echo "::notice title=insight SPY::$E"
           C=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/cauciones" | jq -c '{n: (.items|length), err: .error, det: .detail, top: ([.items[]? | select(.m=="ARS")][0:3])}')
           echo "::notice title=cauciones::$C"
+          I2=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/cauciones?iol=1" | head -c 1500)
+          echo "::notice title=cauciones IOL::$I2"
           R=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/search?q=nvidia" | head -c 400)
           echo "::notice title=search::$R"
           D=$(curl -sS -H "Origin: https://holdy.pages.dev" "$U/divs?symbols=AAPL,KO,VUAA" | head -c 400)
