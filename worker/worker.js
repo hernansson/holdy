@@ -865,10 +865,16 @@ async function pushMe(request, env, url, user, h) {
       cau1: { title: "Caución a 37%: 25% sobre la media (PRUEBA)", body: "Caución en pesos a 1 día: 37% TNA. La media del día es 29,6%. Esto es una prueba.", tag: "cau1-test", u: "#cauciones", ri: 1, lv: 1 },
       cauop: { title: "🚨 OPORTUNIDAD: caución 190% (PRUEBA)", body: "Caución en pesos a 6 días: 190% TNA, 542% más que la media del día (29,6%). Esto es una prueba.", tag: "cauop-test", u: "#cauciones", ri: 1, lv: 2, burst: 20 },
     }[tb.kind];
+    if (tb.kind === "call") {
+      const tel = await env.HOLDY_KV.get("cautel:" + user.sub);
+      if (!tel) return json({ ok: false, error: "sin_tel" }, 200, h);
+      const sid = await cauCall(env, tel, "Hola, soy Holdy. Esta es una llamada de prueba. Así te voy a avisar cuando haya una oportunidad en cauciones.");
+      return json({ ok: !!sid, error: sid ? undefined : (env.TWILIO_SID ? "twilio" : "sin_twilio") }, 200, h);
+    }
     const n = await pushTo(env, user.sub, "test", T || { title: "Holdy", body: "Listo: los avisos llegan a este celu." });
     return json({ ok: true, sent: n }, 200, h);
   }
-  if (request.method === "GET") return json({ prefs: rec.prefs, n: rec.subs.length, cau: rec.cau || [] }, 200, h);
+  if (request.method === "GET") return json({ prefs: rec.prefs, n: rec.subs.length, cau: rec.cau || [], tel: rec.tel || "", call: env.TWILIO_SID && env.TWILIO_TOKEN && env.TWILIO_FROM ? 1 : 0 }, 200, h);
   let b; try { b = JSON.parse(await request.text() || "{}"); } catch (e) { return json({ error: "bad_json" }, 400, h); }
   if (request.method === "DELETE") { const ep = String(b.ep || ""); rec.subs = rec.subs.filter((s) => s.ep !== ep); await env.HOLDY_KV.put(key, JSON.stringify(rec)); return json({ ok: true }, 200, h); }
   if (request.method === "PUT") {
@@ -878,6 +884,7 @@ async function pushMe(request, env, url, user, h) {
     if (Array.isArray(b.cau)) { rec.cau = cauClean(b.cau); await cauIndex(env, user.sub, rec.cau); }
     if (Array.isArray(b.agenda)) rec.agenda = b.agenda.slice(0, 60).map((x) => ({ d: String(x.d || "").slice(0, 10), t: String(x.t || "").slice(0, 16), k: String(x.k || "").slice(0, 20), a: Math.round((+x.a || 0) * 100) / 100, cy: String(x.cy || "US$").slice(0, 4) })).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.d));
     if (Array.isArray(b.pos)) rec.pos = b.pos.slice(0, 200).map((x) => ({ t: String(x.t || "").toUpperCase().slice(0, 12), q: +x.q || 0 })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && x.q > 0);
+    if (typeof b.tel === "string") { const t = cauTel(b.tel); if (b.tel && !t) return json({ error: "bad_tel" }, 400, h); rec.tel = t; if (t) await env.HOLDY_KV.put("cautel:" + user.sub, t); else await env.HOLDY_KV.delete("cautel:" + user.sub); }
     if (b.name) rec.name = String(b.name).slice(0, 40);
     await env.HOLDY_KV.put(key, JSON.stringify(rec));
     return json({ ok: true, n: rec.subs.length }, 200, h);
@@ -1060,7 +1067,7 @@ async function cauCron(env, now) {
   const eod = (await env.HOLDY_KV.get("cau:eod", "json")) || {};
   if (eod.next && eod.day !== today && today < eod.next) return; // feriado: el próximo día hábil es más adelante
   let c; try { c = await cauFetch(true, env); } catch (e) { return; }
-  if (nowMin >= 17 * 60 + 5) { if (eod.day !== today) await cauEod(env, c, today); return; } // ya cerró: se guarda el día y no se avisa más
+  if (nowMin >= 17 * 60 + 5) { if (eod.day !== today) await cauEod(env, c, today); if (nowMin < 17 * 60 + 15) await cauCallCheck(env, now, today); return; } // ya cerró: se guarda el día y no se avisa más
   const prev = eod.day && eod.day < today ? eod : null;
   // Lo de hoy: un plazo que todavía tiene el mismo monto que al cierre anterior es del día anterior. Sin media de BYMA todavía, se usa la de ayer.
   const fresh = (items) => items.filter((x) => x.t > 0 && !(prev && prev.snap && prev.snap[x.s] === Math.round(x.vol))).map((x) => (x.p > 0 || !(prev && prev.med && prev.med[x.m]) ? x : { ...x, p: prev.med[x.m], pAyer: 1 }));
@@ -1082,12 +1089,56 @@ async function cauCron(env, now) {
     return [x.p * OPP_X, a.r].some((thr) => thr > 0 && x.t >= thr * 0.9 && x.t < thr);
   })));
   await cauEval(env, idx, subs, live, now, today, plazo);
+  await cauCallCheck(env, now, today);
   for (let k = 1; k <= 5 && hot(); k++) {
     await new Promise((r) => setTimeout(r, 10000));
     try { c = await cauFetch(true, env); } catch (e) { break; }
     live = fresh(c.items);
     await cauEval(env, idx, subs, live, Date.now(), today, plazo);
   }
+}
+// Llamada de OPORTUNIDAD (Twilio): suena el teléfono con la tasa leída en voz alta. Si no atendés (o atiende el contestador), vuelve a llamar cada minuto, hasta 5 veces.
+// Con atender alcanza: no hay que apretar nada. Secretos en el Worker: TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM (el número de Twilio, +1…).
+const CALL_MAX = 5;
+function cauTel(t) { let d = String(t || "").replace(/[^\d+]/g, ""); const plus = d[0] === "+"; d = d.replace(/\D/g, "");
+  if (!d) return ""; if (!plus) { d = d.replace(/^0/, ""); if (d.length === 10) d = "549" + d; } return /^\d{10,15}$/.test(d) ? "+" + d : ""; }
+const xmlEsc = (s) => String(s).replace(/[<>&"']/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" })[c]);
+async function twilio(env, path, form) {
+  if (!(env.TWILIO_SID && env.TWILIO_TOKEN && env.TWILIO_FROM)) return null;
+  const r = await fetch("https://api.twilio.com/2010-04-01/Accounts/" + env.TWILIO_SID + path, { method: form ? "POST" : "GET", headers: { Authorization: "Basic " + btoa(env.TWILIO_SID + ":" + env.TWILIO_TOKEN), ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) }, body: form ? new URLSearchParams(form).toString() : undefined });
+  return r.ok ? r.json() : null;
+}
+async function cauCall(env, tel, txt) {
+  const say = '<Say language="es-MX" voice="Polly.Mia">' + xmlEsc(txt) + "</Say>";
+  try { const j = await twilio(env, "/Calls.json", { To: tel, From: env.TWILIO_FROM, Twiml: "<Response><Pause length=\"1\"/>" + say + "</Response>", MachineDetection: "Enable", Timeout: "30" }); return (j && j.sid) || null; } catch (e) { return null; }
+}
+// Una serie de llamadas por persona: si ya hay una en curso hoy, la nueva oportunidad solo actualiza el texto.
+async function cauCallStart(env, sub, today, txt) {
+  const tel = await env.HOLDY_KV.get("cautel:" + sub); if (!tel) return;
+  const all = (await env.HOLDY_KV.get("caucall", "json")) || {}, c = all[sub];
+  if (c && c.day === today && c.sid) { c.txt = txt; await env.HOLDY_KV.put("caucall", JSON.stringify(all), { expirationTtl: 86400 }); return; }
+  const sid = await cauCall(env, tel, txt); if (!sid) return;
+  all[sub] = { day: today, tel, txt, sid, n: 1, at: Date.now() };
+  await env.HOLDY_KV.put("caucall", JSON.stringify(all), { expirationTtl: 86400 });
+}
+async function cauCallCheck(env, now, today) {
+  const all = await env.HOLDY_KV.get("caucall", "json"); if (!all || !Object.keys(all).length) return;
+  let changed = false;
+  for (const sub of Object.keys(all)) {
+    const c = all[sub];
+    if (c.day !== today) { delete all[sub]; changed = true; continue; }
+    if (now - c.at < 60 * 1000) continue;
+    const j = await twilio(env, "/Calls/" + c.sid + ".json"); if (!j) continue;
+    const st = j.status, machine = /^(machine|fax)/.test(j.answered_by || "");
+    if (st === "queued" || st === "ringing" || st === "initiated") continue;
+    if ((st === "in-progress" || st === "completed") && !machine && (st === "in-progress" || +j.duration > 0)) { delete all[sub]; changed = true; continue; } // atendió
+    if (st === "in-progress") continue; // contestador hablando: esperar a que corte
+    if (c.n >= CALL_MAX) { delete all[sub]; changed = true; continue; }
+    const sid = await cauCall(env, c.tel, c.txt);
+    if (sid) { c.sid = sid; c.n++; c.at = now; } else delete all[sub];
+    changed = true;
+  }
+  if (changed) await env.HOLDY_KV.put("caucall", JSON.stringify(all), { expirationTtl: 86400 });
 }
 // Plazos "de verdad": los que llevan al menos 5% del monto del día en esa moneda (una operación suelta en un plazo vacío no cuenta).
 function cauLiquid(live, m) { const l = live.filter((x) => x.m === m), tot = l.reduce((a, x) => a + (x.vol || 0), 0); return new Set(l.filter((x) => tot > 0 && x.vol >= tot * 0.05).map((x) => x.s)); }
@@ -1114,6 +1165,9 @@ async function cauEval(env, idx, subs, live, now, today, plazo) {
           if (o.day !== today || best.t >= (o.peak || 0) * 2) {
             await pushTo(env, sub, "cau", { title: "🚨 OPORTUNIDAD: caución " + pctAR(best.t), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + ", " + Math.round((ratio - 1) * 100) + "% más que la media del día (" + med(best) + ").", tag: "cauop-" + a.id, u: "#cauciones", ri: 1, lv: 2, burst: 20 });
             L[a.id] = { ...(L[a.id] || {}), op: { day: today, peak: best.t } }; changed = true; opNow = true;
+            const r0 = (v) => (v * 100).toLocaleString("es-AR", { maximumFractionDigits: a.m === "ARS" ? 0 : 1 });
+            const lugar = "caución en " + CAU_M[a.m].toLowerCase() + " a " + plazo(best) + ", " + r0(best.t) + " por ciento";
+            await cauCallStart(env, sub, today, "¡Oportunidad en Holdy! La " + lugar.replace(", ", " está en ") + ", " + (ratio >= 2.95 ? Math.round(ratio) + " veces" : "el doble de") + " la media del día, que es " + r0(best.p) + " por ciento. Repito: " + lugar + ".");
           }
         }
         // 2) Aviso escalonado: al pasar tu % sobre la media, y otra vez cada vez que sube ese mismo % sobre el escalón anterior (29 → 31,9 → 35,1…)

@@ -113,6 +113,7 @@ git push origin main
 | `/me/ibkr`, `/me/ibkr/sync` | IBKR automático (Flex Query; token del usuario en KV `ib:`/`ibc:`) |
 | `/me/push`, `/me/push/test`, `GET /push/key`, `POST /push/inbox` | Suscripción, preferencias, prueba, clave pública, bandeja (`pin:<sha(endpoint)>`) |
 | `GET /cauciones` | Si están los secretos `IOL_USER`/`IOL_PASS` (cuenta IOL de Hernán), usa la API de IOL en vivo (token en KV `iol:tok`) y completa con BYMA lo que falte; si IOL falla, BYMA. `?iol=1` muestra la respuesta cruda de IOL para ajustar campos. |
+| Llamada de oportunidad | Con los secretos `TWILIO_SID`/`TWILIO_TOKEN`/`TWILIO_FROM`, cuando suena la OPORTUNIDAD llama al celular guardado (`PUT /me/push {tel}`, KV `cautel:<sub>`) y lee la tasa. Si no atiende o atiende el contestador, reintenta cada minuto hasta 5 veces (KV `caucall`). Con atender alcanza. Prueba: `POST /me/push/test {kind:"call"}`. La sección del teléfono en Cauciones solo aparece si los secretos están. |
 | `GET /cauciones` | Panel de cauciones de BYMA (datos abiertos, ~15-20 min de demora), caché 60 s. Tasa en decimal (1.9 = 190% TNA). `m`: ARS=pesos, USD=MEP, EXT=cable |
 | `POST /me/ask` | Preguntale a tu cartera (la app manda los números ya calculados; la IA solo redacta) |
 | `GET/PUT/DELETE /p/<código>[/...]` | Cartera compartida. KV `p:<código>` = `{secretHash, data, updated, o:{s,n}}`; quién mira en `pv:<código>` (config de qué ve cada uno, revocados) |

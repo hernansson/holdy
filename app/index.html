@@ -2659,7 +2659,7 @@
   $("pushBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   // ---------- Cauciones: las mejores tasas (BYMA, con demora) y alarmas cuando una tasa supera tu límite ----------
   var CAU_M={ARS:"Pesos",USD:"MEP",EXT:"Cable"}, CAU_ML={ARS:"pesos",USD:"dólar MEP",EXT:"dólar cable"}, CAU_D=[[1,"1 día"],[7,"7 días"],[14,"14 días"],[30,"30 días"]];
-  var cauData=null, cauErr="", cauM=load("cartera.cau.m",null)||"ARS", cauNew=null, cauBusy=false;
+  var cauCallCfg=null, cauData=null, cauErr="", cauM=load("cartera.cau.m",null)||"ARS", cauNew=null, cauBusy=false;
   if(!Array.isArray(pushA.cau)) pushA.cau=[];
   function cauPct(r){ var v=r*100; return v.toLocaleString("es-AR",{minimumFractionDigits:v>=100?0:1,maximumFractionDigits:v>=100?0:(v<10?2:1)})+"%"; }
   function cauAgo(h){ var n=new Date(Date.now()-3*3600e3), m=n.getUTCHours()*60+n.getUTCMinutes()-(+h.slice(0,2)*60+ +h.slice(3,5)); return m>=0&&m<=90&&n.getUTCDay()%6?" (hace "+m+" min)":""; }
@@ -2733,10 +2733,20 @@
           api("POST","/me/push/test",{kind:o[0]}).then(function(r){ return r.json(); }).then(function(j){ b.textContent=j&&j.sent?"Enviado ✓":"No llegó: desactivá y activá los avisos"; }).catch(function(){ b.textContent="No se pudo"; })
             .then(function(){ setTimeout(function(){ b.disabled=false; b.textContent=t0; },4000); }); }); tw.appendChild(b); });
       box.appendChild(tw); }
+    // Llamada de oportunidad: Holdy te llama y te lee la tasa. Con atender alcanza. Solo aparece si el servidor tiene Twilio configurado.
+    if(auth&&cauCallCfg===1){
+      var cw=el("div","cau-sl"), ct=el("span","pe-t","📞 Llamarme en una oportunidad"); ct.appendChild(el("small",null,"Además de la ráfaga, te llama por teléfono y te lee la tasa. Si no atendés, vuelve a llamar cada minuto (hasta 5 veces). Con atender alcanza. Agendá el número que te llama como favorito para que entre aunque tengas No Molestar.")); cw.appendChild(ct);
+      var cr=el("div","cau-test"), cw2=el("span","sim-in"), ti=document.createElement("input"); ti.type="tel"; ti.inputMode="tel"; ti.placeholder="11 5555 1234"; ti.value=pushA.tel||""; ti.setAttribute("aria-label","Tu celular"); cw2.appendChild(ti); cr.appendChild(cw2);
+      var cs=el("button",null,"Guardar"), cp=el("button",null,"Probar llamada"), cmsg=el("small",null,""); cs.type=cp.type="button";
+      cs.addEventListener("click",function(){ cs.disabled=true; api("PUT","/me/push",{tel:ti.value}).then(function(r){ if(!r.ok) throw 0; pushA.tel=ti.value; save(LS_PUSH,pushA); cmsg.textContent=ti.value?"Guardado ✓":"Listo: no te va a llamar."; }).catch(function(){ cmsg.textContent="Revisá el número (por ejemplo 11 5555 1234)."; }).then(function(){ cs.disabled=false; }); });
+      cp.addEventListener("click",function(){ if(!pushA.tel){ cmsg.textContent="Primero guardá tu número."; return; } cp.disabled=true; cmsg.textContent="Llamando…";
+        api("POST","/me/push/test",{kind:"call"}).then(function(r){ return r.json(); }).then(function(j){ cmsg.textContent=j&&j.ok?"Te está llamando ✓":j&&j.error==="sin_twilio"?"Las llamadas todavía no están configuradas en el servidor.":"No se pudo llamar."; }).catch(function(){ cmsg.textContent="No se pudo llamar."; }).then(function(){ setTimeout(function(){ cp.disabled=false; },8000); }); });
+      cr.appendChild(cs); cr.appendChild(cp); cw.appendChild(cr); cw.appendChild(cmsg); box.appendChild(cw); }
     box.appendChild(el("div","sim-foot","El servidor de Holdy las revisa cada minuto desde las 10 hasta el cierre, y cada 10 segundos cuando una tasa se despega de la media, aunque tengas la app cerrada. Compara la última tasa de cada plazo con su media del día, solo en los plazos con volumen de verdad. Los feriados no avisa."));
   }
   function openCau(){ setScr(cauView); try{ history.pushState({scr:1},""); }catch(e){} cauRender(); if(!cauBusy&&(!cauData||Date.now()-cauData.at>60*1000)) cauLoad();
-    if(auth) api("GET","/me/push").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j&&Array.isArray(j.cau)&&JSON.stringify(j.cau)!==JSON.stringify(pushA.cau)){ pushA.cau=j.cau; save(LS_PUSH,pushA); if(!cauView.hidden&&!cauNew) cauRender(); } }).catch(function(){}); }
+    if(auth) api("GET","/me/push").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; var ch=j.call!==cauCallCfg||(j.tel||"")!==(pushA.tel||""); cauCallCfg=j.call; pushA.tel=j.tel||"";
+      if(Array.isArray(j.cau)&&JSON.stringify(j.cau)!==JSON.stringify(pushA.cau)){ pushA.cau=j.cau; ch=1; } if(ch){ save(LS_PUSH,pushA); if(!cauView.hidden&&!cauNew) cauRender(); } }).catch(function(){}); }
   $("btnCau").addEventListener("click",openCau);
   $("cauBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   function cauFromHash(){ var h=location.hash; if(h!=="#cauciones"&&h!=="#cauciones/ok") return; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
