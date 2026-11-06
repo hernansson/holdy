@@ -2705,13 +2705,13 @@
       function fld(k,lbl,sub,unit){ var l=el("label","cau-lim"), t=el("span","pe-t",lbl); t.appendChild(el("small",null,sub)); l.appendChild(t); var w=el("span","sim-in"), i=document.createElement("input"); i.inputMode="decimal"; i.value=cauNew[k]; i.placeholder="—"; i.setAttribute("aria-label",lbl);
         i.addEventListener("input",function(){ cauNew[k]=i.value; }); w.appendChild(i); w.appendChild(el("i",null,unit)); l.appendChild(w); f.appendChild(l); return i; }
       var med=cauNew.med||0.29, ex=el("small",null,""), oex=el("small",null,"");
-      function cauEx(){ var a1=+cauNew.v1/100, lv=med*(1+a1); ex.textContent="Media "+(cauNew.med?"de hoy ":"de ejemplo ")+cauPct(med)+" → aviso en "+cauPct(lv);
-        oex.textContent="Con media "+cauPct(med)+" → oportunidad en "+cauPct(Math.max(med*2,med+(cauNew.m==="ARS"?0.2:0.02))); }
-      var aw=el("div","cau-sl"), ah=el("div","cau-lim"), at=el("span","pe-t","Aviso"); at.appendChild(el("small",null,"Si la tasa supera la media del día por:")); ah.appendChild(at);
+      function cauEx(){ var a1=+cauNew.v1/100, lv=med*(1+a1); ex.textContent="Media "+(cauNew.med?"de hoy ":"de ejemplo ")+cauPct(med)+" → avisos en "+cauPct(lv)+", "+cauPct(lv*(1+a1))+", "+cauPct(lv*(1+a1)*(1+a1))+"…";
+        oex.textContent="Con media "+cauPct(med)+" → oportunidad en "+cauPct(Math.max(med*2,med+(cauNew.m==="ARS"?0.1:0.01))); }
+      var aw=el("div","cau-sl"), ah=el("div","cau-lim"), at=el("span","pe-t","Aviso"); at.appendChild(el("small",null,"Cuando la tasa supera la media del día por este %, y otra vez cada vez que vuelve a subir ese % sobre el aviso anterior:")); ah.appendChild(at);
       var av=el("b","cau-slv",cauNew.v1+"%"); ah.appendChild(av); aw.appendChild(ah);
-      var inp=document.createElement("input"); inp.type="range"; inp.min="5"; inp.max="100"; inp.step="5"; inp.value=cauNew.v1; inp.setAttribute("aria-label","Aviso: % sobre la media");
+      var inp=document.createElement("input"); inp.type="range"; inp.min="5"; inp.max="50"; inp.step="5"; inp.value=cauNew.v1; inp.setAttribute("aria-label","Aviso: % sobre la media");
       inp.addEventListener("input",function(){ cauNew.v1=inp.value; av.textContent=inp.value+"%"; cauEx(); }); aw.appendChild(inp); aw.appendChild(ex); f.appendChild(aw);
-      var ow=el("div","cau-sl"), ot=el("span","pe-t","🚨 Oportunidad (siempre activa)"); ot.appendChild(el("small",null,"Una ráfaga de 20 notificaciones de una cuando la tasa llega al doble de la media y al menos 20 puntos más (2 en dólares)")); ow.appendChild(ot);
+      var ow=el("div","cau-sl"), ot=el("span","pe-t","🚨 Oportunidad (siempre activa)"); ot.appendChild(el("small",null,"Una ráfaga de 20 notificaciones de una cuando la tasa llega al doble de la media (y al menos 10 puntos más; 1 en dólares). Vuelve a sonar si se vuelve a duplicar")); ow.appendChild(ot);
       ow.appendChild(oex); f.appendChild(ow); cauEx();
       fld("vr","Nivel fijo (opcional)","Una notificación si llega a esta tasa, sin importar la media","% TNA");
       var nav=el("div","wz-nav"), cn=el("button",null,"Cancelar"), ok=el("button","primary","Guardar alarma"); cn.type=ok.type="button";
@@ -2723,7 +2723,7 @@
       setTimeout(function(){ try{ inp.focus(); }catch(e){} },50);
     } else if(pushA.cau.length<6){ var nb=el("button",null,"+ Nueva alarma"); nb.type="button";
       nb.addEventListener("click",function(){ if(!auth){ alert("Para las alarmas tenés que entrar con tu cuenta de Google."); return; } var t=cauData&&cauData.items.filter(function(x){ return x.m===cauM&&x.d<=7&&x.p>0; })[0];
-        cauNew={m:cauM,d:7,v1:"20",vr:"",med:t?t.p:0}; cauRender(); }); box.appendChild(nb); }
+        cauNew={m:cauM,d:7,v1:"10",vr:"",med:t?t.p:0}; cauRender(); }); box.appendChild(nb); }
     if(pushA.cau.length&&!pushA.on){ var st=el("div","ib-st","Para que la alarma te llegue al celu, activá los avisos en este celu."); box.appendChild(st);
       var pb=el("button","primary","Activar avisos"); pb.type="button"; pb.addEventListener("click",function(){ pb.disabled=true; pushEnable().then(function(){ return cauSaveAl(); }).then(cauRender).catch(function(e){ st.className="ib-st err"; st.textContent=(e&&e.message)||"No se pudo."; pb.disabled=false; }); }); box.appendChild(pb); }
     else if(pushA.cau.length&&!pushA.prefs.cau) box.appendChild(el("div","ib-st","Tenés apagados los avisos de cauciones en Avisos."));
@@ -2733,7 +2733,7 @@
           api("POST","/me/push/test",{kind:o[0]}).then(function(r){ return r.json(); }).then(function(j){ b.textContent=j&&j.sent?"Enviado ✓":"No llegó: desactivá y activá los avisos"; }).catch(function(){ b.textContent="No se pudo"; })
             .then(function(){ setTimeout(function(){ b.disabled=false; b.textContent=t0; },4000); }); }); tw.appendChild(b); });
       box.appendChild(tw); }
-    box.appendChild(el("div","sim-foot","El servidor de Holdy las revisa cada minuto (cada 15 segundos si algo se mueve), de lunes a viernes de 11 a 18, aunque tengas la app cerrada. Compara la última tasa de cada plazo con su media del día, solo en los plazos con volumen de verdad. Cada aviso llega una vez por día; la oportunidad vuelve a sonar si la tasa sube 20 puntos más."));
+    box.appendChild(el("div","sim-foot","El servidor de Holdy las revisa cada minuto desde las 10 hasta el cierre, y cada 10 segundos cuando una tasa se despega de la media, aunque tengas la app cerrada. Compara la última tasa de cada plazo con su media del día, solo en los plazos con volumen de verdad. Los feriados no avisa."));
   }
   function openCau(){ setScr(cauView); try{ history.pushState({scr:1},""); }catch(e){} cauRender(); if(!cauBusy&&(!cauData||Date.now()-cauData.at>60*1000)) cauLoad();
     if(auth) api("GET","/me/push").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j&&Array.isArray(j.cau)&&JSON.stringify(j.cau)!==JSON.stringify(pushA.cau)){ pushA.cau=j.cau; save(LS_PUSH,pushA); if(!cauView.hidden&&!cauNew) cauRender(); } }).catch(function(){}); }
