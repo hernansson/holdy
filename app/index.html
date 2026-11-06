@@ -2795,9 +2795,14 @@
       hero.appendChild(el("b","pos",cauPct(me.t)+" TNA"));
       hero.appendChild(el("span",null,(me.p>0?"Media del día: "+cauPct(me.p)+" · ":"")+(x.t>0?"cuando te avisó: "+cauPct(x.t):"")));
       live.appendChild(hero);
-      var g=el("div","cau-g"); rows.slice(0,6).forEach(function(y){ var r=el("div","cau-row"+(y===me?" best":"")), nm=el("span","rk-name",y.d+(y.d===1?" día":" días")); if(y.v) nm.appendChild(el("small",null,"vence "+cauDay(y.v))); r.appendChild(nm);
+      /* Además, solo los otros plazos que también pasan alguna de tus alarmas (tu aviso, la oportunidad o tu nivel fijo). */
+      var al=(pushA.cau||[]).filter(function(a){ return a.m===m; });
+      var also=rows.filter(function(y){ return y!==me&&al.some(function(a){ return y.d<=a.d&&((y.p>0&&(y.t>=y.p*2||(a.a1>0&&y.t>=y.p*(1+a.a1))))||(a.r>0&&y.t>=a.r)); }); });
+      if(!also.length) return;
+      live.appendChild(el("div","pe-k","También pasan tu límite"));
+      var g=el("div","cau-g"); also.forEach(function(y){ var r=el("div","cau-row"), nm=el("span","rk-name",y.d+(y.d===1?" día":" días")); if(y.v) nm.appendChild(el("small",null,"vence "+cauDay(y.v))); r.appendChild(nm);
         var rr=el("span","cau-r"); rr.appendChild(el("b",null,cauPct(y.t))); if(y.p>0) rr.appendChild(el("small",null,"media "+cauPct(y.p))); r.appendChild(rr); g.appendChild(r); });
-      live.appendChild(g); live.appendChild(el("div","cau-src",cauData.live?"Tasas de IOL, en vivo.":"BYMA, con unos 15 a 20 minutos de demora.")); }
+      live.appendChild(g); }
     notifSheet(n,function(box){ var row=cauBkRow("cau-bk-go big"); if(row){ row.classList.add("nt-bk"); box.appendChild(row); }
       box.appendChild(live); draw(); },"Ir a Cauciones",openCau);
     var d=$("dlgSimA"), mine=d.querySelector("h3").textContent;
