@@ -859,7 +859,13 @@ async function pushInbox(request, env, cors) {
 async function pushMe(request, env, url, user, h) {
   const key = "push:" + user.sub, rec = (await env.HOLDY_KV.get(key, "json")) || { subs: [], prefs: { close: 1, cob: 1, ib: 1 }, agenda: [] };
   if (url.pathname === "/me/push/test" && request.method === "POST") {
-    const n = await pushTo(env, user.sub, "test", { title: "Holdy", body: "Listo: los avisos llegan a este celu." });
+    let tb = {}; try { tb = JSON.parse(await request.text() || "{}"); } catch (e) { /* prueba común */ }
+    // Pruebas de las alarmas de cauciones (botones en la pantalla Cauciones): mismo camino que las de verdad.
+    const T = {
+      cau1: { title: "Caución a 37%: 25% sobre la media (PRUEBA)", body: "Caución en pesos a 1 día: 37% TNA. La media del día es 29,6%. Esto es una prueba.", tag: "cau1-test", u: "#cauciones", ri: 1, lv: 1 },
+      cauop: { title: "🚨 OPORTUNIDAD: caución 190% (PRUEBA)", body: "Caución en pesos a 6 días: 190% TNA, 542% más que la media del día (29,6%). Esto es una prueba.", tag: "cauop-test", u: "#cauciones", ri: 1, lv: 2, burst: 20 },
+    }[tb.kind];
+    const n = await pushTo(env, user.sub, "test", T || { title: "Holdy", body: "Listo: los avisos llegan a este celu." });
     return json({ ok: true, sent: n }, 200, h);
   }
   if (request.method === "GET") return json({ prefs: rec.prefs, n: rec.subs.length, cau: rec.cau || [] }, 200, h);

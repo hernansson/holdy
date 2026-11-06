@@ -251,6 +251,7 @@
   .cau-new{display:grid;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
   .cau-new .sim-in input{width:70px}
   .cau-lim{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .cau-test{display:flex;align-items:center;gap:8px;flex-wrap:wrap} .cau-test button{min-height:36px;padding:0 14px}
   .cau-sl{display:grid;gap:6px} .cau-sl > small{font-size:12.5px;color:var(--muted)} .cau-slv{font-size:18px;font-variant-numeric:tabular-nums}
   .cau-sl input[type=range]{width:100%;accent-color:var(--brand);min-height:28px;padding:0;box-shadow:none;border:0;background:transparent}
   #simView{max-width:860px;margin:0 auto;padding:14px 16px 16px;display:grid;gap:12px} #simView[hidden]{display:none} #simForm{display:grid; gap:12px} .sim-adjw{display:grid; gap:12px}
@@ -2726,6 +2727,12 @@
     if(pushA.cau.length&&!pushA.on){ var st=el("div","ib-st","Para que la alarma te llegue al celu, activá los avisos en este celu."); box.appendChild(st);
       var pb=el("button","primary","Activar avisos"); pb.type="button"; pb.addEventListener("click",function(){ pb.disabled=true; pushEnable().then(function(){ return cauSaveAl(); }).then(cauRender).catch(function(e){ st.className="ib-st err"; st.textContent=(e&&e.message)||"No se pudo."; pb.disabled=false; }); }); box.appendChild(pb); }
     else if(pushA.cau.length&&!pushA.prefs.cau) box.appendChild(el("div","ib-st","Tenés apagados los avisos de cauciones en Avisos."));
+    if(auth){ var tw=el("div","cau-test"); tw.appendChild(el("span","fl","Probar cómo llegan:"));
+      [["cau1","Aviso"],["cauop","🚨 Oportunidad"]].forEach(function(o){ var b=el("button",null,o[1]); b.type="button";
+        b.addEventListener("click",function(){ if(!pushA.on){ alert("Primero activá los avisos en este celu."); return; } b.disabled=true; var t0=b.textContent; b.textContent="Enviando…";
+          api("POST","/me/push/test",{kind:o[0]}).then(function(r){ return r.json(); }).then(function(j){ b.textContent=j&&j.sent?"Enviado ✓":"No llegó: desactivá y activá los avisos"; }).catch(function(){ b.textContent="No se pudo"; })
+            .then(function(){ setTimeout(function(){ b.disabled=false; b.textContent=t0; },4000); }); }); tw.appendChild(b); });
+      box.appendChild(tw); }
     box.appendChild(el("div","sim-foot","El servidor de Holdy las revisa cada minuto (cada 15 segundos si algo se mueve), de lunes a viernes de 11 a 18, aunque tengas la app cerrada. Compara la última tasa de cada plazo con su media del día, solo en los plazos con volumen de verdad. Cada aviso llega una vez por día; la oportunidad vuelve a sonar si la tasa sube 20 puntos más."));
   }
   function openCau(){ setScr(cauView); try{ history.pushState({scr:1},""); }catch(e){} cauRender(); if(!cauBusy&&(!cauData||Date.now()-cauData.at>60*1000)) cauLoad();
