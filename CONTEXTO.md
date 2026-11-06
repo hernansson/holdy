@@ -26,7 +26,7 @@ PWA (app web instalable) para seguir una cartera de inversiones en **dólares**:
 - **App:** https://holdy.pages.dev/app/ · **landing:** https://holdy.pages.dev/
 - **Repo:** https://github.com/hernansson/holdy (rama `main`)
 - **Worker (servidor):** `https://lingering-wind-a188.hernan-ss.workers.dev` (nombre `lingering-wind-a188`)
-- Espejo viejo todavía activo: https://hernansson.github.io/holdy/
+- **Espejo de GitHub Pages: https://hernansson.github.io/holdy/ — ahí tienen instalada la app Hernán y sus amigos** (decidido mantener las dos direcciones, 6/11/2026). GitHub Pages cancela una publicación si llega otra push antes de terminar: **entre versiones, esperar a que termine "pages build and deployment"** y confirmar que `hernansson.github.io/holdy/app/sw.js` tiene el CACHE nuevo. Si se traba, relanzar la corrida de la última versión (nunca una vieja: pisa a la nueva).
 - `GUIA.md` es una guía vieja (de cuando todo era manual). **Este archivo la reemplaza.**
 
 ---
