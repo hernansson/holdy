@@ -916,8 +916,8 @@ async function pushClose(env) {
 const CAU_URL = "https://open.bymadata.com.ar/vanoms-be-core/rest/api/bymadata/free/cauciones";
 const CAU_M = { ARS: "Pesos", USD: "Dólar MEP", EXT: "Dólar cable" };
 let cauMem = null;
-async function cauFetch() {
-  if (cauMem && Date.now() - cauMem.at < 60 * 1000) return cauMem;
+async function cauFetch(force) {
+  if (!force && cauMem && Date.now() - cauMem.at < 60 * 1000) return cauMem;
   const r = await fetch(CAU_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; Holdy/1.0)" }, body: "{}" });
   if (!r.ok) throw new Error("byma_" + r.status);
   const raw = await r.json(), list = Array.isArray(raw) ? raw : (raw && raw.data) || [];
@@ -956,21 +956,36 @@ async function cauCron(env, now) {
   now = now || Date.now();
   const idx = (await env.HOLDY_KV.get("cauidx", "json")) || {}, subs = Object.keys(idx); if (!subs.length) return;
   let c; try { c = await cauFetch(); } catch (e) { return; }
-  const art = new Date(now - 3 * 3600 * 1000), today = art.toISOString().slice(0, 10), live = c.items.filter((x) => x.t > 0);
+  const art = new Date(now - 3 * 3600 * 1000), today = art.toISOString().slice(0, 10);
+  let live = c.items.filter((x) => x.t > 0);
   // Solo con datos de hoy: la última operación del panel tiene que ser de la última hora (en un feriado BYMA deja el panel del día anterior).
   const nowMin = art.getUTCHours() * 60 + art.getUTCMinutes(), lastMin = Math.max(-1, ...live.map((x) => (x.h ? +x.h.slice(0, 2) * 60 + +x.h.slice(3, 5) : -1)));
   if (lastMin < 0 || lastMin > nowMin + 2 || nowMin - lastMin > 60) return;
   // Fotos de las tasas cada 5 minutos (solo si alguien tiene alarma de salto) para ver cuánto subió en los últimos 15.
-  let snaps = [];
-  if (subs.some((s) => idx[s].some((a) => a.j > 0))) {
-    snaps = ((await env.HOLDY_KV.get("causnap", "json")) || []).filter((x) => now - x.at < 40 * 60 * 1000);
-    if (new Date(now).getUTCMinutes() % 5 === 0 && !snaps.some((x) => now - x.at < 4 * 60 * 1000)) {
-      const r = {}; live.forEach((x) => { r[x.s] = x.t; });
-      snaps.push({ at: now, r }); await env.HOLDY_KV.put("causnap", JSON.stringify(snaps.slice(-8)), { expirationTtl: 86400 });
-    }
+  // También sirven para el modo rápido: si algo se mueve mucho, se consulta cada 15 segundos.
+  let snaps = ((await env.HOLDY_KV.get("causnap", "json")) || []).filter((x) => now - x.at < 40 * 60 * 1000);
+  if (new Date(now).getUTCMinutes() % 5 === 0 && !snaps.some((x) => now - x.at < 4 * 60 * 1000)) {
+    const r = {}; live.forEach((x) => { r[x.s] = x.t; });
+    snaps.push({ at: now, r }); await env.HOLDY_KV.put("causnap", JSON.stringify(snaps.slice(-8)), { expirationTtl: 86400 });
   }
   const before = (sym) => { let v = null; for (const x of snaps) if (now - x.at >= (SNAP_MIN - 2) * 60 * 1000 && now - x.at <= (SNAP_MIN + 10) * 60 * 1000 && x.r[sym] > 0) { v = v === null ? x.r[sym] : Math.min(v, x.r[sym]); } return v; };
   const plazo = (x) => x.d + (x.d === 1 ? " día" : " días");
+  // Modo rápido: alguna tasa vigilada subió 10 puntos o más contra la foto de hace 3 a 10 minutos, o está cerca (85%) de un límite.
+  const recent = (sym) => { let v = null; for (const x of snaps) if (now - x.at >= 3 * 60 * 1000 && now - x.at <= 10 * 60 * 1000 && x.r[sym] > 0) v = x.r[sym]; return v; };
+  const hot = () => subs.some((sub) => idx[sub].some((a) => live.some((x) => {
+    if (x.m !== a.m || x.d > a.d) return false;
+    const b = recent(x.s); if (b !== null && x.t - b >= 0.1) return true;
+    return [a.r, a.r2].some((thr) => thr > 0 && x.t >= thr * 0.85 && x.t < thr);
+  })));
+  await cauEval(env, idx, subs, live, now, today, before, plazo);
+  for (let k = 1; k <= 3 && hot(); k++) {
+    await new Promise((r) => setTimeout(r, 15000));
+    try { c = await cauFetch(true); } catch (e) { break; }
+    live = c.items.filter((x) => x.t > 0);
+    await cauEval(env, idx, subs, live, now, today, before, plazo);
+  }
+}
+async function cauEval(env, idx, subs, live, now, today, before, plazo) {
   for (const sub of subs) {
     let last = null, changed = false;
     const getLast = async () => last || (last = (await env.HOLDY_KV.get("caul:" + sub, "json")) || {});
@@ -984,10 +999,10 @@ async function cauCron(env, now) {
         const L = await getLast(), s2 = (L[a.id] && L[a.id].s2) || {};
         // Nuevo día (con una operación distinta a la última que sonó: en un feriado BYMA repite el dato viejo) o, ya vista, si sube 20 puntos más.
         const fresh = (s2.day !== today && s2.fp !== fp) || (s2.day === today && s2.ack && top.t >= (s2.peak || 0) + 0.2);
-        if (fresh || (s2.day === today && !s2.ack && (s2.n || 0) < 15)) {
+        if (fresh || (s2.day === today && !s2.ack && (s2.n || 0) < 15 && Date.now() - (s2.at || 0) > 50 * 1000)) {
           const n = fresh ? 1 : (s2.n || 0) + 1;
           await pushTo(env, sub, "cau", { title: "🚨 ALARMA: caución " + pctAR(top.t), body: name + ": " + pctAR(top.t) + " TNA" + hora + ". Superó tu alarma fuerte de " + pctAR(a.r2) + "." + prom + " Tocá para frenarla.", tag: "cau2-" + a.id, u: "#cauciones/ok", ri: 1, lv: 2 });
-          L[a.id] = { ...(L[a.id] || {}), day: today, fp, s2: { day: today, n, fp, ack: fresh ? 0 : s2.ack, peak: Math.max(top.t, fresh ? 0 : s2.peak || 0) } }; changed = true;
+          L[a.id] = { ...(L[a.id] || {}), day: today, fp, s2: { day: today, n, fp, at: Date.now(), ack: fresh ? 0 : s2.ack, peak: Math.max(top.t, fresh ? 0 : s2.peak || 0) } }; changed = true;
         }
         continue; // si sonó la fuerte, el aviso común sobra
       }
