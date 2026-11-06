@@ -235,7 +235,7 @@
   #cauView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #cauView[hidden]{display:none}
   #cauBody{display:grid;gap:10px}
   .nt-b{font-size:16px;line-height:1.45;margin:2px 2px 12px} .nt-s{font-size:13.5px;color:var(--muted);margin:0 2px 10px;line-height:1.4} .nt-live{display:grid;gap:10px}
-  .cau-bk{display:grid;gap:8px} .cau-bk .linkbtn{justify-self:start} .cau-bk-go{display:flex;align-items:center;justify-content:center;min-height:46px;border-radius:12px;background:var(--brand);color:var(--brand-ink);font-weight:700;font-size:16px;text-decoration:none} .nt-bk{margin-bottom:12px} .cau-bk-go.big{min-height:52px;font-size:17px} .cau-test button.on{border-color:var(--brand);color:var(--brand)}
+  .cau-bk{display:grid;gap:8px} .cau-bk .linkbtn{justify-self:start} .cau-bk-go{display:flex;align-items:center;justify-content:center;min-height:46px;border-radius:12px;background:var(--brand);color:var(--brand-ink);font-weight:700;font-size:16px;text-decoration:none} .nt-bk{margin-bottom:12px} .cau-bk-row{display:flex;gap:8px} .cau-bk-row .cau-bk-go{flex:1 1 0;padding:0 8px;white-space:nowrap;min-width:0} .cau-bk-row .cau-bk-go:not(:only-child){font-size:15px} .cau-bk-go.big{min-height:52px;font-size:17px} .cau-test button.on{border-color:var(--brand);color:var(--brand)}
   .cau-src{font-size:12.5px;color:var(--muted);line-height:1.4;padding:0 2px}
   .cau-hero{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:2px}
   .cau-hero .cau-k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
@@ -2675,9 +2675,14 @@
     if(/Android/i.test(ua)) return "intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package="+b[1]+";S.browser_fallback_url="+encodeURIComponent("https://play.google.com/store/apps/details?id="+b[1])+";end";
     if(/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)) return "https://apps.apple.com/ar/app/id"+b[2];
     return b[3]; }
-  function cauBkBtn(cls){ var a=el("a",cls||"cau-bk-go","Abrir "+CAU_BK[cauBk][0]+" ↗"); a.href=cauBkUrl(cauBk); a.target="_blank"; a.rel="noopener"; return a; }
-  function cauBkEl(onChange){ var w=el("div","cau-bk");
-    if(cauBk&&CAU_BK[cauBk]&&!cauBkPick){ w.appendChild(cauBkBtn()); var ch=el("button","linkbtn","Cambiar broker"); ch.type="button"; ch.addEventListener("click",function(){ cauBkPick=true; onChange(); }); w.appendChild(ch); return w; }
+  /* Tus brokers argentinos: los de tus carteras (IOL, Balanz). Si no tenés ninguno, el que elegiste acá. */
+  function cauBks(){ var seen={}, out=[];
+    ((profData&&profData.profiles)||[]).forEach(function(pr){ if(pr.demo||pr.readOnly) return; (pr.positions||[]).concat(pr.closed||[]).forEach(function(p){ var k={IOL:"iol",Balanz:"balanz"}[p.broker]; if(k&&!seen[k]){ seen[k]=1; out.push(k); } }); });
+    if(!out.length&&cauBk&&CAU_BK[cauBk]) out.push(cauBk); return out; }
+  function cauBkBtn(k,cls){ var a=el("a",cls||"cau-bk-go","Abrir "+CAU_BK[k][0]+" ↗"); a.href=cauBkUrl(k); a.target="_blank"; a.rel="noopener"; return a; }
+  function cauBkRow(cls){ var l=cauBks(); if(!l.length) return null; var w=el("div","cau-bk-row"); l.forEach(function(k){ w.appendChild(cauBkBtn(k,cls)); }); return w; }
+  function cauBkEl(onChange){ var w=el("div","cau-bk"), row=cauBkRow();
+    if(row&&!cauBkPick){ w.appendChild(row); return w; }
     w.appendChild(el("span","pe-t","¿En qué broker operás? Te dejo un botón para abrir su app y tomar la caución.")); var g=el("div","cau-test");
     Object.keys(CAU_BK).forEach(function(k){ var b=el("button",k===cauBk?"on":"",CAU_BK[k][0]); b.type="button"; b.addEventListener("click",function(){ cauBk=k; cauBkPick=false; save("cartera.cau.bk",k); onChange(); }); g.appendChild(b); });
     w.appendChild(g); return w; }
@@ -2793,10 +2798,10 @@
       var g=el("div","cau-g"); rows.slice(0,6).forEach(function(y){ var r=el("div","cau-row"+(y===me?" best":"")), nm=el("span","rk-name",y.d+(y.d===1?" día":" días")); if(y.v) nm.appendChild(el("small",null,"vence "+cauDay(y.v))); r.appendChild(nm);
         var rr=el("span","cau-r"); rr.appendChild(el("b",null,cauPct(y.t))); if(y.p>0) rr.appendChild(el("small",null,"media "+cauPct(y.p))); r.appendChild(rr); g.appendChild(r); });
       live.appendChild(g); live.appendChild(el("div","cau-src",cauData.live?"Tasas de IOL, en vivo.":"BYMA, con unos 15 a 20 minutos de demora.")); }
-    notifSheet(n,function(box){ if(cauBk&&CAU_BK[cauBk]){ var bw=el("div","cau-bk nt-bk"); bw.appendChild(cauBkBtn("cau-bk-go big")); box.appendChild(bw); }
+    notifSheet(n,function(box){ var row=cauBkRow("cau-bk-go big"); if(row){ row.classList.add("nt-bk"); box.appendChild(row); }
       box.appendChild(live); draw(); },"Ir a Cauciones",openCau);
     var d=$("dlgSimA"), mine=d.querySelector("h3").textContent;
-    if(cauBk&&CAU_BK[cauBk]){ var so=d.querySelector(".sim-ok"); if(so) so.classList.remove("primary"); }
+    if(cauBks().length){ var so=d.querySelector(".sim-ok"); if(so) so.classList.remove("primary"); }
     function redraw(){ if(d.open&&d.querySelector("h3").textContent===mine) draw(); }
     fetch(PROXY_URL+"/cauciones",{cache:"no-store"}).then(function(r){ return r.json(); }).then(function(j){ if(!j||!Array.isArray(j.items)) throw 0; cauData=j; cauErr=""; }).catch(function(){ if(!cauData) cauErr="No pude traer las tasas de ahora."; }).then(redraw);
   }
@@ -7046,7 +7051,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
-    {v:"1.43.0", t:"Abrí tu broker desde Cauciones", d:["Elegí en qué broker operás (IOL, Balanz, Cocos, Bull Market o PPI) y te queda un botón para abrir su app y tomar la caución.","También aparece en el aviso de la alarma."]},
+    {v:"1.43.0", t:"Abrí tu broker desde Cauciones", d:["Un botón para abrir la app de tu broker (IOL o Balanz, según tus carteras) y tomar la caución.","También aparece en el aviso de la alarma."]},
     {v:"1.42.0", t:"Tocar un aviso te muestra lo importante", d:["Al abrir Holdy desde una notificación aparece una hoja con lo que te avisó.","En las de cauciones, ves la tasa de ahora, la media y los demás plazos, con un botón para ir a Cauciones."]},
     {v:"1.40.0", t:"Cauciones y alarma de tasa", d:["En el menú, “Cauciones”: las tasas de hoy en pesos, MEP y cable para cada plazo, con la mejor arriba.","Poné una alarma y te llega un aviso al celu cuando una tasa supera tu límite."]},
     {v:"1.39.9", t:"Mejor en la compu y el Fold", d:["En la compu, la ganancia y “Hoy” van como en el celu: sin “+” y con “$”.","En el Fold abierto, cada posición muestra cuánto pesa en tu cartera."]},
