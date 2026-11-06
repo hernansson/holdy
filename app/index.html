@@ -2677,7 +2677,7 @@
         var best=rows.reduce(function(a,x){ var r=old?x.c:x.t; return !a||r>(old?a.c:a.t)?x:a; },null), br=old?best.c:best.t;
         var hero=el("div","cau-hero"); hero.appendChild(el("span","cau-k",old?"Mejor tasa del último cierre":"Mejor tasa ahora"));
         hero.appendChild(el("b","pos",cauPct(br)+" TNA"));
-        hero.appendChild(el("span",null,best.d+(best.d===1?" día":" días")+(best.v?" · vence "+cauDay(best.v):"")+(best.h&&!old?" · "+best.h.slice(0,5):"")));
+        hero.appendChild(el("span",null,best.d+(best.d===1?" día":" días")+(best.v?" · vence "+cauDay(best.v):"")+(best.h&&!old&&!cauData.live?" · "+best.h.slice(0,5):"")));
         if(!old&&best.p>0&&Math.abs(best.p-best.t)>0.02) hero.appendChild(el("span",null,"Promedio del día en ese plazo: "+cauPct(best.p)+". Una sola operación puede mover mucho la última tasa."));
         box.appendChild(hero);
         var g=el("div","cau-g");
@@ -2685,7 +2685,7 @@
           var rr=el("span","cau-r"); rr.appendChild(el("b",null,cauPct(old?x.c:x.t))); if(!old&&x.p>0) rr.appendChild(el("small",null,"prom. "+cauPct(x.p))); r.appendChild(rr); g.appendChild(r); });
         box.appendChild(g);
       }
-      box.appendChild(el("div","cau-src",(old?"Cierre de la última rueda":"Última operación"+(last?" "+last.slice(0,5)+cauAgo(last):""))+(cauData.live?" · IOL, en vivo":" · BYMA, con unos 15 a 20 minutos de demora")+". Tasa nominal anual (TNA)."));
+      box.appendChild(el("div","cau-src",(cauData.live?"Tasas de IOL, en vivo (última tasa de cada plazo; un feriado muestra la del último día hábil)":(old?"Cierre de la última rueda":"Última operación"+(last?" "+last.slice(0,5)+cauAgo(last):""))+" · BYMA, con unos 15 a 20 minutos de demora")+". Tasa nominal anual (TNA)."));
     }
     // Alarmas
     box.appendChild(el("div","pe-k","Alarmas"));
