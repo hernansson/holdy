@@ -837,7 +837,7 @@ async function pushTo(env, sub, kind, msg, once, ttl) {
   let sent = 0; const keep = [];
   for (const s of rec.subs) {
     const ik = "pin:" + await sha256(s.ep), box = (await env.HOLDY_KV.get(ik, "json")) || [];
-    box.push({ ...msg, at: Date.now() }); await env.HOLDY_KV.put(ik, JSON.stringify(box.slice(-5)), { expirationTtl: 3 * 86400 });
+    box.push({ k: kind, ...msg, at: Date.now() }); await env.HOLDY_KV.put(ik, JSON.stringify(box.slice(-5)), { expirationTtl: 3 * 86400 });
     try {
       const r = await fetch(s.ep, { method: "POST", headers: { TTL: "43200", Urgency: "high", Authorization: await vapidAuth(env, s.ep), "Content-Length": "0" } });
       if (r.status === 404 || r.status === 410) continue; // suscripción vencida: se borra
@@ -862,8 +862,8 @@ async function pushMe(request, env, url, user, h) {
     let tb = {}; try { tb = JSON.parse(await request.text() || "{}"); } catch (e) { /* prueba común */ }
     // Pruebas de las alarmas de cauciones (botones en la pantalla Cauciones): mismo camino que las de verdad.
     const T = {
-      cau1: { title: "Caución a 37%: 25% sobre la media (PRUEBA)", body: "Caución en pesos a 1 día: 37% TNA. La media del día es 29,6%. Esto es una prueba.", tag: "cau1-test", u: "#cauciones", ri: 1, lv: 1 },
-      cauop: { title: "🚨 OPORTUNIDAD: caución 190% (PRUEBA)", body: "Caución en pesos a 6 días: 190% TNA, 542% más que la media del día (29,6%). Esto es una prueba.", tag: "cauop-test", u: "#cauciones", ri: 1, lv: 2, burst: 20 },
+      cau1: { title: "Caución a 37%: 25% sobre la media (PRUEBA)", body: "Caución en pesos a 1 día: 37% TNA. La media del día es 29,6%. Esto es una prueba.", tag: "cau1-test", u: "#cauciones", ri: 1, lv: 1, k: "cau", x: { m: "ARS", d: 1, t: 0.37, p: 0.296 } },
+      cauop: { title: "🚨 OPORTUNIDAD: caución 190% (PRUEBA)", body: "Caución en pesos a 6 días: 190% TNA, 542% más que la media del día (29,6%). Esto es una prueba.", tag: "cauop-test", u: "#cauciones", ri: 1, lv: 2, burst: 20, k: "cau", x: { m: "ARS", d: 6, t: 1.9, p: 0.296 } },
     }[tb.kind];
     if (tb.kind === "call") {
       const tel = await env.HOLDY_KV.get("cautel:" + user.sub);
@@ -1163,7 +1163,7 @@ async function cauEval(env, idx, subs, live, now, today, plazo) {
         if (ratio >= OPP_X && pts >= OPP_PTS[a.m]) {
           const L = await getLast(), o = (L[a.id] && L[a.id].op) || {};
           if (o.day !== today || best.t >= (o.peak || 0) * 2) {
-            await pushTo(env, sub, "cau", { title: "🚨 OPORTUNIDAD: caución " + pctAR(best.t), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + ", " + Math.round((ratio - 1) * 100) + "% más que la media del día (" + med(best) + ").", tag: "cauop-" + a.id, u: "#cauciones", ri: 1, lv: 2, burst: 20 });
+            await pushTo(env, sub, "cau", { title: "🚨 OPORTUNIDAD: caución " + pctAR(best.t), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + ", " + Math.round((ratio - 1) * 100) + "% más que la media del día (" + med(best) + ").", tag: "cauop-" + a.id, u: "#cauciones", ri: 1, lv: 2, burst: 20, x: { m: a.m, d: best.d, t: best.t, p: best.p } });
             L[a.id] = { ...(L[a.id] || {}), op: { day: today, peak: best.t } }; changed = true; opNow = true;
             const r0 = (v) => (v * 100).toLocaleString("es-AR", { maximumFractionDigits: a.m === "ARS" ? 0 : 1 });
             const lugar = "caución en " + CAU_M[a.m].toLowerCase() + " a " + plazo(best) + ", " + r0(best.t) + " por ciento";
@@ -1178,7 +1178,7 @@ async function cauEval(env, idx, subs, live, now, today, plazo) {
             if (k > kPrev && opNow) { L[a.id] = { ...(L[a.id] || {}), lad: { day: today, k } }; } // ya sonó la oportunidad: el aviso sobra
             else if (k > kPrev) {
               const lvl = best.p * Math.pow(1 + a.a1, k), nxt = best.p * Math.pow(1 + a.a1, k + 1);
-              await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(best.t) + (kPrev === 0 ? ": pasó tu aviso" : ": sigue subiendo"), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + ". Media del día: " + med(best) + ". Pasó " + pctAR(lvl) + "; el próximo aviso, en " + pctAR(nxt) + ".", tag: "cau1-" + a.id + "-" + k, u: "#cauciones", ri: 1, lv: 1 });
+              await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(best.t) + (kPrev === 0 ? ": pasó tu aviso" : ": sigue subiendo"), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + ". Media del día: " + med(best) + ". Pasó " + pctAR(lvl) + "; el próximo aviso, en " + pctAR(nxt) + ".", tag: "cau1-" + a.id + "-" + k, u: "#cauciones", ri: 1, lv: 1, x: { m: a.m, d: best.d, t: best.t, p: best.p } });
               L[a.id] = { ...(L[a.id] || {}), lad: { day: today, k } }; changed = true;
             }
           }
@@ -1189,7 +1189,7 @@ async function cauEval(env, idx, subs, live, now, today, plazo) {
       if (a.r > 0 && top.t >= a.r) {
         const L = await getLast(), l = L[a.id] || {};
         if (l.day !== today) {
-          await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(top.t), body: nm(top) + ": " + pctAR(top.t) + " TNA" + hr(top) + ". Llegó a tu nivel de " + pctAR(a.r) + ".", tag: "cau-" + a.id, u: "#cauciones", lv: 1 });
+          await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(top.t), body: nm(top) + ": " + pctAR(top.t) + " TNA" + hr(top) + ". Llegó a tu nivel de " + pctAR(a.r) + ".", tag: "cau-" + a.id, u: "#cauciones", lv: 1, x: { m: a.m, d: top.d, t: top.t, p: top.p } });
           L[a.id] = { ...l, day: today }; changed = true;
         }
       }

@@ -234,6 +234,7 @@
   #pushBody > button{min-height:46px}
   #cauView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #cauView[hidden]{display:none}
   #cauBody{display:grid;gap:10px}
+  .nt-b{font-size:16px;line-height:1.45;margin:2px 2px 12px} .nt-s{font-size:13.5px;color:var(--muted);margin:0 2px 10px;line-height:1.4} .nt-live{display:grid;gap:10px}
   .cau-src{font-size:12.5px;color:var(--muted);line-height:1.4;padding:0 2px}
   .cau-hero{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:2px}
   .cau-hero .cau-k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
@@ -2752,6 +2753,55 @@
   function cauFromHash(){ var h=location.hash; if(h!=="#cauciones"&&h!=="#cauciones/ok") return; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
     setTimeout(openCau,300); }
   window.addEventListener("hashchange",cauFromHash); setTimeout(cauFromHash,800);
+
+  /* ---------- Al tocar un aviso: la app abre con una hoja de abajo con lo necesario de ese aviso ----------
+     El service worker abre #n=<aviso> (k: tipo, t/b: título y texto, u: a dónde lleva, x: datos). */
+  function notifSheet(n,fill,btn,go){
+    var d=$("dlgSimA"), box=$("simABody"); if(d.open) d.close(); d._fx=null; d._day=0; d.classList.remove("sim-live"); var o2=d.querySelector(".sim-ok"); if(o2) o2.remove();
+    d.querySelector("h3").textContent=n.t||"Holdy"; box.textContent=""; box.scrollTop=0;
+    if(n.b) box.appendChild(el("div","nt-b",n.b));
+    if(fill) fill(box);
+    var ok=el("button","primary sim-ok",btn||"Entendido"); ok.type="button"; ok.addEventListener("click",function(){ d.close(); if(go) go(); }); box.parentNode.appendChild(ok);
+    d.showModal(); if(document.activeElement) document.activeElement.blur();
+  }
+  function cauNotif(n){
+    var x=n.x||{}, m=CAU_M[x.m]?x.m:(/cable/i.test(n.b||"")?"EXT":(/d[oó]lar|MEP/i.test(n.b||"")?"USD":"ARS")), live=el("div","nt-live");
+    function draw(){ live.textContent="";
+      if(!cauData){ live.appendChild(el("div","ib-st"+(cauErr?" err":" busy"),cauErr||"Trayendo las tasas de ahora…")); return; }
+      var rows=cauData.items.filter(function(y){ return y.m===m&&y.t>0; }).sort(function(a,b){ return a.d-b.d; });
+      if(!rows.length){ live.appendChild(el("div","ib-st","Ahora no hay cauciones en "+CAU_ML[m]+".")); return; }
+      var me=rows.filter(function(y){ return y.d===x.d; })[0]||rows.reduce(function(a,y){ return !a||y.t>a.t?y:a; },null);
+      var hero=el("div","cau-hero"); hero.appendChild(el("span","cau-k","Ahora · "+CAU_ML[m]+" a "+me.d+(me.d===1?" día":" días")));
+      hero.appendChild(el("b","pos",cauPct(me.t)+" TNA"));
+      hero.appendChild(el("span",null,(me.p>0?"Media del día: "+cauPct(me.p)+" · ":"")+(x.t>0?"cuando te avisó: "+cauPct(x.t):"")));
+      live.appendChild(hero);
+      var g=el("div","cau-g"); rows.slice(0,6).forEach(function(y){ var r=el("div","cau-row"+(y===me?" best":"")), nm=el("span","rk-name",y.d+(y.d===1?" día":" días")); if(y.v) nm.appendChild(el("small",null,"vence "+cauDay(y.v))); r.appendChild(nm);
+        var rr=el("span","cau-r"); rr.appendChild(el("b",null,cauPct(y.t))); if(y.p>0) rr.appendChild(el("small",null,"media "+cauPct(y.p))); r.appendChild(rr); g.appendChild(r); });
+      live.appendChild(g); live.appendChild(el("div","cau-src",cauData.live?"Tasas de IOL, en vivo.":"BYMA, con unos 15 a 20 minutos de demora.")); }
+    notifSheet(n,function(box){ box.appendChild(live); draw(); },"Ir a Cauciones",openCau);
+    var d=$("dlgSimA"), mine=d.querySelector("h3").textContent;
+    function redraw(){ if(d.open&&d.querySelector("h3").textContent===mine) draw(); }
+    fetch(PROXY_URL+"/cauciones",{cache:"no-store"}).then(function(r){ return r.json(); }).then(function(j){ if(!j||!Array.isArray(j.items)) throw 0; cauData=j; cauErr=""; }).catch(function(){ if(!cauData) cauErr="No pude traer las tasas de ahora."; }).then(redraw);
+  }
+  function notifOpen(n){
+    var u=n.u||"";
+    if(u==="#hoy"&&auth&&positions.length) return dayOpen();
+    if(/^#feed\//.test(u)){ location.hash=u; return; } /* comentario: abre esa conversación (también es una hoja) */
+    if(n.k==="cau"||u==="#cauciones") return cauNotif(n);
+    if(n.k==="fr"||u==="#feed") return notifSheet(n,null,"Ver en Amigos",openFeed);
+    if(n.k==="cob") return notifSheet(n,function(box){ box.appendChild(el("div","nt-s","Cupones de bonos y dividendos estimados de tus acciones. Se cobran en la cuenta del broker.")); },"Ver próximos cobros",function(){ cobView="prox"; drawCob(); var c=$("dlgCob"); if(!c.open){ c.showModal(); if(document.activeElement) document.activeElement.blur(); } });
+    if(n.k==="ib"&&n.g==="ib-err") return notifSheet(n,null,"Revisar la conexión con IBKR",function(){ openIb(); });
+    if(n.k==="ib") return notifSheet(n,function(box){ box.appendChild(el("div","nt-s","Ya están cargados en tu cartera.")); },"Ver mi cartera",null);
+    if(n.k==="close") return notifSheet(n,null,"Entendido",null);
+    notifSheet(n,null,"Entendido",null);
+  }
+  function notifFromHash(){ var mm=/^#n=(.+)$/.exec(location.hash); if(!mm) return; var n=null; try{ n=JSON.parse(decodeURIComponent(mm[1])); }catch(e){}
+    try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+    if(!n||typeof n!=="object") return;
+    var tries=0; (function go(){ /* espera a que la app esté lista (bloqueo con huella, otra pantalla cargando) */
+      if(document.documentElement.classList.contains("locked")&&tries++<120) return setTimeout(go,500);
+      notifOpen(n); })(); }
+  window.addEventListener("hashchange",notifFromHash); setTimeout(notifFromHash,800);
 
 
   // ---------- Proyección: cuánto tendrías al retirarte y cuánto podrías gastar por mes ----------
@@ -6979,6 +7029,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.42.0", t:"Tocar un aviso te muestra lo importante", d:["Al abrir Holdy desde una notificación aparece una hoja con lo que te avisó.","En las de cauciones, ves la tasa de ahora, la media y los demás plazos, con un botón para ir a Cauciones."]},
     {v:"1.40.0", t:"Cauciones y alarma de tasa", d:["En el menú, “Cauciones”: las tasas de hoy en pesos, MEP y cable para cada plazo, con la mejor arriba.","Poné una alarma y te llega un aviso al celu cuando una tasa supera tu límite."]},
     {v:"1.39.9", t:"Mejor en la compu y el Fold", d:["En la compu, la ganancia y “Hoy” van como en el celu: sin “+” y con “$”.","En el Fold abierto, cada posición muestra cuánto pesa en tu cartera."]},
     {v:"1.39.8", t:"Resumen más limpio", d:["La ganancia al lado del total y “Hoy” van sin “+” y con “$” en vez de “US$”.","“Hoy” vuelve a mostrar el monto, además del %."]},

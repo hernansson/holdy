@@ -31,6 +31,8 @@ self.addEventListener("fetch", (e) => {
 });
 
 // Avisos (Web Push): el aviso llega sin texto; se lo pedimos al servidor con esta suscripción y se muestra.
+// Al tocar un aviso, la app abre con lo que decía (#n=…) y muestra una hoja con lo necesario.
+const link = (m) => "./#n=" + encodeURIComponent(JSON.stringify({ k: m.k || "", t: m.title || "", b: m.body || "", u: m.u || "", g: m.tag || "", x: m.x || null }));
 const PUSH_BASE = "https://lingering-wind-a188.hernan-ss.workers.dev";
 self.addEventListener("push", (e) => {
   e.waitUntil((async () => {
@@ -45,12 +47,12 @@ self.addEventListener("push", (e) => {
       if (!(m.burst > 1)) continue;
       const n = Math.min(m.burst, 25);
       for (let i = 1; i <= n; i++) {
-        await self.registration.showNotification(i === 1 ? m.title : "🚨 OPORTUNIDAD " + i + "/" + n, { body: m.body || "", tag: (m.tag || "op") + "-" + i, renotify: true, silent: false, requireInteraction: i === 1, vibrate: [500, 150, 500, 150, 900], icon: "icon-192.png", badge: "badge-96.png", data: { url: "./" + (m.u || "") } });
+        await self.registration.showNotification(i === 1 ? m.title : "🚨 OPORTUNIDAD " + i + "/" + n, { body: m.body || "", tag: (m.tag || "op") + "-" + i, renotify: true, silent: false, requireInteraction: i === 1, vibrate: [500, 150, 500, 150, 900], icon: "icon-192.png", badge: "badge-96.png", data: { url: link(m) } });
         await new Promise((r) => setTimeout(r, 700));
       }
     }
     msgs = msgs.filter((m) => !(m.burst > 1));
-    await Promise.all(msgs.slice(-3).map((m) => self.registration.showNotification(m.title || "Holdy", { body: m.body || "", tag: m.tag || undefined, renotify: !!m.tag, silent: false, requireInteraction: !!m.ri, vibrate: m.lv === 2 ? [600, 200, 600, 200, 600, 200, 600, 200, 1200] : m.lv === 1 ? [300, 120, 300, 120, 300] : [180, 90, 180], icon: "icon-192.png", badge: "badge-96.png", data: { url: "./" + (m.u || "") } })));
+    await Promise.all(msgs.slice(-3).map((m) => self.registration.showNotification(m.title || "Holdy", { body: m.body || "", tag: m.tag || undefined, renotify: !!m.tag, silent: false, requireInteraction: !!m.ri, vibrate: m.lv === 2 ? [600, 200, 600, 200, 600, 200, 600, 200, 1200] : m.lv === 1 ? [300, 120, 300, 120, 300] : [180, 90, 180], icon: "icon-192.png", badge: "badge-96.png", data: { url: link(m) } })));
   })());
 });
 self.addEventListener("notificationclick", (e) => {
