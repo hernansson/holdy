@@ -251,6 +251,8 @@
   .cau-new{display:grid;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
   .cau-new .sim-in input{width:70px}
   .cau-lim{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .cau-sl{display:grid;gap:6px} .cau-sl > small{font-size:12.5px;color:var(--muted)} .cau-slv{font-size:18px;font-variant-numeric:tabular-nums}
+  .cau-sl input[type=range]{width:100%;accent-color:var(--brand);min-height:28px;padding:0;box-shadow:none;border:0;background:transparent}
   #simView{max-width:860px;margin:0 auto;padding:14px 16px 16px;display:grid;gap:12px} #simView[hidden]{display:none} #simForm{display:grid; gap:12px} .sim-adjw{display:grid; gap:12px}
   #simForm,#simOut,#simAs{display:grid; gap:6px} #simOut{gap:10px}
   .sim-r{cursor:default} .sim-in{display:flex; align-items:center; gap:6px; background:var(--chip); border-radius:10px; padding:0 10px; flex:0 0 auto}
@@ -2678,11 +2680,11 @@
         var hero=el("div","cau-hero"); hero.appendChild(el("span","cau-k",old?"Mejor tasa del último cierre":"Mejor tasa ahora"));
         hero.appendChild(el("b","pos",cauPct(br)+" TNA"));
         hero.appendChild(el("span",null,best.d+(best.d===1?" día":" días")+(best.v?" · vence "+cauDay(best.v):"")+(best.h&&!old&&!cauData.live?" · "+best.h.slice(0,5):"")));
-        if(!old&&best.p>0&&Math.abs(best.p-best.t)>0.02) hero.appendChild(el("span",null,"Promedio del día en ese plazo: "+cauPct(best.p)+". Una sola operación puede mover mucho la última tasa."));
+        if(!old&&best.p>0&&Math.abs(best.p-best.t)>0.02) hero.appendChild(el("span",null,"Media del día en ese plazo: "+cauPct(best.p)+". Una sola operación puede mover mucho la última tasa."));
         box.appendChild(hero);
         var g=el("div","cau-g");
         rows.forEach(function(x){ var r=el("div","cau-row"+(x===best?" best":"")), nm=el("span","rk-name",x.d+(x.d===1?" día":" días")); if(x.v) nm.appendChild(el("small",null,"vence "+cauDay(x.v))); r.appendChild(nm);
-          var rr=el("span","cau-r"); rr.appendChild(el("b",null,cauPct(old?x.c:x.t))); if(!old&&x.p>0) rr.appendChild(el("small",null,"prom. "+cauPct(x.p))); r.appendChild(rr); g.appendChild(r); });
+          var rr=el("span","cau-r"); rr.appendChild(el("b",null,cauPct(old?x.c:x.t))); if(!old&&x.p>0) rr.appendChild(el("small",null,"media "+cauPct(x.p))); r.appendChild(rr); g.appendChild(r); });
         box.appendChild(g);
       }
       box.appendChild(el("div","cau-src",(cauData.live?"Tasas de IOL, en vivo (última tasa de cada plazo; un feriado muestra la del último día hábil)":(old?"Cierre de la última rueda":"Última operación"+(last?" "+last.slice(0,5)+cauAgo(last):""))+" · BYMA, con unos 15 a 20 minutos de demora")+". Tasa nominal anual (TNA)."));
@@ -2691,7 +2693,7 @@
     box.appendChild(el("div","pe-k","Alarmas"));
     if(pushA.cau.length){ var ag=el("div","cau-g");
       pushA.cau.forEach(function(a,i){ var r=el("div","cau-al"), t=el("span","pe-t","Caución en "+CAU_ML[a.m]+(a.d===1?" a 1 día":" hasta "+a.d+" días")), bits=[];
-        if(a.r>0) bits.push("aviso "+cauPct(a.r)); if(a.r2>0) bits.push("🚨 fuerte "+cauPct(a.r2)); if(a.j>0) bits.push("salto de "+Math.round(a.j*100)+" puntos");
+        if(a.a1>0) bits.push("aviso +"+Math.round(a.a1*100)+"% sobre la media"); if(a.a1>0&&a.om>0) bits.push("🚨 oportunidad: "+(a.om===2?"el doble":"50% más")); if(a.r>0) bits.push("llega a "+cauPct(a.r));
         t.appendChild(el("small",null,bits.join(" · "))); r.appendChild(t);
         var x=el("button",null,"✕"); x.type="button"; x.setAttribute("aria-label","Borrar alarma"); x.addEventListener("click",function(){ pushA.cau.splice(i,1); cauSaveAl(); cauRender(); }); r.appendChild(x); ag.appendChild(r); });
       box.appendChild(ag); }
@@ -2701,32 +2703,37 @@
       f.appendChild(ms); var dl=el("div","cau-lim"); dl.appendChild(el("span","pe-t","Plazos de hasta")); f.appendChild(dl); f.appendChild(ds);
       function fld(k,lbl,sub,unit){ var l=el("label","cau-lim"), t=el("span","pe-t",lbl); t.appendChild(el("small",null,sub)); l.appendChild(t); var w=el("span","sim-in"), i=document.createElement("input"); i.inputMode="decimal"; i.value=cauNew[k]; i.placeholder="—"; i.setAttribute("aria-label",lbl);
         i.addEventListener("input",function(){ cauNew[k]=i.value; }); w.appendChild(i); w.appendChild(el("i",null,unit)); l.appendChild(w); f.appendChild(l); return i; }
-      var inp=fld("v","Aviso","Un aviso cuando la tasa pasa este %","% TNA");
-      fld("v2","🚨 Alarma fuerte","Suena cada minuto hasta que la tocás","% TNA");
-      fld("vj","Salto rápido","Si sube estos puntos en 15 minutos","puntos");
+      var med=cauNew.med||0.29, ex=el("small",null,""), oex=el("small",null,"");
+      function cauEx(){ var a1=+cauNew.v1/100, lv=med*(1+a1); ex.textContent="Media "+(cauNew.med?"de hoy ":"de ejemplo ")+cauPct(med)+" → aviso en "+cauPct(lv);
+        oex.textContent=cauNew.om?"Con aviso en "+cauPct(lv)+" → oportunidad en "+cauPct(lv*cauNew.om):"Sin oportunidad"; }
+      var aw=el("div","cau-sl"), ah=el("div","cau-lim"), at=el("span","pe-t","Aviso"); at.appendChild(el("small",null,"Si la tasa supera la media del día por:")); ah.appendChild(at);
+      var av=el("b","cau-slv",cauNew.v1+"%"); ah.appendChild(av); aw.appendChild(ah);
+      var inp=document.createElement("input"); inp.type="range"; inp.min="5"; inp.max="100"; inp.step="5"; inp.value=cauNew.v1; inp.setAttribute("aria-label","Aviso: % sobre la media");
+      inp.addEventListener("input",function(){ cauNew.v1=inp.value; av.textContent=inp.value+"%"; cauEx(); }); aw.appendChild(inp); aw.appendChild(ex); f.appendChild(aw);
+      var ow=el("div","cau-sl"), ot=el("span","pe-t","🚨 Oportunidad"); ot.appendChild(el("small",null,"Una ráfaga de 20 notificaciones de una si la tasa llega a:")); ow.appendChild(ot);
+      var os=el("div","seg sm"); [[0,"No"],[1.5,"50% más"],[2,"El doble"]].forEach(function(o){ var b=el("button",cauNew.om===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ cauNew.om=o[0]; [].forEach.call(os.children,function(c){ c.classList.toggle("on",c===b); }); cauEx(); }); os.appendChild(b); });
+      ow.appendChild(os); ow.appendChild(oex); f.appendChild(ow); cauEx();
+      fld("vr","Nivel fijo (opcional)","Una notificación si llega a esta tasa, sin importar la media","% TNA");
       var nav=el("div","wz-nav"), cn=el("button",null,"Cancelar"), ok=el("button","primary","Guardar alarma"); cn.type=ok.type="button";
       cn.addEventListener("click",function(){ cauNew=null; cauRender(); });
       ok.addEventListener("click",function(){ function n(x){ var v=parseFloat(String(x||"").replace(",",".")); return v>0&&v<2000?Math.round(v*10)/1000:0; }
-        var a={id:Math.random().toString(36).slice(2,8),m:cauNew.m,d:cauNew.d,r:n(cauNew.v),r2:n(cauNew.v2),j:n(cauNew.vj)};
-        if(!a.r&&!a.r2&&!a.j){ inp.focus(); return; }
-        if(a.r&&a.r2&&a.r2<=a.r){ alert("La alarma fuerte tiene que ser más alta que el aviso."); return; }
+        var a={id:Math.random().toString(36).slice(2,8),m:cauNew.m,d:cauNew.d,a1:n(cauNew.v1),om:cauNew.om||0,r:n(cauNew.vr)};
         pushA.cau.push(a); cauNew=null; cauSaveAl(); cauRender(); });
       nav.appendChild(cn); nav.appendChild(ok); f.appendChild(nav); box.appendChild(f);
       setTimeout(function(){ try{ inp.focus(); }catch(e){} },50);
     } else if(pushA.cau.length<6){ var nb=el("button",null,"+ Nueva alarma"); nb.type="button";
       nb.addEventListener("click",function(){ if(!auth){ alert("Para las alarmas tenés que entrar con tu cuenta de Google."); return; } var t=cauData&&cauData.items.filter(function(x){ return x.m===cauM&&x.d<=7&&x.p>0; })[0];
-        cauNew={m:cauM,d:7,v:t?String(Math.ceil(t.p*100+5)):"",v2:"",vj:""}; cauRender(); }); box.appendChild(nb); }
+        cauNew={m:cauM,d:7,v1:"20",om:1.5,vr:"",med:t?t.p:0}; cauRender(); }); box.appendChild(nb); }
     if(pushA.cau.length&&!pushA.on){ var st=el("div","ib-st","Para que la alarma te llegue al celu, activá los avisos en este celu."); box.appendChild(st);
       var pb=el("button","primary","Activar avisos"); pb.type="button"; pb.addEventListener("click",function(){ pb.disabled=true; pushEnable().then(function(){ return cauSaveAl(); }).then(cauRender).catch(function(e){ st.className="ib-st err"; st.textContent=(e&&e.message)||"No se pudo."; pb.disabled=false; }); }); box.appendChild(pb); }
     else if(pushA.cau.length&&!pushA.prefs.cau) box.appendChild(el("div","ib-st","Tenés apagados los avisos de cauciones en Avisos."));
-    box.appendChild(el("div","sim-foot","El servidor de Holdy las revisa cada minuto, de lunes a viernes de 11 a 18, aunque tengas la app cerrada. El aviso llega una vez por día; la alarma fuerte insiste hasta que la tocás (y vuelve si la tasa sube 20 puntos más)."));
+    box.appendChild(el("div","sim-foot","El servidor de Holdy las revisa cada minuto (cada 15 segundos si algo se mueve), de lunes a viernes de 11 a 18, aunque tengas la app cerrada. Compara la última tasa de cada plazo con su media del día, solo en los plazos con volumen de verdad. Cada aviso llega una vez por día; la oportunidad vuelve a sonar si la tasa sube 20 puntos más."));
   }
   function openCau(){ setScr(cauView); try{ history.pushState({scr:1},""); }catch(e){} cauRender(); if(!cauBusy&&(!cauData||Date.now()-cauData.at>60*1000)) cauLoad();
     if(auth) api("GET","/me/push").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j&&Array.isArray(j.cau)&&JSON.stringify(j.cau)!==JSON.stringify(pushA.cau)){ pushA.cau=j.cau; save(LS_PUSH,pushA); if(!cauView.hidden&&!cauNew) cauRender(); } }).catch(function(){}); }
   $("btnCau").addEventListener("click",openCau);
   $("cauBack").addEventListener("click",function(){ if(history.state&&history.state.scr) history.back(); else setScr(null); });
   function cauFromHash(){ var h=location.hash; if(h!=="#cauciones"&&h!=="#cauciones/ok") return; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
-    if(h==="#cauciones/ok"&&auth) api("PUT","/me/push",{cauAck:1}).catch(function(){}); /* tocaste la alarma fuerte: deja de insistir */
     setTimeout(openCau,300); }
   window.addEventListener("hashchange",cauFromHash); setTimeout(cauFromHash,800);
 
