@@ -961,44 +961,58 @@ async function iolRaw(env) {
   const j = await iolGet(env, "/api/v2/Cotizaciones/" + encodeURIComponent(iolPanel.instr) + "/" + encodeURIComponent(iolPanel.panel) + "/argentina");
   return Array.isArray(j) ? j : (j && (j.titulos || j.Titulos)) || [];
 }
-function iolMap(x) {
-  const txt = [x.moneda, x.simbolo, x.descripcion].join(" ");
-  const m = /cable|ext|ccl/i.test(txt) ? "EXT" : /dolar|dólar|usd|u\$s|us\$/i.test(txt) ? "USD" : "ARS";
-  let d = +x.plazo || 0;
-  const fv = String(x.fechaVencimiento || x.vencimiento || "").slice(0, 10);
-  if (!d && /^\d{4}-\d{2}-\d{2}$/.test(fv)) d = Math.round((Date.parse(fv + "T12:00:00-03:00") - Date.now()) / 86400000);
-  if (!d) { const mm = /(\d{1,3})\s*d/i.exec(String(x.simbolo || "") + " " + String(x.descripcion || "")); if (mm) d = +mm[1]; }
-  const pc = (v) => (+v || 0) / 100; // IOL da la tasa en % (29.5 = 29,5%)
-  const f = String(x.fecha || x.fechaHora || ""), hm = /T?(\d{2}:\d{2}:\d{2})/.exec(f);
-  const pu = Array.isArray(x.puntas) ? x.puntas[0] : x.puntas;
-  return { s: "IOL-" + String(x.simbolo || "") + "-" + m + "-" + d, m, d, v: /^\d{4}-\d{2}-\d{2}$/.test(fv) ? fv : "", t: pc(x.ultimoPrecio), c: pc(x.ultimoCierre), p: pc(x.promedio || x.precioPromedio), hi: pc(x.maximo), lo: pc(x.minimo), b: pc(pu && pu.precioCompra), o: pc(pu && pu.precioVenta), vol: +x.volumen || +x.montoOperado || 0, h: hm ? hm[1] : null };
+// El panel de cauciones de IOL trae por plazo: {plazo, montoContado, tasaPromedio (en %, es la última tasa: 190 = 190%), fechaVencimiento}.
+// No dice la moneda ni la hora: la moneda se toma del plazo de BYMA con el mismo vencimiento y monto más parecido; si no está, por la tasa.
+function iolMap(x, nowHms) {
+  const fv = String(x.fechaVencimiento || "").slice(0, 10), okv = /^\d{4}-\d{2}-\d{2}$/.test(fv);
+  const dv = okv ? Math.round((Date.parse(fv + "T12:00:00-03:00") - Date.now()) / 86400000) : 0;
+  let d = +x.plazo || dv;
+  if (okv && d && Math.abs(d - dv) > 3) d = 0; // plazo y vencimiento que no cierran: se descarta
+  const t = (+x.tasaPromedio || +x.ultimoPrecio || 0) / 100;
+  return { s: "", m: t > 0 && t < 0.08 ? "USD" : "ARS", d, v: okv ? fv : "", t, c: 0, p: 0, hi: 0, lo: 0, b: 0, o: 0, vol: +x.montoContado || +x.volumen || 0, h: nowHms };
 }
-async function cauIol(env) { return (await iolRaw(env)).map(iolMap).filter((x) => x.d > 0 && x.d <= 400 && (x.t > 0 || x.c > 0)); }
+function cauMatch(io, by) {
+  for (const x of io) {
+    const cand = by.filter((y) => y.v === x.v && Math.abs(y.d - x.d) <= 3);
+    let best = null, bd = Infinity;
+    for (const y of cand) { const k = Math.abs(Math.log((y.vol + 1) / (x.vol + 1))) + Math.abs(y.t - x.t) * 3; if (k < bd) { bd = k; best = y; } }
+    if (best && bd < 1.5) { x.m = best.m; x.p = best.p; x.hi = Math.max(best.hi, x.t); x.lo = best.lo; x.b = best.b; x.o = best.o; }
+    x.s = "IOL-" + x.m + "-" + (x.v || x.d);
+  }
+  // Un solo renglón por moneda y vencimiento: el de más monto.
+  const by2 = {}; io.forEach((x) => { const k = x.s; if (!by2[k] || x.vol > by2[k].vol) by2[k] = x; });
+  return Object.values(by2);
+}
 let cauSrc = "BYMA", cauErrIol = "";
 async function cauFetch(force, env) {
   if (!force && cauMem && Date.now() - cauMem.at < 60 * 1000) return cauMem;
+  const art = new Date(Date.now() - 3 * 3600 * 1000), hms = art.toISOString().slice(11, 19);
+  const useIol = !!(env && env.IOL_USER && env.IOL_PASS);
+  const [byR, ioR] = await Promise.allSettled([cauByma(), useIol ? iolRaw(env) : Promise.resolve(null)]);
+  const by = byR.status === "fulfilled" ? byR.value : [];
+  // Hora de la última operación de BYMA: dice si hoy hay mercado (en feriados BYMA vacía el panel o deja el del día anterior).
+  const mkt = by.reduce((a, x) => (x.t > 0 && x.h && x.h > a ? x.h : a), "");
   let items = null; cauSrc = "BYMA";
-  if (env && env.IOL_USER && env.IOL_PASS) {
-    try {
-      const io = await cauIol(env);
+  if (useIol) {
+    if (ioR.status === "fulfilled" && Array.isArray(ioR.value)) {
+      const io = cauMatch(ioR.value.map((x) => iolMap(x, hms)).filter((x) => x.d > 0 && x.d <= 400 && x.t > 0), by);
       if (io.length) {
         items = io; cauSrc = "IOL"; cauErrIol = "";
-        // Lo que IOL no traiga (por ejemplo cable) se completa con BYMA.
-        const have = new Set(io.map((x) => x.m));
-        if (have.size < 3) { try { (await cauByma()).forEach((x) => { if (!have.has(x.m)) items.push(x); }); } catch (e) { /* sin BYMA */ } }
+        // Cable: si IOL no lo trae identificado, se usa el de BYMA.
+        if (!io.some((x) => x.m === "EXT")) by.filter((x) => x.m === "EXT").forEach((x) => items.push(x));
       } else cauErrIol = "iol_vacio";
-    } catch (e) { cauErrIol = String((e && e.message) || e); }
+    } else cauErrIol = String((ioR.reason && ioR.reason.message) || ioR.reason || "iol");
   }
-  if (!items) items = await cauByma();
+  if (!items) { if (byR.status !== "fulfilled") throw byR.reason; items = by; }
   items.sort((a, b) => (a.m < b.m ? -1 : a.m > b.m ? 1 : a.d - b.d));
-  cauMem = { at: Date.now(), items, src: cauSrc };
+  cauMem = { at: Date.now(), items, src: cauSrc, mkt };
   return cauMem;
 }
 async function cauciones(cors, env, url) {
   // ?iol=1: muestra lo que devuelve IOL tal cual (para ajustar los nombres de los campos). No expone credenciales.
   if (url && url.searchParams.get("iol") === "1") {
     if (!env.IOL_USER || !env.IOL_PASS) return json({ error: "iol_no_configurado" }, 200, cors);
-    try { const raw = await iolRaw(env); return json({ panel: iolPanel, n: raw.length, sample: raw.slice(0, 6), mapped: raw.slice(0, 6).map(iolMap) }, 200, cors); }
+    try { const raw = await iolRaw(env); return json({ panel: iolPanel, n: raw.length, sample: raw.slice(0, 6), mapped: raw.slice(0, 6).map((x) => iolMap(x, "")) }, 200, cors); }
     catch (e) { return json({ error: String((e && e.message) || e), panel: iolPanel }, 200, cors); }
   }
   try { const c = await cauFetch(false, env); return json({ at: c.at, items: c.items, src: c.src === "IOL" ? "IOL (en vivo)" : "BYMA (datos abiertos, con demora)", live: c.src === "IOL", iolErr: cauErrIol || undefined }, 200, { ...cors, "Cache-Control": "public, max-age=30" }); }
@@ -1030,7 +1044,7 @@ async function cauCron(env, now) {
   const art = new Date(now - 3 * 3600 * 1000), today = art.toISOString().slice(0, 10);
   let live = c.items.filter((x) => x.t > 0);
   // Solo con datos de hoy: la última operación del panel tiene que ser de la última hora (en un feriado BYMA deja el panel del día anterior).
-  const nowMin = art.getUTCHours() * 60 + art.getUTCMinutes(), lastMin = Math.max(-1, ...live.map((x) => (x.h ? +x.h.slice(0, 2) * 60 + +x.h.slice(3, 5) : -1)));
+  const nowMin = art.getUTCHours() * 60 + art.getUTCMinutes(), lastMin = c.mkt ? +c.mkt.slice(0, 2) * 60 + +c.mkt.slice(3, 5) : -1;
   if (lastMin < 0 || lastMin > nowMin + 2 || nowMin - lastMin > 60) return;
   // Fotos de las tasas cada 5 minutos (solo si alguien tiene alarma de salto) para ver cuánto subió en los últimos 15.
   // También sirven para el modo rápido: si algo se mueve mucho, se consulta cada 15 segundos.
@@ -1064,7 +1078,7 @@ async function cauEval(env, idx, subs, live, now, today, before, plazo) {
       const mine = live.filter((x) => x.m === a.m && x.d <= a.d), top = mine.slice().sort((x, y) => y.t - x.t)[0];
       if (!top) continue;
       const name = "Caución en " + CAU_M[a.m].toLowerCase() + " a " + plazo(top), hora = top.h ? " (" + top.h.slice(0, 5) + ")" : "", prom = top.p > 0 ? " Promedio del día: " + pctAR(top.p) + "." : "";
-      const fp = top.s + "|" + top.h + "|" + top.t;
+      const fp = top.s + "|" + top.t + "|" + Math.round(top.vol);
       // 1) Alarma fuerte
       if (a.r2 > 0 && top.t >= a.r2) {
         const L = await getLast(), s2 = (L[a.id] && L[a.id].s2) || {};
