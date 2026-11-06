@@ -235,7 +235,7 @@
   #cauView{max-width:860px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:12px} #cauView[hidden]{display:none}
   #cauBody{display:grid;gap:10px}
   .nt-b{font-size:16px;line-height:1.45;margin:2px 2px 12px} .nt-s{font-size:13.5px;color:var(--muted);margin:0 2px 10px;line-height:1.4} .nt-live{display:grid;gap:10px}
-  .cau-bk{display:grid;gap:8px} .cau-bk .linkbtn{justify-self:start} .cau-bk-go{display:flex;align-items:center;justify-content:center;min-height:46px;border-radius:12px;background:var(--brand);color:var(--brand-ink);font-weight:700;font-size:16px;text-decoration:none} .nt-bk{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:14px;color:var(--muted)} .nt-bk .cau-bk-row{flex:1} .nt-bk-a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--brand);color:var(--brand);font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap} .cau-bk-row{display:flex;gap:8px;flex-wrap:wrap} .cau-bk-row .cau-bk-go{flex:1 1 0;padding:0 8px;white-space:nowrap;min-width:0} .cau-bk-row .cau-bk-go:not(:only-child){font-size:15px} .cau-bk-go.big{min-height:52px;font-size:17px} .cau-test button.on{border-color:var(--brand);color:var(--brand)}
+  .nt-bk{align-items:center;margin-top:14px;font-size:14px;color:var(--muted)} .nt-bk-a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--brand);color:var(--brand);font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap} .cau-bk-row{display:flex;gap:8px;flex-wrap:wrap}
   .cau-src{font-size:12.5px;color:var(--muted);line-height:1.4;padding:0 2px}
   .cau-hero{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:2px}
   .cau-hero .cau-k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
@@ -2670,22 +2670,16 @@
     .catch(function(){ cauErr="No pude traer las tasas de BYMA. Probá de nuevo en un rato."; }).then(function(){ cauBusy=false; if(!cauView.hidden) cauRender(); }); }
   /* Abrir la app del broker para operar la caución. Android: abre la app directo (o la tienda si no está). iPhone: la ficha del App Store, que tiene "Abrir". Compu: la web. */
   var CAU_BK={iol:["IOL","com.iol.brokerarg","1615111890","https://micuenta.invertironline.com"],balanz:["Balanz","com.mobile.balanz.droid","1318206099","https://clientes.balanz.com"],cocos:["Cocos","capital.cocos.app.twa","1634675415","https://app.cocos.capital"],bull:["Bull Market","com.bmbapp","1200009955","https://www.bullmarketbrokers.com"],ppi:["PPI","com.portfoliopersonal.app","1633706363","https://www.portfoliopersonal.com"]};
-  var cauBk=load("cartera.cau.bk",null), cauBkPick=false;
+  /* Tus brokers argentinos: los de tus carteras (IOL, Balanz). Si no tenés ninguno, todos, sin preguntar. */
   function cauBkUrl(k){ var b=CAU_BK[k], ua=navigator.userAgent||"";
     if(/Android/i.test(ua)) return "intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package="+b[1]+";S.browser_fallback_url="+encodeURIComponent("https://play.google.com/store/apps/details?id="+b[1])+";end";
     if(/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)) return "https://apps.apple.com/ar/app/id"+b[2];
     return b[3]; }
-  /* Tus brokers argentinos: los de tus carteras (IOL, Balanz). Si no tenés ninguno, el que elegiste acá. */
   function cauBks(){ var seen={}, out=[];
     ((profData&&profData.profiles)||[]).forEach(function(pr){ if(pr.demo||pr.readOnly) return; (pr.positions||[]).concat(pr.closed||[]).forEach(function(p){ var k={IOL:"iol",Balanz:"balanz"}[p.broker]; if(k&&!seen[k]){ seen[k]=1; out.push(k); } }); });
-    if(!out.length&&cauBk&&CAU_BK[cauBk]) out.push(cauBk); return out; }
-  function cauBkBtn(k,cls){ var a=el("a",cls||"cau-bk-go","Abrir "+CAU_BK[k][0]+" ↗"); a.href=cauBkUrl(k); a.target="_blank"; a.rel="noopener"; return a; }
-  function cauBkRow(cls){ var l=cauBks(); if(!l.length) return null; var w=el("div","cau-bk-row"); l.forEach(function(k){ w.appendChild(cauBkBtn(k,cls)); }); return w; }
-  function cauBkEl(onChange){ var w=el("div","cau-bk"), row=cauBkRow();
-    if(row&&!cauBkPick){ w.appendChild(row); return w; }
-    w.appendChild(el("span","pe-t","¿En qué broker operás? Te dejo un botón para abrir su app y tomar la caución.")); var g=el("div","cau-test");
-    Object.keys(CAU_BK).forEach(function(k){ var b=el("button",k===cauBk?"on":"",CAU_BK[k][0]); b.type="button"; b.addEventListener("click",function(){ cauBk=k; cauBkPick=false; save("cartera.cau.bk",k); onChange(); }); g.appendChild(b); });
-    w.appendChild(g); return w; }
+    return out.length?out:Object.keys(CAU_BK); }
+  function cauBkRow(){ var w=el("div","cau-bk-row"); cauBks().forEach(function(k){ var a=el("a","nt-bk-a",CAU_BK[k][0]+" ↗"); a.href=cauBkUrl(k); a.target="_blank"; a.rel="noopener"; w.appendChild(a); }); return w; }
+  function cauBkEl(){ var w=cauBkRow(); w.classList.add("nt-bk"); w.insertBefore(el("span",null,"Tomala en:"),w.firstChild); return w; }
   function cauSaveAl(){ save(LS_PUSH,pushA); if(auth) return api("PUT","/me/push",{cau:pushA.cau}).then(function(r){ if(!r.ok) throw 0; }).catch(function(){ alert("No pude guardar la alarma en el servidor. Revisá la conexión y probá de nuevo."); }); return Promise.resolve(); }
   function cauRender(){
     var box=$("cauBody"); box.textContent="";
@@ -2710,7 +2704,7 @@
       }
       box.appendChild(el("div","cau-src",(cauData.live?"Tasas de IOL, en vivo (última tasa de cada plazo; un feriado muestra la del último día hábil)":(old?"Cierre de la última rueda":"Última operación"+(last?" "+last.slice(0,5)+cauAgo(last):""))+" · BYMA, con unos 15 a 20 minutos de demora")+". Tasa nominal anual (TNA)."));
     }
-    box.appendChild(cauBkEl(cauRender));
+    box.appendChild(cauBkEl());
     // Alarmas
     box.appendChild(el("div","pe-k","Alarmas"));
     if(pushA.cau.length){ var ag=el("div","cau-g");
@@ -2805,9 +2799,9 @@
       live.appendChild(g); }
     notifSheet(n,function(box){ box.appendChild(live); draw();
       /* Al final y discreto: abrir tu broker para tomarla. */
-      var row=cauBkRow("nt-bk-a"); if(row){ var bw=el("div","nt-bk"); bw.appendChild(el("span",null,"Tomala en:")); row.childNodes.forEach(function(a){ a.textContent=a.textContent.replace(/^Abrir /,""); }); bw.appendChild(row); box.appendChild(bw); } },"Ir a Cauciones",openCau);
+      box.appendChild(cauBkEl()); },"Ir a Cauciones",openCau);
     var d=$("dlgSimA"), mine=d.querySelector("h3").textContent;
-    if(cauBks().length){ var so=d.querySelector(".sim-ok"); if(so) so.classList.remove("primary"); }
+    var so=d.querySelector(".sim-ok"); if(so) so.classList.remove("primary");
     function redraw(){ if(d.open&&d.querySelector("h3").textContent===mine) draw(); }
     fetch(PROXY_URL+"/cauciones",{cache:"no-store"}).then(function(r){ return r.json(); }).then(function(j){ if(!j||!Array.isArray(j.items)) throw 0; cauData=j; cauErr=""; }).catch(function(){ if(!cauData) cauErr="No pude traer las tasas de ahora."; }).then(redraw);
   }
