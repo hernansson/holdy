@@ -65,7 +65,7 @@ export default {
     if (url.pathname === "/fx") return fxHistory(cors);
     if (url.pathname === "/insight") return insight(url, env, cors);
     if (url.pathname === "/search") return searchSym(url, env, cors);
-    if (url.pathname === "/cauciones") return cauciones(cors);
+    if (url.pathname === "/cauciones") return cauciones(cors, env, url);
     if (url.pathname !== "/quote") return json({ error: "not_found" }, 404, cors);
 
     const symbol = (url.searchParams.get("symbol") || "").toUpperCase();
@@ -916,21 +916,92 @@ async function pushClose(env) {
 const CAU_URL = "https://open.bymadata.com.ar/vanoms-be-core/rest/api/bymadata/free/cauciones";
 const CAU_M = { ARS: "Pesos", USD: "Dólar MEP", EXT: "Dólar cable" };
 let cauMem = null;
-async function cauFetch(force) {
-  if (!force && cauMem && Date.now() - cauMem.at < 60 * 1000) return cauMem;
+async function cauByma() {
   const r = await fetch(CAU_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; Holdy/1.0)" }, body: "{}" });
   if (!r.ok) throw new Error("byma_" + r.status);
   const raw = await r.json(), list = Array.isArray(raw) ? raw : (raw && raw.data) || [];
-  const items = list.filter((x) => x && x.securityType === "QS" && CAU_M[x.denominationCcy] && x.daysToMaturity > 0).map((x) => ({
+  return list.filter((x) => x && x.securityType === "QS" && CAU_M[x.denominationCcy] && x.daysToMaturity > 0).map((x) => ({
     s: String(x.symbol || ""), m: x.denominationCcy, d: x.daysToMaturity | 0, v: String(x.maturityDate || "").slice(0, 10),
     t: +x.trade || 0, c: +x.closingPrice || 0, p: +x.vwap || 0, hi: +x.tradingHighPrice || 0, lo: +x.tradingLowPrice || 0,
     b: +x.bidPrice || 0, o: +x.offerPrice || 0, vol: +x.volumeAmount || +x.volume || 0, h: x.tradeHour || null,
-  })).sort((a, b) => (a.m < b.m ? -1 : a.m > b.m ? 1 : a.d - b.d));
-  cauMem = { at: Date.now(), items };
+  }));
+}
+// ---- IOL (en vivo): una sola cuenta, la de Hernán, guardada como secretos IOL_USER / IOL_PASS del Worker. Las tasas son las mismas para todos. ----
+const IOL = "https://api.invertironline.com";
+let iolMem = null; // {tok, ref, exp}
+async function iolToken(env) {
+  const now = Date.now();
+  if (!iolMem) iolMem = await env.HOLDY_KV.get("iol:tok", "json");
+  if (iolMem && iolMem.u === env.IOL_USER && iolMem.exp - now > 60 * 1000) return iolMem.tok;
+  const form = (o) => Object.keys(o).map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(o[k])).join("&");
+  const ask = async (body) => { const r = await fetch(IOL + "/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" }, body: form(body) }); return r.ok ? r.json() : null; };
+  let j = iolMem && iolMem.u === env.IOL_USER && iolMem.ref ? await ask({ refresh_token: iolMem.ref, grant_type: "refresh_token" }) : null;
+  if (!j || !j.access_token) j = await ask({ username: env.IOL_USER, password: env.IOL_PASS, grant_type: "password" });
+  if (!j || !j.access_token) { iolMem = null; throw new Error("iol_login"); }
+  iolMem = { u: env.IOL_USER, tok: j.access_token, ref: j.refresh_token || "", exp: now + Math.min(+j.expires_in || 900, 900) * 1000 };
+  await env.HOLDY_KV.put("iol:tok", JSON.stringify(iolMem), { expirationTtl: 86400 });
+  return iolMem.tok;
+}
+async function iolGet(env, path) {
+  let tok = await iolToken(env), r = await fetch(IOL + path, { headers: { Authorization: "Bearer " + tok, Accept: "application/json" } });
+  if (r.status === 401) { iolMem = null; await env.HOLDY_KV.delete("iol:tok"); tok = await iolToken(env); r = await fetch(IOL + path, { headers: { Authorization: "Bearer " + tok, Accept: "application/json" } }); }
+  if (!r.ok) throw new Error("iol_" + r.status + " " + path);
+  return r.json();
+}
+let iolPanel = null; // {instr, panel}
+async function iolRaw(env) {
+  if (!iolPanel) {
+    // Se busca el instrumento "cauciones" y su panel en vez de adivinar los nombres.
+    const ins = await iolGet(env, "/api/v2/argentina/Titulos/Cotizacion/Instrumentos");
+    const it = (Array.isArray(ins) ? ins : []).map((x) => (typeof x === "string" ? x : x.instrumento || x.nombre || "")).find((n) => /cauci/i.test(n)) || "cauciones";
+    let pan = []; try { pan = await iolGet(env, "/api/v2/argentina/Titulos/Cotizacion/Paneles/" + encodeURIComponent(it)); } catch (e) { /* sigue con "todas" */ }
+    const pn = (Array.isArray(pan) ? pan : []).map((x) => (typeof x === "string" ? x : x.panel || x.nombre || "")).filter(Boolean);
+    iolPanel = { instr: it, panel: pn.find((n) => /tod/i.test(n)) || pn[0] || "todas", panels: pn, instrs: ins };
+  }
+  const j = await iolGet(env, "/api/v2/Cotizaciones/" + encodeURIComponent(iolPanel.instr) + "/" + encodeURIComponent(iolPanel.panel) + "/argentina");
+  return Array.isArray(j) ? j : (j && (j.titulos || j.Titulos)) || [];
+}
+function iolMap(x) {
+  const txt = [x.moneda, x.simbolo, x.descripcion].join(" ");
+  const m = /cable|ext|ccl/i.test(txt) ? "EXT" : /dolar|dólar|usd|u\$s|us\$/i.test(txt) ? "USD" : "ARS";
+  let d = +x.plazo || 0;
+  const fv = String(x.fechaVencimiento || x.vencimiento || "").slice(0, 10);
+  if (!d && /^\d{4}-\d{2}-\d{2}$/.test(fv)) d = Math.round((Date.parse(fv + "T12:00:00-03:00") - Date.now()) / 86400000);
+  if (!d) { const mm = /(\d{1,3})\s*d/i.exec(String(x.simbolo || "") + " " + String(x.descripcion || "")); if (mm) d = +mm[1]; }
+  const pc = (v) => (+v || 0) / 100; // IOL da la tasa en % (29.5 = 29,5%)
+  const f = String(x.fecha || x.fechaHora || ""), hm = /T?(\d{2}:\d{2}:\d{2})/.exec(f);
+  const pu = Array.isArray(x.puntas) ? x.puntas[0] : x.puntas;
+  return { s: "IOL-" + String(x.simbolo || "") + "-" + m + "-" + d, m, d, v: /^\d{4}-\d{2}-\d{2}$/.test(fv) ? fv : "", t: pc(x.ultimoPrecio), c: pc(x.ultimoCierre), p: pc(x.promedio || x.precioPromedio), hi: pc(x.maximo), lo: pc(x.minimo), b: pc(pu && pu.precioCompra), o: pc(pu && pu.precioVenta), vol: +x.volumen || +x.montoOperado || 0, h: hm ? hm[1] : null };
+}
+async function cauIol(env) { return (await iolRaw(env)).map(iolMap).filter((x) => x.d > 0 && x.d <= 400 && (x.t > 0 || x.c > 0)); }
+let cauSrc = "BYMA", cauErrIol = "";
+async function cauFetch(force, env) {
+  if (!force && cauMem && Date.now() - cauMem.at < 60 * 1000) return cauMem;
+  let items = null; cauSrc = "BYMA";
+  if (env && env.IOL_USER && env.IOL_PASS) {
+    try {
+      const io = await cauIol(env);
+      if (io.length) {
+        items = io; cauSrc = "IOL"; cauErrIol = "";
+        // Lo que IOL no traiga (por ejemplo cable) se completa con BYMA.
+        const have = new Set(io.map((x) => x.m));
+        if (have.size < 3) { try { (await cauByma()).forEach((x) => { if (!have.has(x.m)) items.push(x); }); } catch (e) { /* sin BYMA */ } }
+      } else cauErrIol = "iol_vacio";
+    } catch (e) { cauErrIol = String((e && e.message) || e); }
+  }
+  if (!items) items = await cauByma();
+  items.sort((a, b) => (a.m < b.m ? -1 : a.m > b.m ? 1 : a.d - b.d));
+  cauMem = { at: Date.now(), items, src: cauSrc };
   return cauMem;
 }
-async function cauciones(cors) {
-  try { const c = await cauFetch(); return json({ at: c.at, items: c.items, src: "BYMA (datos abiertos, con demora)" }, 200, { ...cors, "Cache-Control": "public, max-age=60" }); }
+async function cauciones(cors, env, url) {
+  // ?iol=1: muestra lo que devuelve IOL tal cual (para ajustar los nombres de los campos). No expone credenciales.
+  if (url && url.searchParams.get("iol") === "1") {
+    if (!env.IOL_USER || !env.IOL_PASS) return json({ error: "iol_no_configurado" }, 200, cors);
+    try { const raw = await iolRaw(env); return json({ panel: iolPanel, n: raw.length, sample: raw.slice(0, 6), mapped: raw.slice(0, 6).map(iolMap) }, 200, cors); }
+    catch (e) { return json({ error: String((e && e.message) || e), panel: iolPanel }, 200, cors); }
+  }
+  try { const c = await cauFetch(false, env); return json({ at: c.at, items: c.items, src: c.src === "IOL" ? "IOL (en vivo)" : "BYMA (datos abiertos, con demora)", live: c.src === "IOL", iolErr: cauErrIol || undefined }, 200, { ...cors, "Cache-Control": "public, max-age=30" }); }
   catch (e) { return json({ error: "upstream_unreachable", detail: String(e && e.message || e) }, 502, cors); }
 }
 // Alarma: {id, m: ARS|USD|EXT, d: plazo máximo en días, r: aviso (decimal), r2: alarma fuerte (0 = no), j: salto en puntos en 15 min (0 = no)}.
@@ -955,7 +1026,7 @@ const SNAP_MIN = 15;
 async function cauCron(env, now) {
   now = now || Date.now();
   const idx = (await env.HOLDY_KV.get("cauidx", "json")) || {}, subs = Object.keys(idx); if (!subs.length) return;
-  let c; try { c = await cauFetch(); } catch (e) { return; }
+  let c; try { c = await cauFetch(false, env); } catch (e) { return; }
   const art = new Date(now - 3 * 3600 * 1000), today = art.toISOString().slice(0, 10);
   let live = c.items.filter((x) => x.t > 0);
   // Solo con datos de hoy: la última operación del panel tiene que ser de la última hora (en un feriado BYMA deja el panel del día anterior).
@@ -980,7 +1051,7 @@ async function cauCron(env, now) {
   await cauEval(env, idx, subs, live, now, today, before, plazo);
   for (let k = 1; k <= 3 && hot(); k++) {
     await new Promise((r) => setTimeout(r, 15000));
-    try { c = await cauFetch(true); } catch (e) { break; }
+    try { c = await cauFetch(true, env); } catch (e) { break; }
     live = c.items.filter((x) => x.t > 0);
     await cauEval(env, idx, subs, live, now, today, before, plazo);
   }
