@@ -2693,7 +2693,7 @@
     box.appendChild(el("div","pe-k","Alarmas"));
     if(pushA.cau.length){ var ag=el("div","cau-g");
       pushA.cau.forEach(function(a,i){ var r=el("div","cau-al"), t=el("span","pe-t","Caución en "+CAU_ML[a.m]+(a.d===1?" a 1 día":" hasta "+a.d+" días")), bits=[];
-        if(a.a1>0) bits.push("aviso +"+Math.round(a.a1*100)+"% sobre la media"); if(a.a1>0&&a.om>0) bits.push("🚨 oportunidad: "+(a.om===2?"el doble":"50% más")); if(a.r>0) bits.push("llega a "+cauPct(a.r));
+        if(a.a1>0) bits.push("aviso +"+Math.round(a.a1*100)+"% sobre la media"); bits.push("🚨 oportunidad"); if(a.r>0) bits.push("llega a "+cauPct(a.r));
         t.appendChild(el("small",null,bits.join(" · "))); r.appendChild(t);
         var x=el("button",null,"✕"); x.type="button"; x.setAttribute("aria-label","Borrar alarma"); x.addEventListener("click",function(){ pushA.cau.splice(i,1); cauSaveAl(); cauRender(); }); r.appendChild(x); ag.appendChild(r); });
       box.appendChild(ag); }
@@ -2705,25 +2705,24 @@
         i.addEventListener("input",function(){ cauNew[k]=i.value; }); w.appendChild(i); w.appendChild(el("i",null,unit)); l.appendChild(w); f.appendChild(l); return i; }
       var med=cauNew.med||0.29, ex=el("small",null,""), oex=el("small",null,"");
       function cauEx(){ var a1=+cauNew.v1/100, lv=med*(1+a1); ex.textContent="Media "+(cauNew.med?"de hoy ":"de ejemplo ")+cauPct(med)+" → aviso en "+cauPct(lv);
-        oex.textContent=cauNew.om?"Con aviso en "+cauPct(lv)+" → oportunidad en "+cauPct(lv*cauNew.om):"Sin oportunidad"; }
+        oex.textContent="Con media "+cauPct(med)+" → oportunidad en "+cauPct(Math.max(med*2,med+(cauNew.m==="ARS"?0.2:0.02))); }
       var aw=el("div","cau-sl"), ah=el("div","cau-lim"), at=el("span","pe-t","Aviso"); at.appendChild(el("small",null,"Si la tasa supera la media del día por:")); ah.appendChild(at);
       var av=el("b","cau-slv",cauNew.v1+"%"); ah.appendChild(av); aw.appendChild(ah);
       var inp=document.createElement("input"); inp.type="range"; inp.min="5"; inp.max="100"; inp.step="5"; inp.value=cauNew.v1; inp.setAttribute("aria-label","Aviso: % sobre la media");
       inp.addEventListener("input",function(){ cauNew.v1=inp.value; av.textContent=inp.value+"%"; cauEx(); }); aw.appendChild(inp); aw.appendChild(ex); f.appendChild(aw);
-      var ow=el("div","cau-sl"), ot=el("span","pe-t","🚨 Oportunidad"); ot.appendChild(el("small",null,"Una ráfaga de 20 notificaciones de una si la tasa llega a:")); ow.appendChild(ot);
-      var os=el("div","seg sm"); [[0,"No"],[1.5,"50% más"],[2,"El doble"]].forEach(function(o){ var b=el("button",cauNew.om===o[0]?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ cauNew.om=o[0]; [].forEach.call(os.children,function(c){ c.classList.toggle("on",c===b); }); cauEx(); }); os.appendChild(b); });
-      ow.appendChild(os); ow.appendChild(oex); f.appendChild(ow); cauEx();
+      var ow=el("div","cau-sl"), ot=el("span","pe-t","🚨 Oportunidad (siempre activa)"); ot.appendChild(el("small",null,"Una ráfaga de 20 notificaciones de una cuando la tasa llega al doble de la media y al menos 20 puntos más (2 en dólares)")); ow.appendChild(ot);
+      ow.appendChild(oex); f.appendChild(ow); cauEx();
       fld("vr","Nivel fijo (opcional)","Una notificación si llega a esta tasa, sin importar la media","% TNA");
       var nav=el("div","wz-nav"), cn=el("button",null,"Cancelar"), ok=el("button","primary","Guardar alarma"); cn.type=ok.type="button";
       cn.addEventListener("click",function(){ cauNew=null; cauRender(); });
       ok.addEventListener("click",function(){ function n(x){ var v=parseFloat(String(x||"").replace(",",".")); return v>0&&v<2000?Math.round(v*10)/1000:0; }
-        var a={id:Math.random().toString(36).slice(2,8),m:cauNew.m,d:cauNew.d,a1:n(cauNew.v1),om:cauNew.om||0,r:n(cauNew.vr)};
+        var a={id:Math.random().toString(36).slice(2,8),m:cauNew.m,d:cauNew.d,a1:n(cauNew.v1),r:n(cauNew.vr)};
         pushA.cau.push(a); cauNew=null; cauSaveAl(); cauRender(); });
       nav.appendChild(cn); nav.appendChild(ok); f.appendChild(nav); box.appendChild(f);
       setTimeout(function(){ try{ inp.focus(); }catch(e){} },50);
     } else if(pushA.cau.length<6){ var nb=el("button",null,"+ Nueva alarma"); nb.type="button";
       nb.addEventListener("click",function(){ if(!auth){ alert("Para las alarmas tenés que entrar con tu cuenta de Google."); return; } var t=cauData&&cauData.items.filter(function(x){ return x.m===cauM&&x.d<=7&&x.p>0; })[0];
-        cauNew={m:cauM,d:7,v1:"20",om:1.5,vr:"",med:t?t.p:0}; cauRender(); }); box.appendChild(nb); }
+        cauNew={m:cauM,d:7,v1:"20",vr:"",med:t?t.p:0}; cauRender(); }); box.appendChild(nb); }
     if(pushA.cau.length&&!pushA.on){ var st=el("div","ib-st","Para que la alarma te llegue al celu, activá los avisos en este celu."); box.appendChild(st);
       var pb=el("button","primary","Activar avisos"); pb.type="button"; pb.addEventListener("click",function(){ pb.disabled=true; pushEnable().then(function(){ return cauSaveAl(); }).then(cauRender).catch(function(e){ st.className="ib-st err"; st.textContent=(e&&e.message)||"No se pudo."; pb.disabled=false; }); }); box.appendChild(pb); }
     else if(pushA.cau.length&&!pushA.prefs.cau) box.appendChild(el("div","ib-st","Tenés apagados los avisos de cauciones en Avisos."));

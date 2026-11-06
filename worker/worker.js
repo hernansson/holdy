@@ -1019,12 +1019,12 @@ async function cauciones(cors, env, url) {
 }
 // Alarma: {id, m: ARS|USD|EXT, d: plazo máximo en días,
 //   a1: aviso si la última tasa supera la media del día del plazo por esa fracción (0.2 = 20% más: media 29% → 35%),
-//   om: OPORTUNIDAD, el nivel del aviso multiplicado por om (1.5 = 50% más, 2 = el doble: 35% → 52,5%): llega una ráfaga de notificaciones de una,
+//   OPORTUNIDAD (fija, siempre activa): la última tasa es el doble de la media del día y al menos 20 puntos más (2 en dólares): ráfaga de notificaciones,
 //   r: además, aviso si la tasa llega a ese nivel fijo (0 = no)}.
 // Cada uno suena una vez por día; la oportunidad vuelve a sonar si la tasa sube 20 puntos más.
 const lim = (v, a, b) => Math.max(a, Math.min(b, +v || 0));
 function cauClean(list) {
-  return list.slice(0, 6).map((a) => ({ id: String(a.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 12) || Math.random().toString(36).slice(2, 8), m: CAU_M[a.m] ? a.m : "ARS", d: Math.max(1, Math.min(60, a.d | 0 || 7)), a1: lim(a.a1, 0, 50), om: [1.5, 2].includes(+a.om) ? +a.om : 0, r: lim(a.r, 0, 20) })).filter((a) => a.a1 > 0 || a.r > 0);
+  return list.slice(0, 6).map((a) => ({ id: String(a.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 12) || Math.random().toString(36).slice(2, 8), m: CAU_M[a.m] ? a.m : "ARS", d: Math.max(1, Math.min(60, a.d | 0 || 7)), a1: lim(a.a1, 0, 50), r: lim(a.r, 0, 20) })).filter((a) => a.a1 > 0 || a.r > 0);
 }
 async function cauIndex(env, sub, al) {
   const idx = (await env.HOLDY_KV.get("cauidx", "json")) || {}, had = JSON.stringify(idx[sub] || null);
@@ -1056,7 +1056,7 @@ async function cauCron(env, now) {
   const hot = () => subs.some((sub) => idx[sub].some((a) => live.some((x) => {
     if (x.m !== a.m || x.d > a.d) return false;
     const b = recent(x.s); if (b !== null && x.t - b >= 0.1) return true;
-    return [a.r, x.p > 0 && a.a1 > 0 ? x.p * (1 + a.a1) : 0, x.p > 0 && a.a1 > 0 && a.om > 0 ? x.p * (1 + a.a1) * a.om : 0].some((thr) => thr > 0 && x.t >= thr * 0.85 && x.t < thr);
+    return [a.r, x.p > 0 && a.a1 > 0 ? x.p * (1 + a.a1) : 0, x.p > 0 ? Math.max(x.p * (1 + OPP_X), x.p + OPP_PTS[a.m]) : 0].some((thr) => thr > 0 && x.t >= thr * 0.85 && x.t < thr);
   })));
   await cauEval(env, idx, subs, live, now, today, before, plazo);
   for (let k = 1; k <= 3 && hot(); k++) {
@@ -1068,10 +1068,11 @@ async function cauCron(env, now) {
 }
 // Plazos "de verdad": los que llevan al menos 5% del monto del día en esa moneda (una operación suelta en un plazo vacío no cuenta).
 function cauLiquid(live, m) { const l = live.filter((x) => x.m === m), tot = l.reduce((a, x) => a + (x.vol || 0), 0); return new Set(l.filter((x) => tot > 0 && x.vol >= tot * 0.05).map((x) => x.s)); }
-// El plazo que más se despegó de su media, si lo hizo por al menos f (y por 3 puntos en pesos, medio punto en dólares).
-function cauOver(a, mine, liq, f) {
+// El plazo que más se despegó de su media, si lo hizo por al menos f (y por minPts puntos: por defecto 3 en pesos, medio punto en dólares).
+const OPP_X = 1, OPP_PTS = { ARS: 0.2, USD: 0.02, EXT: 0.02 }; // oportunidad: el doble de la media y +20 puntos (+2 en dólares)
+function cauOver(a, mine, liq, f, minPts) {
   if (!(f > 0)) return null;
-  const minPts = a.m === "ARS" ? 0.03 : 0.005;
+  minPts = minPts || (a.m === "ARS" ? 0.03 : 0.005);
   return mine.filter((x) => liq.has(x.s) && x.p > 0 && x.t >= x.p * (1 + f) && x.t - x.p >= minPts).sort((p, q) => q.t / q.p - p.t / p.p)[0] || null;
 }
 async function cauEval(env, idx, subs, live, now, today, before, plazo) {
@@ -1086,7 +1087,7 @@ async function cauEval(env, idx, subs, live, now, today, before, plazo) {
       const nm = (x) => "Caución en " + CAU_M[a.m].toLowerCase() + " a " + plazo(x), hr = (x) => (x.h ? " (" + x.h.slice(0, 5) + ")" : "");
       const fpOf = (x) => x.s + "|" + x.t + "|" + Math.round(x.vol), up = (x) => Math.round((x.t / x.p - 1) * 100);
       // 1) OPORTUNIDAD: ráfaga de notificaciones (el celu las muestra una atrás de otra)
-      const a2 = a.a1 > 0 && a.om > 0 ? (1 + a.a1) * a.om - 1 : 0, op = cauOver(a, mine, liq, a2);
+      const op = cauOver(a, mine, liq, OPP_X, OPP_PTS[a.m]);
       if (op) {
         const fp = fpOf(op), L = await getLast(), o = (L[a.id] && L[a.id].op) || {};
         // Nuevo día (con un dato distinto al último que sonó: en un feriado se repite el viejo) o, el mismo día, 20 puntos más que la vez anterior.
