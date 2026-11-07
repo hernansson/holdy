@@ -2742,12 +2742,6 @@
     if(pushA.cau.length&&!pushA.on){ var st=el("div","ib-st","Para que la alarma te llegue al celu, activá los avisos en este celu."); box.appendChild(st);
       var pb=el("button","primary","Activar avisos"); pb.type="button"; pb.addEventListener("click",function(){ pb.disabled=true; pushEnable().then(function(){ return cauSaveAl(); }).then(cauRender).catch(function(e){ st.className="ib-st err"; st.textContent=(e&&e.message)||"No se pudo."; pb.disabled=false; }); }); box.appendChild(pb); }
     else if(pushA.cau.length&&!pushA.prefs.cau) box.appendChild(el("div","ib-st","Tenés apagados los avisos de cauciones en Avisos."));
-    if(auth){ var tw=el("div","cau-test"); tw.appendChild(el("span","fl","Probar cómo llegan:"));
-      [["cau1","Aviso"],["cauop","🚨 Oportunidad"]].forEach(function(o){ var b=el("button",null,o[1]); b.type="button";
-        b.addEventListener("click",function(){ if(!pushA.on){ alert("Primero activá los avisos en este celu."); return; } b.disabled=true; var t0=b.textContent; b.textContent="Enviando…";
-          api("POST","/me/push/test",{kind:o[0]}).then(function(r){ return r.json(); }).then(function(j){ b.textContent=j&&j.sent?"Enviado ✓":"No llegó: desactivá y activá los avisos"; }).catch(function(){ b.textContent="No se pudo"; })
-            .then(function(){ setTimeout(function(){ b.disabled=false; b.textContent=t0; },4000); }); }); tw.appendChild(b); });
-      box.appendChild(tw); }
     // Llamada de oportunidad: Holdy te llama y te lee la tasa. Con atender alcanza. Solo aparece si el servidor tiene Twilio configurado.
     if(auth&&cauCallCfg===1){
       var cw=el("div","cau-sl"), ct=el("span","pe-t","📞 Llamarme en una oportunidad"); ct.appendChild(el("small",null,"Además de la ráfaga, te llama por teléfono y te lee la tasa. Si no atendés, vuelve a llamar cada minuto (hasta 5 veces). Con atender alcanza. Agendá el número que te llama como favorito para que entre aunque tengas No Molestar.")); cw.appendChild(ct);
