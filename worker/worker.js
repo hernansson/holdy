@@ -1028,7 +1028,9 @@ async function cauciones(cors, env, url) {
     try { const raw = await iolRaw(env); return json({ panel: iolPanel, n: raw.length, sample: raw.slice(0, 6), mapped: raw.slice(0, 6).map((x) => iolMap(x, "")) }, 200, cors); }
     catch (e) { return json({ error: String((e && e.message) || e), panel: iolPanel }, 200, cors); }
   }
-  try { const c = await cauFetch(false, env); return json({ at: c.at, items: c.items, src: c.src === "IOL" ? "IOL (en vivo)" : "BYMA (datos abiertos, con demora)", live: c.src === "IOL", iolErr: cauErrIol || undefined }, 200, { ...cors, "Cache-Control": "public, max-age=30" }); }
+  try { const c = await cauFetch(false, env), hist = (await env.HOLDY_KV.get("cau:hist", "json")) || [], today = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+    const items = c.items.map((x) => { const b = cauBase(hist, x.m, x.d, today); return b.p > 0 ? { ...x, b: b.p, bn: b.n } : x; });
+    return json({ at: c.at, items, src: c.src === "IOL" ? "IOL (en vivo)" : "BYMA (datos abiertos, con demora)", live: c.src === "IOL", iolErr: cauErrIol || undefined }, 200, { ...cors, "Cache-Control": "public, max-age=30" }); }
   catch (e) { return json({ error: "upstream_unreachable", detail: String(e && e.message || e) }, 502, cors); }
 }
 // Alarma: {id, m: ARS|USD|EXT, d: plazo máximo en días,
@@ -1048,6 +1050,29 @@ async function cauIndex(env, sub, al) {
 const pctAR = (r) => (r * 100).toLocaleString("es-AR", { maximumFractionDigits: r * 100 >= 100 ? 0 : 1 }) + "%";
 // Día de mercado: al cierre se guarda el próximo día hábil (el vencimiento más corto del panel) y cómo quedó cada plazo.
 // Así un feriado no cuenta, y a la mañana el panel que todavía es el de ayer (mismo plazo, mismo monto) se ignora: funciona desde la primera operación.
+// Historial: al cierre se guarda, por moneda y grupo de plazo (1, 7, 14, 30 días), la media ponderada, el monto, el máximo del día y su hora (KV "cau:hist", 30 días).
+// La TASA NORMAL de un plazo es el promedio (ponderado por monto) de las medias de los últimos 5 días hábiles: no se mueve con el pico de hoy y sirve desde la primera operación.
+const cauBk = (d) => (d <= 4 ? 1 : d <= 10 ? 7 : d <= 20 ? 14 : d <= 45 ? 30 : 0);
+function cauBase(hist, m, d, today) {
+  const k = m + "-" + cauBk(d), l = (hist || []).filter((h) => h.day < today && h.b && h.b[k] && h.b[k].p > 0).slice(-5);
+  const v = l.reduce((a, h) => a + (h.b[k].vol || 1), 0);
+  return l.length ? { p: l.reduce((a, h) => a + h.b[k].p * (h.b[k].vol || 1), 0) / v, vol: v / l.length, n: l.length } : { p: 0, vol: 0, n: 0 };
+}
+async function cauHistSave(env, live, today) {
+  const hist = (await env.HOLDY_KV.get("cau:hist", "json")) || [];
+  if (hist.some((h) => h.day === today)) return;
+  const mx = (await env.HOLDY_KV.get("caumx", "json")) || {}, dm = mx.day === today ? mx.r || {} : {}, b = {};
+  live.forEach((x) => {
+    const k = x.m + "-" + cauBk(x.d); if (!cauBk(x.d)) return;
+    const o = b[k] || (b[k] = { pv: 0, vol: 0, mx: 0, h: "", d: x.d });
+    if (x.p > 0 && x.vol > 0) { o.pv += x.p * x.vol; o.vol += x.vol; }
+    const top = Math.max(x.t, (dm[x.s] && dm[x.s][0]) || 0);
+    if (top > o.mx) { o.mx = top; o.h = top === x.t ? (x.h || "").slice(0, 5) : dm[x.s][1]; o.d = x.d; }
+  });
+  Object.keys(b).forEach((k) => { const o = b[k]; o.p = o.vol > 0 ? Math.round(o.pv / o.vol * 1e5) / 1e5 : 0; o.vol = Math.round(o.vol); o.mx = Math.round(o.mx * 1e4) / 1e4; delete o.pv; if (!o.p) delete b[k]; });
+  if (!Object.keys(b).length) return;
+  hist.push({ day: today, b }); await env.HOLDY_KV.put("cau:hist", JSON.stringify(hist.slice(-30)));
+}
 async function cauEod(env, c, today) {
   const eod = (await env.HOLDY_KV.get("cau:eod", "json")) || {};
   if (eod.day === today) return eod;
@@ -1058,6 +1083,7 @@ async function cauEod(env, c, today) {
   ["ARS", "USD", "EXT"].forEach((m) => { const l = live.filter((x) => x.m === m && x.p > 0), v = l.reduce((a, x) => a + x.vol, 0); if (v > 0) med[m] = l.reduce((a, x) => a + x.p * x.vol, 0) / v; });
   const out = { day: today, next, snap, med };
   await env.HOLDY_KV.put("cau:eod", JSON.stringify(out), { expirationTtl: 20 * 86400 });
+  try { await cauHistSave(env, live, today); } catch (e) { /* el historial no frena el cierre */ }
   return out;
 }
 async function cauCron(env, now) {
@@ -1071,30 +1097,49 @@ async function cauCron(env, now) {
   const prev = eod.day && eod.day < today ? eod : null;
   // Lo de hoy: un plazo que todavía tiene el mismo monto que al cierre anterior es del día anterior. Sin media de BYMA todavía, se usa la de ayer.
   const fresh = (items) => items.filter((x) => x.t > 0 && !(prev && prev.snap && prev.snap[x.s] === Math.round(x.vol))).map((x) => (x.p > 0 || !(prev && prev.med && prev.med[x.m]) ? x : { ...x, p: prev.med[x.m], pAyer: 1 }));
-  let live = fresh(c.items);
+  const hist = (await env.HOLDY_KV.get("cau:hist", "json")) || [];
+  // Tasa normal (b): promedio de 5 días; si todavía no hay historial, la media de hoy (o la de ayer).
+  const withBase = (items) => items.map((x) => { const bs = cauBase(hist, x.m, x.d, today); return bs.p > 0 ? { ...x, b: bs.p, bVol: bs.vol, bn: bs.n } : { ...x, b: x.p, bVol: 0 }; });
+  let live = withBase(fresh(c.items));
   let snaps = ((await env.HOLDY_KV.get("causnap", "json")) || []).filter((x) => now - x.at < 40 * 60 * 1000);
   if (new Date(now).getUTCMinutes() % 5 === 0 && !snaps.some((x) => now - x.at < 4 * 60 * 1000)) {
-    const r = {}; live.forEach((x) => { r[x.s] = x.t; });
-    snaps.push({ at: now, r }); await env.HOLDY_KV.put("causnap", JSON.stringify(snaps.slice(-8)), { expirationTtl: 86400 });
+    const r = {}, v = {}; live.forEach((x) => { r[x.s] = x.t; v[x.s] = x.vol; });
+    snaps.push({ at: now, r, v }); await env.HOLDY_KV.put("causnap", JSON.stringify(snaps.slice(-8)), { expirationTtl: 86400 });
+    // Máximo del día por plazo (para el historial): se actualiza con la misma frecuencia que la foto.
+    const mx = (await env.HOLDY_KV.get("caumx", "json")) || {}, mr = mx.day === today ? mx.r || {} : {}; let up = false;
+    live.forEach((x) => { if (x.t > ((mr[x.s] && mr[x.s][0]) || 0)) { mr[x.s] = [x.t, (x.h || "").slice(0, 5)]; up = true; } });
+    if (up) await env.HOLDY_KV.put("caumx", JSON.stringify({ day: today, r: mr }), { expirationTtl: 2 * 86400 });
   }
+  // CONFIRMACIÓN: una tasa cuenta si se operó plata de verdad en ese plazo desde la última foto (al menos 1% de lo que se opera en un día normal),
+  // o si la lectura anterior (10 s antes) ya estaba ahí. Si no, se usa la más baja de las dos y se vuelve a mirar en 10 segundos.
+  const prevT = {};
+  const lastSnap = () => snaps.length ? snaps[snaps.length - 1] : null;
+  const conf = (items) => items.map((x) => {
+    const sp = lastSnap(), v0 = sp && sp.v ? sp.v[x.s] : undefined, need = 0.01 * (x.bVol || x.vol || 0);
+    const volOk = v0 !== undefined && need > 0 && x.vol - v0 >= need;
+    const tc = volOk ? x.t : (prevT[x.s] !== undefined ? Math.min(x.t, prevT[x.s]) : 0);
+    return { ...x, tc };
+  });
+  const remember = (items) => items.forEach((x) => { prevT[x.s] = x.t; });
   const plazo = (x) => x.d + (x.d === 1 ? " día" : " días");
   // Modo rápido: algo subió 5 puntos o más contra la foto de hace 3 a 10 minutos, o está cerca (90%) del próximo escalón o de la oportunidad: se consulta cada 10 segundos.
   const recent = (sym) => { let v = null; for (const x of snaps) if (now - x.at >= 3 * 60 * 1000 && now - x.at <= 10 * 60 * 1000 && x.r[sym] > 0) v = x.r[sym]; return v; };
   const hot = () => subs.some((sub) => idx[sub].some((a) => live.some((x) => {
     if (x.m !== a.m || x.d > a.d) return false;
     const b = recent(x.s); if (b !== null && x.t - b >= 0.05) return true;
-    if (!(x.p > 0)) return false;
-    // Ya pasó el primer escalón del aviso (la tasa se está despegando de la media), o está cerca de la oportunidad o del nivel fijo.
-    if (a.a1 > 0 && x.t >= x.p * (1 + a.a1)) return true;
-    return [x.p * OPP_X, a.r].some((thr) => thr > 0 && x.t >= thr * 0.9 && x.t < thr);
+    if (!(x.b > 0)) return false;
+    // Ya pasó el primer escalón del aviso (la tasa se está despegando de lo normal), o está cerca de la oportunidad o del nivel fijo.
+    if (a.a1 > 0 && x.t >= x.b * (1 + a.a1)) return true;
+    return [x.b * OPP_X, a.r].some((thr) => thr > 0 && x.t >= thr * 0.9);
   })));
-  await cauEval(env, idx, subs, live, now, today, plazo);
+  let ev = conf(live); remember(live);
+  await cauEval(env, idx, subs, ev, now, today, plazo);
   await cauCallCheck(env, now, today);
   for (let k = 1; k <= 5 && hot(); k++) {
     await new Promise((r) => setTimeout(r, 10000));
     try { c = await cauFetch(true, env); } catch (e) { break; }
-    live = fresh(c.items);
-    await cauEval(env, idx, subs, live, Date.now(), today, plazo);
+    live = withBase(fresh(c.items)); ev = conf(live); remember(live);
+    await cauEval(env, idx, subs, ev, Date.now(), today, plazo);
   }
 }
 // Llamada de OPORTUNIDAD (Twilio): suena el teléfono con la tasa leída en voz alta. Si no atendés (o atiende el contestador), vuelve a llamar cada minuto, hasta 5 veces.
@@ -1142,10 +1187,11 @@ async function cauCallCheck(env, now, today) {
 }
 // Plazos "de verdad": los que llevan al menos 5% del monto del día en esa moneda (una operación suelta en un plazo vacío no cuenta).
 function cauLiquid(live, m) { const l = live.filter((x) => x.m === m), tot = l.reduce((a, x) => a + (x.vol || 0), 0); return new Set(l.filter((x) => tot > 0 && x.vol >= tot * 0.05).map((x) => x.s)); }
-// OPORTUNIDAD: el doble de la media del día y al menos 10 puntos más (1 punto en dólares). Vuelve a sonar si después se vuelve a duplicar.
+// OPORTUNIDAD: el doble de lo normal (promedio de 5 días) y al menos 10 puntos más (1 punto en dólares), con la tasa confirmada. Vuelve a sonar si después se vuelve a duplicar.
 const OPP_X = 2, OPP_PTS = { ARS: 0.1, USD: 0.01, EXT: 0.01 };
-async function cauEval(env, idx, subs, live, now, today, plazo) {
-  const liqBy = {};
+async function cauEval(env, idx, subs, live0, now, today, plazo) {
+  // Se evalúa con la tasa CONFIRMADA (tc) contra la tasa NORMAL (b). Sin confirmación todavía, no suena nada.
+  const live = live0.map((x) => (x.tc !== undefined ? { ...x, t: x.tc } : x)), liqBy = {};
   for (const sub of subs) {
     let last = null, changed = false;
     const getLast = async () => last || (last = (await env.HOLDY_KV.get("caul:" + sub, "json")) || {});
@@ -1154,31 +1200,34 @@ async function cauEval(env, idx, subs, live, now, today, plazo) {
       if (!mine.length) continue;
       const liq = liqBy[a.m] || (liqBy[a.m] = cauLiquid(live, a.m));
       const nm = (x) => "Caución en " + CAU_M[a.m].toLowerCase() + " a " + plazo(x), hr = (x) => (x.h ? " (" + x.h.slice(0, 5) + ")" : "");
-      const med = (x) => pctAR(x.p) + (x.pAyer ? ", la de ayer" : "");
-      // El plazo que más se despegó de su media (solo plazos con volumen).
-      const best = mine.filter((x) => liq.has(x.s) && x.p > 0).sort((p, q) => q.t / q.p - p.t / p.p)[0];
+      const pd = (x) => "promedio de " + (x.bn === 1 ? "ayer" : x.bn + " días"), nrm = (x) => (x.bn ? "lo normal (" + pd(x) + ")" : (x.pAyer ? "la media de ayer" : "la media del día")), med = (x) => nrm(x) + " es " + pctAR(x.b);
+      // Cuánto ganarías: con $1.000.000 (o US$ 10.000) a ese plazo, a esta tasa y a la normal.
+      const gan = (x) => { const cap = a.m === "ARS" ? 1e6 : 1e4, cy = a.m === "ARS" ? "$" : "US$ ", f = (v) => cy + Math.round(v).toLocaleString("es-AR");
+        return " Con " + f(cap) + " a " + plazo(x) + " ganás " + f(cap * x.t * x.d / 365) + "; a la tasa normal, " + f(cap * x.b * x.d / 365) + "."; };
+      // El plazo que más se despegó de lo normal (solo plazos con volumen).
+      const best = mine.filter((x) => liq.has(x.s) && x.b > 0 && x.t > 0).sort((p, q) => q.t / q.b - p.t / p.b)[0];
       if (best) {
-        const ratio = best.t / best.p, pts = best.t - best.p; let opNow = false;
+        const ratio = best.t / best.b, pts = best.t - best.b; let opNow = false;
         // 1) OPORTUNIDAD: ráfaga de notificaciones
         if (ratio >= OPP_X && pts >= OPP_PTS[a.m]) {
           const L = await getLast(), o = (L[a.id] && L[a.id].op) || {};
           if (o.day !== today || best.t >= (o.peak || 0) * 2) {
-            await pushTo(env, sub, "cau", { title: "🚨 OPORTUNIDAD: caución " + pctAR(best.t), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + ", " + Math.round((ratio - 1) * 100) + "% más que la media del día (" + med(best) + ").", tag: "cauop-" + a.id, u: "#cauciones", ri: 1, lv: 2, burst: 20, x: { m: a.m, d: best.d, t: best.t, p: best.p } });
+            await pushTo(env, sub, "cau", { title: "🚨 OPORTUNIDAD: caución " + pctAR(best.t), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + ", " + (ratio >= 2.95 ? Math.round(ratio) + " veces " : "el doble de ") + (best.bn ? "lo normal (" + pctAR(best.b) + ", " + pd(best) + ")" : nrm(best) + " (" + pctAR(best.b) + ")") + "." + gan(best), tag: "cauop-" + a.id, u: "#cauciones", ri: 1, lv: 2, burst: 20, x: { m: a.m, d: best.d, t: best.t, p: best.p, b: best.b } });
             L[a.id] = { ...(L[a.id] || {}), op: { day: today, peak: best.t } }; changed = true; opNow = true;
             const r0 = (v) => (v * 100).toLocaleString("es-AR", { maximumFractionDigits: a.m === "ARS" ? 0 : 1 });
             const lugar = "caución en " + CAU_M[a.m].toLowerCase() + " a " + plazo(best) + ", " + r0(best.t) + " por ciento";
-            await cauCallStart(env, sub, today, "¡Oportunidad en Holdy! La " + lugar.replace(", ", " está en ") + ", " + (ratio >= 2.95 ? Math.round(ratio) + " veces" : "el doble de") + " la media del día, que es " + r0(best.p) + " por ciento. Repito: " + lugar + ".");
+            await cauCallStart(env, sub, today, "¡Oportunidad en Holdy! La " + lugar.replace(", ", " está en ") + ", " + (ratio >= 2.95 ? Math.round(ratio) + " veces" : "el doble de") + " lo normal, que es " + r0(best.b) + " por ciento. Repito: " + lugar + ".");
           }
         }
-        // 2) Aviso escalonado: al pasar tu % sobre la media, y otra vez cada vez que sube ese mismo % sobre el escalón anterior (29 → 31,9 → 35,1…)
+        // 2) Aviso escalonado: al pasar tu % sobre lo normal, y otra vez cada vez que sube ese mismo % sobre el escalón anterior (29 → 31,9 → 35,1…)
         if (a.a1 > 0 && pts >= (a.m === "ARS" ? 0.01 : 0.002)) {
           const k = Math.floor(Math.log(ratio) / Math.log(1 + a.a1) + 1e-9);
           if (k >= 1) {
             const L = await getLast(), l = (L[a.id] && L[a.id].lad) || {}, kPrev = l.day === today ? l.k || 0 : 0;
             if (k > kPrev && opNow) { L[a.id] = { ...(L[a.id] || {}), lad: { day: today, k } }; } // ya sonó la oportunidad: el aviso sobra
             else if (k > kPrev) {
-              const lvl = best.p * Math.pow(1 + a.a1, k), nxt = best.p * Math.pow(1 + a.a1, k + 1);
-              await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(best.t) + (kPrev === 0 ? ": pasó tu aviso" : ": sigue subiendo"), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + ". Media del día: " + med(best) + ". Pasó " + pctAR(lvl) + "; el próximo aviso, en " + pctAR(nxt) + ".", tag: "cau1-" + a.id + "-" + k, u: "#cauciones", ri: 1, lv: 1, x: { m: a.m, d: best.d, t: best.t, p: best.p } });
+              const lvl = best.b * Math.pow(1 + a.a1, k), nxt = best.b * Math.pow(1 + a.a1, k + 1);
+              await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(best.t) + (kPrev === 0 ? ": pasó tu aviso" : ": sigue subiendo"), body: nm(best) + ": " + pctAR(best.t) + " TNA" + hr(best) + "; " + med(best) + ". Pasó " + pctAR(lvl) + "; el próximo aviso, en " + pctAR(nxt) + "." + gan(best), tag: "cau1-" + a.id + "-" + k, u: "#cauciones", ri: 1, lv: 1, x: { m: a.m, d: best.d, t: best.t, p: best.p, b: best.b } });
               L[a.id] = { ...(L[a.id] || {}), lad: { day: today, k } }; changed = true;
             }
           }
@@ -1189,7 +1238,7 @@ async function cauEval(env, idx, subs, live, now, today, plazo) {
       if (a.r > 0 && top.t >= a.r) {
         const L = await getLast(), l = L[a.id] || {};
         if (l.day !== today) {
-          await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(top.t), body: nm(top) + ": " + pctAR(top.t) + " TNA" + hr(top) + ". Llegó a tu nivel de " + pctAR(a.r) + ".", tag: "cau-" + a.id, u: "#cauciones", lv: 1, x: { m: a.m, d: top.d, t: top.t, p: top.p } });
+          await pushTo(env, sub, "cau", { title: "Caución a " + pctAR(top.t), body: nm(top) + ": " + pctAR(top.t) + " TNA" + hr(top) + ". Llegó a tu nivel de " + pctAR(a.r) + ".", tag: "cau-" + a.id, u: "#cauciones", lv: 1, x: { m: a.m, d: top.d, t: top.t, p: top.p, b: top.b } });
           L[a.id] = { ...l, day: today }; changed = true;
         }
       }
