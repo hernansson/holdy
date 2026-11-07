@@ -2541,7 +2541,8 @@
     cl.forEach(function(c){ var d=c.v/px-1; if(Math.abs(d)>lim) return; (c.v<px?s:r).push({v:Math.round(c.v*1e4)/1e4,n:c.n}); });
     function pick(a,dn){ a.sort(function(x,y){ return dn?y.v-x.v:x.v-y.v; }); var f=a.filter(function(o){ return o.n>1; }).slice(0,2);
       a.forEach(function(o){ if(f.length<2&&f.indexOf(o)<0) f.push(o); }); f.sort(function(x,y){ return dn?y.v-x.v:x.v-y.v; }); return f; }
-    return {s:pick(s,1),r:pick(r,0),px:px,hi:H[mx],lo:L[mn]};
+    /* m: cuánto se mueve en un día normal; el aviso salta cuando el precio está a menos de eso de un nivel (entre 1% y 3%). */
+    return {s:pick(s,1),r:pick(r,0),px:px,hi:H[mx],lo:L[mn],m:Math.round((mv[mv.length>>1]||0.015)*1e4)/1e4};
   }
   function srGet(tk){ var x=srStore.l[tk]; return x&&x.d===todayStr()?x:null; }
   function srFetch(list,force){
@@ -2562,7 +2563,7 @@
   function srAll(){ if(!pushA.prefs.sr) return Promise.resolve(); var tk={}; positions.forEach(function(p){ if(srOk(p)) tk[p.ticker]=1; });
     return srFetch(Object.keys(tk).slice(0,60)).then(function(){ pushSyncSoon(); }); }
   function srPayload(){ var out=[], seen={}; positions.forEach(function(p){ if(!srOk(p)||seen[p.ticker]) return; seen[p.ticker]=1; var x=srGet(p.ticker)||srStore.l[p.ticker]; x=x&&x.x; if(!x) return;
-      out.push({t:p.ticker,s:x.s.map(function(o){ return o.v; }),r:x.r.map(function(o){ return o.v; })}); }); return out.slice(0,60); }
+      out.push({t:p.ticker,s:x.s.map(function(o){ return o.v; }),r:x.r.map(function(o){ return o.v; }),m:Math.min(0.03,Math.max(0.01,x.m||0.015))}); }); return out.slice(0,60); }
   /* En el detalle de la acción: resistencias arriba, el precio de ahora en el medio y soportes abajo. */
   function srBox(p,det,more){
     var w=el("div","sr");
@@ -2784,7 +2785,7 @@
     /* Experimental, apagado si no lo activás: soportes y resistencias de tus acciones. */
     box.appendChild(el("div","pe-k","Experimental"));
     var gx=el("div","pe-grp vw-g"); box.appendChild(gx);
-    var lx=el("label","vw-r vw-t"), tx=el("span","pe-t","Soportes y resistencias"); tx.appendChild(el("small",null,"Cuando una de tus acciones toca uno (los ves al abrir cada acción). Informativo, no es una recomendación.")); lx.appendChild(tx);
+    var lx=el("label","vw-r vw-t"), tx=el("span","pe-t","Soportes y resistencias"); tx.appendChild(el("small",null,"Cuando una de tus acciones se acerca a uno, para que llegues a poner la orden (los ves en “Ver más” de cada acción). Cerca = lo que esa acción se mueve en un día normal, entre 1% y 3%. Informativo, no es una recomendación.")); lx.appendChild(tx);
     var ix=document.createElement("input"); ix.type="checkbox"; ix.className="sw"; ix.checked=!!pushA.prefs.sr;
     ix.addEventListener("change",function(){ pushA.prefs.sr=ix.checked?1:0; save(LS_PUSH,pushA); if(auth) api("PUT","/me/push",{prefs:pushA.prefs}).catch(function(){}); if(ix.checked) srAll(); renderPush(); }); lx.appendChild(ix); gx.appendChild(lx);
     if(pushA.prefs.sr){
@@ -7185,6 +7186,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.45.3", t:"Soportes y resistencias: aviso antes de llegar", d:["Ahora te avisa cuando una acción se acerca a un soporte o resistencia, no cuando ya llegó, así llegás a poner la orden.","Cerca es lo que esa acción se mueve en un día normal (entre 1% y 3%)."]},
     {v:"1.45.1", t:"Aviso de soportes con gráfico", d:["Al tocar el aviso ves los últimos 6 meses con los soportes y resistencias marcados.","En cada acción, soportes y resistencias pasan a “Ver más”."]},
     {v:"1.45.0", t:"Alarmas de cauciones más confiables", d:["Ahora comparan con lo normal de cada plazo (el promedio de los últimos 5 días), no con la media de hoy, que se mueve con el pico.","Solo suenan si se operó plata de verdad a esa tasa: una operación chica suelta no dispara nada.","El aviso te dice cuánto ganarías con $1.000.000."]},
     {v:"1.44.1", t:"Soportes y resistencias más simples", d:["Ahora salen de los últimos 2 años y de giros más grandes: niveles de mediano plazo.","La sección y el aviso son más cortos."]},
