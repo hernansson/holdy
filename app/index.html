@@ -395,6 +395,19 @@
   #insBody{flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; margin:0 -18px; padding:2px 18px calc(24px + env(safe-area-inset-bottom))}
   .ins-sub{font-size:12.5px; color:var(--muted); margin-top:2px}
   .ins-btn{display:flex; align-items:center; gap:10px; width:100%; margin-top:14px; padding:12px 14px; border-radius:14px; border:1px solid color-mix(in srgb,var(--brand) 35%,var(--line)); background:color-mix(in srgb,var(--brand) 9%,transparent); color:var(--text); font-weight:600; font-size:14.5px; text-align:left; box-shadow:none; min-height:46px}
+  .sr{margin-top:14px; padding:12px 14px 10px; border:1px solid var(--line); border-radius:14px}
+  .sr-h{display:flex; align-items:baseline; gap:8px; font-weight:700; font-size:14px; margin-bottom:6px}
+  .sr-x{font-weight:600; font-size:11px; color:var(--warn); border:1px solid color-mix(in srgb,var(--warn) 45%,transparent); border-radius:99px; padding:0 7px; line-height:17px}
+  .sr-r{display:grid; grid-template-columns:1fr auto 56px; align-items:center; gap:10px; padding:6px 0; border-top:1px solid var(--line); font-size:14px}
+  .sr-r:first-child{border-top:0}
+  .sr-k{display:flex; flex-direction:column; font-weight:600} .sr-k small{font-weight:400; font-size:11.5px; color:var(--muted)}
+  .sr-v{font-variant-numeric:tabular-nums; font-weight:600} .sr-d{text-align:right; font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .sr-r.res .sr-k{color:var(--neg)} .sr-r.sup .sr-k{color:var(--pos)}
+  .sr-r.now{color:var(--muted)} .sr-r.now .sr-k,.sr-r.now .sr-v{font-weight:500}
+  .sr-m{font-size:13px; color:var(--muted); padding:4px 0}
+  .sr-s{font-size:12px; color:var(--muted); margin:-2px 0 4px}
+  .pe-grp .sr-in{display:block; text-align:left; padding:2px 16px 12px; margin:0}
+  .sr-f{font-size:11.5px; color:var(--muted); margin-top:6px; line-height:1.35}
   .ins-btn .ins-ic{color:var(--brand); font-size:16px} .ins-btn .ins-go{margin-left:auto; color:var(--muted); font-size:20px; line-height:1}
   .ins-card{background:var(--sh-card); border-radius:14px; padding:14px 16px; margin:0 0 10px}
   .ins-k{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px}
@@ -2061,7 +2074,7 @@
 
   var detMore={};
   function render(){
-    try{ pushSyncSoon(); }catch(e){} try{ feedBadge(); }catch(e){} try{ askHome(); }catch(e){} try{ dayDraw(); }catch(e){}
+    try{ pushSyncSoon(); }catch(e){} try{ srAll(); }catch(e){} try{ feedBadge(); }catch(e){} try{ askHome(); }catch(e){} try{ dayDraw(); }catch(e){}
     ensureCcl();
     renderProfile();
     syncToolbar();
@@ -2494,6 +2507,88 @@
     if(calOpen) hd.classList.add("open");
     box.appendChild(cal);
   }
+  // ---------- Soportes y resistencias (experimental, solo informativo) ----------
+  /* Con el último año de máximos y mínimos diarios: los giros (un máximo o mínimo que es el extremo de ±5 ruedas) se agrupan si están cerca
+     (según cuánto se mueve la acción en un día normal). Los 2 grupos más cercanos por debajo del precio son soportes; por arriba, resistencias.
+     Es un cálculo simple, igual que el de cualquier gráfico: dónde el precio se frenó antes, no dónde se va a frenar. */
+  var LS_SR="cartera.sr.v1", srStore=load(LS_SR,null)||{}, srBusy={};
+  if(!srStore.l||typeof srStore.l!=="object") srStore={l:{}};
+  function srOk(p){ return insOk(p)&&!(p.qty<=0); }
+  function srCalc(pts,px){
+    var n=pts.length; if(n<60||!(px>0)) return null;
+    var H=pts.map(function(r){ return r[3]>0?r[3]:r[1]; }), L=pts.map(function(r){ return r[4]>0?r[4]:r[1]; }), C=pts.map(function(r){ return r[1]; });
+    var K=5, piv=[], i, j;
+    for(i=K;i<n-2;i++){ var R=Math.min(K,n-1-i), hi=true, lo=true;
+      for(j=i-K;j<=i+R;j++){ if(j===i) continue; if(j<i?H[j]>=H[i]:H[j]>H[i]) hi=false; if(j<i?L[j]<=L[i]:L[j]<L[i]) lo=false; }
+      if(hi) piv.push({v:H[i],i:i}); if(lo) piv.push({v:L[i],i:i}); }
+    /* Mínimo y máximo del año también cuentan (aunque sean de los últimos días). */
+    var mx=0, mn=0; for(i=1;i<n;i++){ if(H[i]>H[mx]) mx=i; if(L[i]<L[mn]) mn=i; }
+    if(!piv.some(function(q){ return q.i===mx&&q.v===H[mx]; })) piv.push({v:H[mx],i:mx});
+    if(!piv.some(function(q){ return q.i===mn&&q.v===L[mn]; })) piv.push({v:L[mn],i:mn});
+    /* Cuánto se mueve en un día normal (mediana de 60 ruedas): eso define qué tan cerca tienen que estar dos giros para ser la misma zona. */
+    var mv=[]; for(i=Math.max(1,n-60);i<n;i++) mv.push(Math.abs(C[i]/C[i-1]-1)); mv.sort(function(a,b){ return a-b; });
+    var tol=Math.min(0.04,Math.max(0.01,(mv[mv.length>>1]||0.01)*1.5));
+    piv.sort(function(a,b){ return a.v-b.v; });
+    var cl=[]; piv.forEach(function(p){ var c=cl[cl.length-1]; if(c&&p.v<=c.v*(1+tol)){ c.sum+=p.v; c.n++; c.v=c.sum/c.n; c.i=Math.max(c.i,p.i); } else cl.push({v:p.v,sum:p.v,n:1,i:p.i}); });
+    /* Zona = el valor medio; "toques" = cuántas veces el precio giró ahí en el año. Muy lejos (más de 35%) no sirve. */
+    var lim=0.35, s=[], r=[];
+    cl.forEach(function(c){ var d=c.v/px-1; if(Math.abs(d)>lim) return; (c.v<px?s:r).push({v:Math.round(c.v*1e4)/1e4,n:c.n}); });
+    s.sort(function(a,b){ return b.v-a.v; }); r.sort(function(a,b){ return a.v-b.v; });
+    return {s:s.slice(0,2),r:r.slice(0,2),px:px,hi:H[mx],lo:L[mn]};
+  }
+  function srGet(tk){ var x=srStore.l[tk]; return x&&x.d===todayStr()?x:null; }
+  function srFetch(list){
+    list=list.filter(function(t){ return !srBusy[t]&&!srGet(t); }); if(!list.length) return Promise.resolve();
+    list.forEach(function(t){ srBusy[t]=1; });
+    var parts=[]; for(var i=0;i<list.length;i+=20) parts.push(list.slice(i,i+20));
+    var from=dayStr(dayNum(todayStr())-372);
+    return Promise.all(parts.map(function(pt){
+      return fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(pt.join(","))+"&from="+from+"&hl=1",{cache:"no-store"}).then(function(r){ if(!r.ok) throw 0; return r.json(); })
+        .then(function(j){ pt.forEach(function(t){ var h=j.data&&j.data[t]; if(!h||h.currency!=="USD"||!h.pts||!h.pts.length){ srStore.l[t]={d:todayStr(),x:null}; return; }
+          var pq=prices[t], px=pq&&pq.price>0?pq.price:h.pts[h.pts.length-1][1];
+          srStore.l[t]={d:todayStr(),x:srCalc(h.pts,px)}; }); }).catch(function(){});
+    })).then(function(){ list.forEach(function(t){ delete srBusy[t]; });
+      var keep={}; positions.forEach(function(p){ keep[p.ticker]=1; }); Object.keys(srStore.l).forEach(function(t){ if(!keep[t]&&srStore.l[t].d!==todayStr()) delete srStore.l[t]; });
+      save(LS_SR,srStore); });
+  }
+  /* Para el aviso: los niveles de todas tus acciones, una vez por día (solo si lo activaste). */
+  function srAll(){ if(!pushA.prefs.sr) return Promise.resolve(); var tk={}; positions.forEach(function(p){ if(srOk(p)) tk[p.ticker]=1; });
+    return srFetch(Object.keys(tk).slice(0,60)).then(function(){ pushSyncSoon(); }); }
+  function srPayload(){ var out=[], seen={}; positions.forEach(function(p){ if(!srOk(p)||seen[p.ticker]) return; seen[p.ticker]=1; var x=srGet(p.ticker)||srStore.l[p.ticker]; x=x&&x.x; if(!x) return;
+      out.push({t:p.ticker,s:x.s.map(function(o){ return o.v; }),r:x.r.map(function(o){ return o.v; })}); }); return out.slice(0,60); }
+  /* En el detalle de la acción: resistencias arriba, el precio de ahora en el medio y soportes abajo. */
+  function srBox(p,det){
+    var w=el("div","sr");
+    var hd=el("div","sr-h"); hd.appendChild(el("span",null,"Posibles soportes y resistencias")); hd.appendChild(el("small","sr-x","experimental")); w.appendChild(hd);
+    w.appendChild(el("div","sr-s","Arriba, posibles zonas de venta; abajo, de compra."));
+    var b=el("div","sr-b"); w.appendChild(b);
+    function draw(){ b.textContent=""; var st=srGet(p.ticker)||srStore.l[p.ticker];
+      if(!st){ b.appendChild(el("div","sr-m","Calculando con el último año…")); return; }
+      var x=st.x; if(!x){ b.appendChild(el("div","sr-m","No hay suficiente historial para calcularlos.")); return; }
+      var raw=currentPrice(p), now=raw>0?raw:x.px, f=raw>0?(curPx(p)/raw):1;
+      function row(o,k,lab,sub){ var r=el("div","sr-r "+k); var t=el("span","sr-k",lab); if(sub) t.appendChild(el("small",null,sub)); r.appendChild(t);
+        var v=el("span","sr-v",fmt(o.v*f,p.ccy)); r.appendChild(v); var d=o.v/now-1; r.appendChild(el("span","sr-d",(d>=0?"+":"−")+Math.abs(d*100).toFixed(1).replace(".",",")+"%")); return r; }
+      var rs=x.r.slice().reverse(); if(!rs.length) b.appendChild(el("div","sr-m",now>=x.hi*0.97?"Arriba no hay resistencias: está en su máximo del año.":"Arriba no hay resistencias cerca."));
+      rs.forEach(function(o,i){ b.appendChild(row(o,"res",rs.length-i===1?"Resistencia":"Resistencia 2",o.n>1?"se frenó "+o.n+" veces":"")); });
+      var nw=el("div","sr-r now"); nw.appendChild(el("span","sr-k","Ahora")); nw.appendChild(el("span","sr-v",fmt(now*f,p.ccy))); nw.appendChild(el("span","sr-d","")); b.appendChild(nw);
+      x.s.forEach(function(o,i){ b.appendChild(row(o,"sup",i?"Soporte 2":"Soporte",o.n>1?"rebotó "+o.n+" veces":"")); });
+      if(!x.s.length) b.appendChild(el("div","sr-m",now<=x.lo*1.03?"Abajo no hay soportes: está en su mínimo del año.":"Abajo no hay soportes cerca."));
+    }
+    draw();
+    w.appendChild(el("div","sr-f","Zonas donde el precio se frenó o rebotó en el último año. Es solo informativo: no es una recomendación y el precio puede pasarlas de largo."));
+    /* El historial se pide recién al abrir la acción. */
+    function go(){ if(!srGet(p.ticker)) srFetch([p.ticker]).then(draw); }
+    if(det.open) go(); else det.addEventListener("toggle",function(){ if(det.open) go(); });
+    return w;
+  }
+  /* Abrir una acción en la lista (desde el aviso). */
+  function openTicker(tk){ ui.tab="acc"; save(LS_UI,ui); renderTabs(); renderList(); syncToolbar();
+    var d=[].filter.call($("list").querySelectorAll("details.acc"),function(x){ var t=x.querySelector(".tick"); return t&&t.textContent===tk; })[0];
+    if(d){ d.open=true; setTimeout(function(){ d.scrollIntoView({block:"start",behavior:"smooth"}); },60); } }
+  function srNotif(n){ var x=n.x||{}, tk=x.t||String(n.u||"").replace(/^#sr\//,"");
+    var has=positions.some(function(p){ return p.ticker===tk; });
+    notifSheet(n,function(box){ box.appendChild(el("div","nt-s","Aviso experimental: son niveles calculados con el último año de precios. No es una recomendación de compra ni de venta.")); },has?"Ver "+tk:"Entendido",has?function(){ openTicker(tk); }:null); }
+
   // ---------- "¿Qué pasó con X?": noticias, analistas y resumen con IA (Worker /insight) ----------
   var insCache={};
   function insOk(p){ return p&&!p.fi&&!isFci(p)&&p.ccy==="USD"&&/^[A-Z][A-Z0-9.\-]{0,11}$/.test(p.ticker||"")&&!!PROXY_URL; }
@@ -2622,8 +2717,9 @@
       cobItems().next.forEach(function(x){ if(x.d<=lim) ag.push({d:x.d,t:x.t,k:x.k,a:Math.round(x.a*f*100)/100}); });
       divNext().forEach(function(x){ if(x.d<=lim) ag.push({d:x.d,t:x.t,k:"Dividendo (estimado)",a:Math.round(x.a*f*100)/100}); });
       positions.forEach(function(p){ if(p.ccy!=="USD"||p.fi||isFci(p)||!(p.qty>0)||(isCedPos(p)&&!CB_MARK.test(p.note||""))) return; pos[p.ticker]=(pos[p.ticker]||0)+p.qty; });
+      var sr=pushA.prefs.sr?srPayload():[];
     }catch(e){} ui.bk=bk;
-    return {agenda:ag,pos:Object.keys(pos).map(function(t){ return {t:t,q:Math.round(pos[t]*1e6)/1e6}; }),name:cur().name};
+    return {agenda:ag,pos:Object.keys(pos).map(function(t){ return {t:t,q:Math.round(pos[t]*1e6)/1e6}; }),sr:sr||[],name:cur().name};
   }
   var pushSyncT=null;
   function pushSyncSoon(){ if(!pushA.on||!auth) return; clearTimeout(pushSyncT); pushSyncT=setTimeout(function(){
@@ -2653,6 +2749,16 @@
       var l=el("label","vw-r vw-t"), t=el("span","pe-t",o[1]); t.appendChild(el("small",null,o[2])); l.appendChild(t);
       var i=document.createElement("input"); i.type="checkbox"; i.className="sw"; i.checked=!!pushA.prefs[o[0]];
       i.addEventListener("change",function(){ pushA.prefs[o[0]]=i.checked?1:0; save(LS_PUSH,pushA); if(auth) api("PUT","/me/push",{prefs:pushA.prefs}).catch(function(){}); }); l.appendChild(i); g.appendChild(l); });
+    /* Experimental, apagado si no lo activás: soportes y resistencias de tus acciones. */
+    box.appendChild(el("div","pe-k","Experimental"));
+    var gx=el("div","pe-grp vw-g"); box.appendChild(gx);
+    var lx=el("label","vw-r vw-t"), tx=el("span","pe-t","Soportes y resistencias"); tx.appendChild(el("small",null,"Cuando una de tus acciones toca uno de sus posibles soportes o resistencias (los ves al abrir cada acción). Es solo informativo: no es una recomendación ni algo seguro.")); lx.appendChild(tx);
+    var ix=document.createElement("input"); ix.type="checkbox"; ix.className="sw"; ix.checked=!!pushA.prefs.sr;
+    ix.addEventListener("change",function(){ pushA.prefs.sr=ix.checked?1:0; save(LS_PUSH,pushA); if(auth) api("PUT","/me/push",{prefs:pushA.prefs}).catch(function(){}); if(ix.checked) srAll(); renderPush(); }); lx.appendChild(ix); gx.appendChild(lx);
+    if(pushA.prefs.sr){
+      if(!pushA.on) gx.appendChild(el("div","sr-m sr-in","Activá los avisos en este celu para recibirlos."));
+      else { var sb=el("button","linkbtn","Probar este aviso"); sb.type="button"; sb.className="linkbtn sr-in"; sb.addEventListener("click",function(){ sb.disabled=true; sb.textContent="Enviando…";
+        api("POST","/me/push/test",{kind:"sr"}).then(function(r){ return r.json(); }).then(function(j){ sb.textContent=j&&j.sent?"Enviado ✓":"No llegó: desactivá y activá los avisos"; }).catch(function(){ sb.textContent="No se pudo"; }); }); gx.appendChild(sb); } }
     if(pushA.on){ var tb=el("button",null,"Mandarme un aviso de prueba"); tb.type="button"; tb.addEventListener("click",function(){ tb.disabled=true; tb.textContent="Enviando…";
       api("POST","/me/push/test").then(function(r){ return r.json(); }).then(function(j){ tb.textContent=j&&j.sent?"Enviado ✓ (debería llegar en unos segundos)":"No se pudo enviar: desactivá y volvé a activar"; }).catch(function(){ tb.textContent="No se pudo enviar"; }); }); box.appendChild(tb); }
     box.appendChild(el("div","sim-foot","Los revisa el servidor de Holdy, así que llegan con la app cerrada. Las preferencias valen para todos tus celus; activalos en cada uno. Cobros y acciones salen del perfil que tengas abierto."));
@@ -2810,6 +2916,7 @@
     if(u==="#hoy"&&auth&&positions.length) return dayOpen();
     if(/^#feed\//.test(u)){ location.hash=u; return; } /* comentario: abre esa conversación (también es una hoja) */
     if(n.k==="cau"||u==="#cauciones") return cauNotif(n);
+    if(n.k==="sr"||/^#sr\//.test(u)) return srNotif(n);
     if(n.k==="fr"||u==="#feed") return notifSheet(n,null,"Ver en Amigos",openFeed);
     if(n.k==="cob") return notifSheet(n,function(box){ box.appendChild(el("div","nt-s","Cupones de bonos y dividendos estimados de tus acciones. Se cobran en la cuenta del broker.")); },"Ver próximos cobros",function(){ cobView="prox"; drawCob(); var c=$("dlgCob"); if(!c.open){ c.showModal(); if(document.activeElement) document.activeElement.blur(); } });
     if(n.k==="ib"&&n.g==="ib-err") return notifSheet(n,null,"Revisar la conexión con IBKR",function(){ openIb(); });
@@ -3999,6 +4106,7 @@
         moreBody.appendChild(ll);
       }
 
+      if(srOk(p)&&ui.tab!=="sold") body.appendChild(srBox(p,det));
       var stamp=priceStamp(p);
       var notes=[];
       var mm_=ccyMismatch(p);
@@ -7051,6 +7159,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.44.0", t:"Soportes y resistencias (experimental)", d:["Al abrir una acción ves 2 posibles soportes (donde rebotó) y 2 resistencias (donde se frenó) del último año.","En Avisos, “Experimental”: si lo activás, te avisa cuando una de tus acciones toca alguno.","Es solo informativo, no una recomendación."]},
     {v:"1.43.0", t:"Abrí tu broker desde Cauciones", d:["Un botón para abrir la app de tu broker (IOL o Balanz, según tus carteras) y tomar la caución.","También aparece en el aviso de la alarma."]},
     {v:"1.42.0", t:"Tocar un aviso te muestra lo importante", d:["Al abrir Holdy desde una notificación aparece una hoja con lo que te avisó.","En las de cauciones, ves la tasa de ahora, la media y los demás plazos, con un botón para ir a Cauciones."]},
     {v:"1.40.0", t:"Cauciones y alarma de tasa", d:["En el menú, “Cauciones”: las tasas de hoy en pesos, MEP y cable para cada plazo, con la mejor arriba.","Poné una alarma y te llega un aviso al celu cuando una tasa supera tu límite."]},
