@@ -867,7 +867,7 @@ async function pushMe(request, env, url, user, h) {
     // Pruebas de las alarmas de cauciones (botones en la pantalla Cauciones): mismo camino que las de verdad.
     const T = {
       cau1: { title: "Caución a 37%: 25% sobre la media (PRUEBA)", body: "Caución en pesos a 1 día: 37% TNA. La media del día es 29,6%. Esto es una prueba.", tag: "cau1-test", u: "#cauciones", ri: 1, lv: 1, k: "cau", x: { m: "ARS", d: 1, t: 0.37, p: 0.296 } },
-      sr: { title: "AAPL tocó un soporte · US$ 180,40", body: "Ahora US$ 181,30. Esto es una prueba.", tag: "sr-test", u: "#sr/AAPL", k: "sr", x: { t: "AAPL", v: 180.4, s: 1 } },
+      sr: { title: "AAPL cerca de un soporte · US$ 180,40", body: "Ahora US$ 182,10, a 0,9%. Esto es una prueba.", tag: "sr-test", u: "#sr/AAPL", k: "sr", x: { t: "AAPL", v: 180.4, s: 1 } },
       cauop: { title: "🚨 OPORTUNIDAD: caución 190% (PRUEBA)", body: "Caución en pesos a 6 días: 190% TNA, 542% más que la media del día (29,6%). Esto es una prueba.", tag: "cauop-test", u: "#cauciones", ri: 1, lv: 2, burst: 20, k: "cau", x: { m: "ARS", d: 6, t: 1.9, p: 0.296 } },
     }[tb.kind];
     if (tb.kind === "call") {
@@ -932,12 +932,11 @@ async function pushClose(env) {
 }
 // ---------- Soportes y resistencias (experimental, solo informativo) ----------
 // La app calcula 2 soportes y 2 resistencias por acción (con el historial de los últimos 2 años) y los manda en PUT /me/push {sr:[{t,s:[…],r:[…]}]}.
-// Cada 15 min con el mercado abierto se mira el máximo y el mínimo del día (Finnhub): si pasó por un nivel (±0,4%), un aviso por nivel y por día.
+// Cada 15 min con el mercado abierto se mira el precio (Finnhub): si está cerca de un nivel (a menos de m, lo que se mueve en un día normal), un aviso por nivel y por día.
 // Índice "sridx" ({sub:[…]}) con solo quienes lo activaron, para no leer a todos.
-const SR_TOL = 0.004;
 function srClean(list) {
   const lv = (a) => (Array.isArray(a) ? a : []).map(Number).filter((v) => v > 0 && v < 1e7).slice(0, 3).map((v) => Math.round(v * 1e4) / 1e4);
-  return list.slice(0, 60).map((x) => ({ t: String((x && x.t) || "").toUpperCase().slice(0, 12), s: lv(x && x.s), r: lv(x && x.r) })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && (x.s.length || x.r.length));
+  return list.slice(0, 60).map((x) => ({ t: String((x && x.t) || "").toUpperCase().slice(0, 12), s: lv(x && x.s), r: lv(x && x.r), m: Math.min(0.03, Math.max(0.01, +(x && x.m) || 0.015)) })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && (x.s.length || x.r.length));
 }
 async function srIndex(env, sub, list) {
   const idx = (await env.HOLDY_KV.get("sridx", "json")) || {}, had = JSON.stringify(idx[sub] || null);
@@ -951,17 +950,19 @@ async function srCron(env) {
   // Finnhub gratis: 60 por minuto, compartidas con la app. Como mucho 40 acciones por vuelta, de a una.
   for (const t of tks.slice(0, 40)) {
     try { const r = await fetch("https://finnhub.io/api/v1/quote?symbol=" + encodeURIComponent(t) + "&token=" + encodeURIComponent(env.FINNHUB_KEY)); if (r.status === 429) break; const j = r.ok ? await r.json() : null;
-      qc[t] = j && j.c > 0 && j.h > 0 && j.l > 0 && j.t && new Date(j.t * 1000).toISOString().slice(0, 10) === day ? j : null; } catch (e) { qc[t] = null; }
+      qc[t] = j && j.c > 0 && j.t && new Date(j.t * 1000).toISOString().slice(0, 10) === day ? j : null; } catch (e) { qc[t] = null; }
   }
   const us = (v) => "US$ " + v.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   for (const sub of subs) {
     for (const x of idx[sub]) {
       const q = qc[x.t]; if (!q) continue;
-      const hit = (v) => q.l <= v * (1 + SR_TOL) && q.h >= v * (1 - SR_TOL);
-      const lv = x.s.map((v) => ({ v, s: 1 })).concat(x.r.map((v) => ({ v, s: 0 }))).filter((o) => hit(o.v));
+      // Cerca: el precio de ahora está a menos de m (lo que se mueve en un día normal, 1% a 3%) del nivel. Avisa antes de llegar, para poner la orden.
+      const m = x.m || 0.015, near = (v) => Math.abs(q.c / v - 1) <= m;
+      const lv = x.s.map((v) => ({ v, s: 1 })).concat(x.r.map((v) => ({ v, s: 0 }))).filter((o) => near(o.v));
       for (const o of lv) {
-        const title = x.t + " tocó " + (o.s ? "un soporte" : "una resistencia") + " · " + us(o.v);
-        const body = "Ahora " + us(q.c) + ". Informativo, no es una recomendación.";
+        const d = q.c / o.v - 1, past = o.s ? d < 0 : d > 0, pc = Math.abs(d * 100).toLocaleString("es-AR", { maximumFractionDigits: 1 }) + "%";
+        const title = x.t + (past ? " pasó " : " cerca de ") + (o.s ? "un soporte" : "una resistencia") + " · " + us(o.v);
+        const body = "Ahora " + us(q.c) + (past ? ", " + pc + (o.s ? " abajo" : " arriba") : ", a " + pc) + ". Informativo, no es una recomendación.";
         await pushTo(env, sub, "sr", { title, body, tag: "sr-" + x.t, u: "#sr/" + x.t, x: { t: x.t, v: o.v, s: o.s } }, "sr:" + x.t + ":" + o.v + ":" + today, 2 * 86400);
       }
     }
