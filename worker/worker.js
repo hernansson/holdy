@@ -27,11 +27,12 @@ export default {
   // Una sola tarea por hora (minuto 35); según la hora hace cada cosa. 11 y 14 UTC: IBKR · 12 UTC: cobros · 21 UTC (lun-vie): cierre.
   async scheduled(event, env, ctx) {
     // Cada minuto en horario de cauciones (lun-vie): revisa las alarmas de tasa. Es otro cron, aparte del de cada hora.
-    if (event.cron && event.cron !== "35 * * * *") { ctx.waitUntil(cauCron(env, event.scheduledTime)); return; }
+    // Cada 15 minutos, en ese mismo cron: soportes y resistencias (experimental) de las acciones de quien lo activó.
+    if (event.cron && event.cron !== "35 * * * *") { ctx.waitUntil(cauCron(env, event.scheduledTime)); if (new Date(event.scheduledTime || Date.now()).getUTCMinutes() % 15 === 5) ctx.waitUntil(srCron(env)); return; }
     const d = new Date(event.scheduledTime || Date.now()), h = d.getUTCHours(), wd = d.getUTCDay();
     if (h === 11 || h === 14) ctx.waitUntil(ibCron(env));
     if (h === 12) ctx.waitUntil(pushCobros(env));
-    if (h === 21 && wd >= 1 && wd <= 5) ctx.waitUntil(pushClose(env)); // 18:35 de Argentina: ya cerró Wall Street todo el año
+    if (h === 21 && wd >= 1 && wd <= 5) { ctx.waitUntil(pushClose(env)); ctx.waitUntil(srCron(env)); } // 18:35 de Argentina: ya cerró Wall Street todo el año
   },
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin");
@@ -370,7 +371,7 @@ async function account(request, env, url, cors) {
 async function history(url, cors) {
   const syms = (url.searchParams.get("symbols") || "").toUpperCase().split(",").map((x) => x.trim()).filter(Boolean);
   if (!syms.length || syms.length > 20 || syms.some((x) => !/^[A-Z0-9.\-]{1,12}$/.test(x))) return json({ error: "bad_symbols" }, 400, cors);
-  const from = url.searchParams.get("from") || "";
+  const from = url.searchParams.get("from") || "", hl = url.searchParams.get("hl") === "1";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) return json({ error: "bad_from" }, 400, cors);
   const t0 = Date.parse(from + "T00:00:00Z");
   const floor = Date.now() - 5 * 365 * 86400000;
@@ -378,12 +379,12 @@ async function history(url, cors) {
   const p2 = Math.floor(Date.now() / 1000) + 86400;
   const out = {};
   await Promise.all(syms.map(async (sym) => {
-    const key = sym + "|" + new Date(p1 * 1000).toISOString().slice(0, 10);
+    const key = sym + "|" + new Date(p1 * 1000).toISOString().slice(0, 10) + (hl ? "|hl" : "");
     const hit = histCache.get(key);
     if (hit && Date.now() - hit.at < HIST_TTL_MS) { out[sym] = hit.data; return; }
     const cands = sym.includes(".") ? [sym] : (ALIAS[sym] ? [ALIAS[sym]] : [sym, sym + ".L", sym + ".SW"]);
     for (const c of cands) {
-      const d = await yahooHistory(c, p1, p2);
+      const d = await yahooHistory(c, p1, p2, hl);
       if (d) {
         histCache.set(key, { at: Date.now(), data: d });
         if (histCache.size > 300) histCache.delete(histCache.keys().next().value);
@@ -396,7 +397,8 @@ async function history(url, cors) {
   return json({ data: out }, 200, cors);
 }
 
-async function yahooHistory(symbol, p1, p2) {
+// hl: además, máximo y mínimo de cada día (4ª y 5ª columna), para los soportes y resistencias.
+async function yahooHistory(symbol, p1, p2, hl) {
   try {
     const r = await fetch(
       "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(symbol) + "?period1=" + p1 + "&period2=" + p2 + "&interval=1d",
@@ -406,7 +408,7 @@ async function yahooHistory(symbol, p1, p2) {
     const j = await r.json();
     const res = j && j.chart && j.chart.result && j.chart.result[0];
     if (!res || !Array.isArray(res.timestamp) || !res.indicators || !res.indicators.quote || !res.indicators.quote[0]) return null;
-    const closes = res.indicators.quote[0].close || [];
+    const closes = res.indicators.quote[0].close || [], highs = res.indicators.quote[0].high || [], lows = res.indicators.quote[0].low || [];
     const adjs = (res.indicators.adjclose && res.indicators.adjclose[0] && res.indicators.adjclose[0].adjclose) || [];
     const off = (res.meta && typeof res.meta.gmtoffset === "number") ? res.meta.gmtoffset : 0;
     let cur = String((res.meta && res.meta.currency) || "").trim();
@@ -417,7 +419,9 @@ async function yahooHistory(symbol, p1, p2) {
       const c = closes[i];
       if (typeof c !== "number" || !(c > 0)) continue;
       const a = (typeof adjs[i] === "number" && adjs[i] > 0) ? adjs[i] : c;
-      pts.push([new Date((res.timestamp[i] + off) * 1000).toISOString().slice(0, 10), Math.round(c * k * 1e6) / 1e6, Math.round(a * k * 1e6) / 1e6]);
+      const row = [new Date((res.timestamp[i] + off) * 1000).toISOString().slice(0, 10), Math.round(c * k * 1e6) / 1e6, Math.round(a * k * 1e6) / 1e6];
+      if (hl) { const hi = highs[i], lo = lows[i]; row.push(typeof hi === "number" && hi > 0 ? Math.round(hi * k * 1e4) / 1e4 : row[1], typeof lo === "number" && lo > 0 ? Math.round(lo * k * 1e4) / 1e4 : row[1]); }
+      pts.push(row);
     }
     if (pts.length < 2) return null;
     // Nombre de la empresa o del ETF (la app lo muestra en chiquito en el detalle).
@@ -863,6 +867,7 @@ async function pushMe(request, env, url, user, h) {
     // Pruebas de las alarmas de cauciones (botones en la pantalla Cauciones): mismo camino que las de verdad.
     const T = {
       cau1: { title: "Caución a 37%: 25% sobre la media (PRUEBA)", body: "Caución en pesos a 1 día: 37% TNA. La media del día es 29,6%. Esto es una prueba.", tag: "cau1-test", u: "#cauciones", ri: 1, lv: 1, k: "cau", x: { m: "ARS", d: 1, t: 0.37, p: 0.296 } },
+      sr: { title: "AAPL tocó un posible soporte (PRUEBA)", body: "Bajó hasta US$ 180,10 y el soporte estaba en US$ 180,40. Ahora está en US$ 181,30. Es solo informativo, no una recomendación. Esto es una prueba.", tag: "sr-test", u: "#sr/AAPL", k: "sr", x: { t: "AAPL", v: 180.4, s: 1 } },
       cauop: { title: "🚨 OPORTUNIDAD: caución 190% (PRUEBA)", body: "Caución en pesos a 6 días: 190% TNA, 542% más que la media del día (29,6%). Esto es una prueba.", tag: "cauop-test", u: "#cauciones", ri: 1, lv: 2, burst: 20, k: "cau", x: { m: "ARS", d: 6, t: 1.9, p: 0.296 } },
     }[tb.kind];
     if (tb.kind === "call") {
@@ -879,11 +884,13 @@ async function pushMe(request, env, url, user, h) {
   if (request.method === "DELETE") { const ep = String(b.ep || ""); rec.subs = rec.subs.filter((s) => s.ep !== ep); await env.HOLDY_KV.put(key, JSON.stringify(rec)); return json({ ok: true }, 200, h); }
   if (request.method === "PUT") {
     if (b.sub && /^https:\/\//.test(b.sub.endpoint || "") && b.sub.endpoint.length < 1000) { if (!rec.subs.some((s) => s.ep === b.sub.endpoint)) rec.subs = rec.subs.concat({ ep: b.sub.endpoint, at: Date.now() }).slice(-5); }
-    if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, fr: b.prefs.fr === 0 ? 0 : 1, cau: b.prefs.cau === 0 ? 0 : 1, test: 1 };
+    if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, fr: b.prefs.fr === 0 ? 0 : 1, cau: b.prefs.cau === 0 ? 0 : 1, sr: b.prefs.sr ? 1 : 0, test: 1 };
     rec.prefs.test = 1;
     if (Array.isArray(b.cau)) { rec.cau = cauClean(b.cau); await cauIndex(env, user.sub, rec.cau); }
     if (Array.isArray(b.agenda)) rec.agenda = b.agenda.slice(0, 60).map((x) => ({ d: String(x.d || "").slice(0, 10), t: String(x.t || "").slice(0, 16), k: String(x.k || "").slice(0, 20), a: Math.round((+x.a || 0) * 100) / 100, cy: String(x.cy || "US$").slice(0, 4) })).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.d));
     if (Array.isArray(b.pos)) rec.pos = b.pos.slice(0, 200).map((x) => ({ t: String(x.t || "").toUpperCase().slice(0, 12), q: +x.q || 0 })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && x.q > 0);
+    if (Array.isArray(b.sr)) rec.sr = srClean(b.sr);
+    if (b.prefs || Array.isArray(b.sr)) await srIndex(env, user.sub, rec.prefs && rec.prefs.sr && rec.subs.length ? rec.sr || [] : []);
     if (typeof b.tel === "string") { const t = cauTel(b.tel); if (b.tel && !t) return json({ error: "bad_tel" }, 400, h); rec.tel = t; if (t) await env.HOLDY_KV.put("cautel:" + user.sub, t); else await env.HOLDY_KV.delete("cautel:" + user.sub); }
     if (b.name) rec.name = String(b.name).slice(0, 40);
     await env.HOLDY_KV.put(key, JSON.stringify(rec));
@@ -921,6 +928,43 @@ async function pushClose(env) {
     let body = "Tus acciones hoy: " + (dAmt >= 0 ? "+" : "") + fmtUS(dAmt) + " (" + pc(dAmt / base) + ").";
     if (mv.length > 1) body += " Subió más " + mv[0].t + " " + pc(mv[0].dp) + "; bajó más " + mv[mv.length - 1].t + " " + pc(mv[mv.length - 1].dp) + ".";
     await pushTo(env, sub, "close", { title: "Cierre del mercado", body, tag: "close-" + today, u: "#hoy" }, "close:" + today);
+  }
+}
+// ---------- Soportes y resistencias (experimental, solo informativo) ----------
+// La app calcula 2 soportes y 2 resistencias por acción (con el historial del último año) y los manda en PUT /me/push {sr:[{t,s:[…],r:[…]}]}.
+// Cada 15 min con el mercado abierto se mira el máximo y el mínimo del día (Finnhub): si pasó por un nivel (±0,4%), un aviso por nivel y por día.
+// Índice "sridx" ({sub:[…]}) con solo quienes lo activaron, para no leer a todos.
+const SR_TOL = 0.004;
+function srClean(list) {
+  const lv = (a) => (Array.isArray(a) ? a : []).map(Number).filter((v) => v > 0 && v < 1e7).slice(0, 3).map((v) => Math.round(v * 1e4) / 1e4);
+  return list.slice(0, 60).map((x) => ({ t: String((x && x.t) || "").toUpperCase().slice(0, 12), s: lv(x && x.s), r: lv(x && x.r) })).filter((x) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(x.t) && (x.s.length || x.r.length));
+}
+async function srIndex(env, sub, list) {
+  const idx = (await env.HOLDY_KV.get("sridx", "json")) || {}, had = JSON.stringify(idx[sub] || null);
+  if (list.length) idx[sub] = list; else delete idx[sub];
+  if (JSON.stringify(idx[sub] || null) !== had) await env.HOLDY_KV.put("sridx", JSON.stringify(idx));
+}
+async function srCron(env) {
+  const idx = (await env.HOLDY_KV.get("sridx", "json")) || {}, subs = Object.keys(idx); if (!subs.length || !env.FINNHUB_KEY) return;
+  const day = new Date().toISOString().slice(0, 10), today = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10), qc = {};
+  const tks = []; subs.forEach((s) => idx[s].forEach((x) => { if (!tks.includes(x.t)) tks.push(x.t); }));
+  // Finnhub gratis: 60 por minuto, compartidas con la app. Como mucho 40 acciones por vuelta, de a una.
+  for (const t of tks.slice(0, 40)) {
+    try { const r = await fetch("https://finnhub.io/api/v1/quote?symbol=" + encodeURIComponent(t) + "&token=" + encodeURIComponent(env.FINNHUB_KEY)); if (r.status === 429) break; const j = r.ok ? await r.json() : null;
+      qc[t] = j && j.c > 0 && j.h > 0 && j.l > 0 && j.t && new Date(j.t * 1000).toISOString().slice(0, 10) === day ? j : null; } catch (e) { qc[t] = null; }
+  }
+  const us = (v) => "US$ " + v.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  for (const sub of subs) {
+    for (const x of idx[sub]) {
+      const q = qc[x.t]; if (!q) continue;
+      const hit = (v) => q.l <= v * (1 + SR_TOL) && q.h >= v * (1 - SR_TOL);
+      const lv = x.s.map((v) => ({ v, s: 1 })).concat(x.r.map((v) => ({ v, s: 0 }))).filter((o) => hit(o.v));
+      for (const o of lv) {
+        const title = x.t + " tocó " + (o.s ? "un posible soporte" : "una posible resistencia");
+        const body = (o.s ? "Hoy bajó hasta " + us(q.l) : "Hoy subió hasta " + us(q.h)) + " y " + (o.s ? "el soporte" : "la resistencia") + " estaba en " + us(o.v) + ". Ahora está en " + us(q.c) + ". Es solo informativo, no una recomendación.";
+        await pushTo(env, sub, "sr", { title, body, tag: "sr-" + x.t, u: "#sr/" + x.t, x: { t: x.t, v: o.v, s: o.s } }, "sr:" + x.t + ":" + o.v + ":" + today, 2 * 86400);
+      }
+    }
   }
 }
 // ---------- Cauciones: panel de BYMA (datos abiertos, con demora) y alarmas de tasa ----------
