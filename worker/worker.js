@@ -867,7 +867,7 @@ async function pushMe(request, env, url, user, h) {
     // Pruebas de las alarmas de cauciones (botones en la pantalla Cauciones): mismo camino que las de verdad.
     const T = {
       cau1: { title: "Caución a 37%: 25% sobre la media (PRUEBA)", body: "Caución en pesos a 1 día: 37% TNA. La media del día es 29,6%. Esto es una prueba.", tag: "cau1-test", u: "#cauciones", ri: 1, lv: 1, k: "cau", x: { m: "ARS", d: 1, t: 0.37, p: 0.296 } },
-      sr: { title: "AAPL tocó un posible soporte (PRUEBA)", body: "Bajó hasta US$ 180,10 y el soporte estaba en US$ 180,40. Ahora está en US$ 181,30. Es solo informativo, no una recomendación. Esto es una prueba.", tag: "sr-test", u: "#sr/AAPL", k: "sr", x: { t: "AAPL", v: 180.4, s: 1 } },
+      sr: { title: "AAPL tocó un soporte · US$ 180,40", body: "Ahora US$ 181,30. Esto es una prueba.", tag: "sr-test", u: "#sr/AAPL", k: "sr", x: { t: "AAPL", v: 180.4, s: 1 } },
       cauop: { title: "🚨 OPORTUNIDAD: caución 190% (PRUEBA)", body: "Caución en pesos a 6 días: 190% TNA, 542% más que la media del día (29,6%). Esto es una prueba.", tag: "cauop-test", u: "#cauciones", ri: 1, lv: 2, burst: 20, k: "cau", x: { m: "ARS", d: 6, t: 1.9, p: 0.296 } },
     }[tb.kind];
     if (tb.kind === "call") {
@@ -931,7 +931,7 @@ async function pushClose(env) {
   }
 }
 // ---------- Soportes y resistencias (experimental, solo informativo) ----------
-// La app calcula 2 soportes y 2 resistencias por acción (con el historial del último año) y los manda en PUT /me/push {sr:[{t,s:[…],r:[…]}]}.
+// La app calcula 2 soportes y 2 resistencias por acción (con el historial de los últimos 2 años) y los manda en PUT /me/push {sr:[{t,s:[…],r:[…]}]}.
 // Cada 15 min con el mercado abierto se mira el máximo y el mínimo del día (Finnhub): si pasó por un nivel (±0,4%), un aviso por nivel y por día.
 // Índice "sridx" ({sub:[…]}) con solo quienes lo activaron, para no leer a todos.
 const SR_TOL = 0.004;
@@ -960,8 +960,8 @@ async function srCron(env) {
       const hit = (v) => q.l <= v * (1 + SR_TOL) && q.h >= v * (1 - SR_TOL);
       const lv = x.s.map((v) => ({ v, s: 1 })).concat(x.r.map((v) => ({ v, s: 0 }))).filter((o) => hit(o.v));
       for (const o of lv) {
-        const title = x.t + " tocó " + (o.s ? "un posible soporte" : "una posible resistencia");
-        const body = (o.s ? "Hoy bajó hasta " + us(q.l) : "Hoy subió hasta " + us(q.h)) + " y " + (o.s ? "el soporte" : "la resistencia") + " estaba en " + us(o.v) + ". Ahora está en " + us(q.c) + ". Es solo informativo, no una recomendación.";
+        const title = x.t + " tocó " + (o.s ? "un soporte" : "una resistencia") + " · " + us(o.v);
+        const body = "Ahora " + us(q.c) + ". Informativo, no es una recomendación.";
         await pushTo(env, sub, "sr", { title, body, tag: "sr-" + x.t, u: "#sr/" + x.t, x: { t: x.t, v: o.v, s: o.s } }, "sr:" + x.t + ":" + o.v + ":" + today, 2 * 86400);
       }
     }
