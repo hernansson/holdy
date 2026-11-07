@@ -236,6 +236,12 @@
   #cauBody{display:grid;gap:10px}
   .nt-b{font-size:16px;line-height:1.45;margin:2px 2px 12px} .nt-s{font-size:13.5px;color:var(--muted);margin:0 2px 10px;line-height:1.4} .nt-live{display:grid;gap:10px}
   .nt-bk{align-items:center;margin-top:14px;font-size:14px;color:var(--muted)} .nt-bk-a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--brand);color:var(--brand);font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap} .cau-bk-row{display:flex;gap:8px;flex-wrap:wrap}
+  .al-h{font-size:17px} .al-k{font-size:13px;color:var(--muted)} .al-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .al-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;background:color-mix(in srgb,var(--text) 7%,transparent);font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .al-chip.op{background:color-mix(in srgb,var(--neg) 14%,transparent);color:var(--neg)}
+  .al-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap} .al-steps{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .al-more{color:var(--muted)}
+  .al-op{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--neg) 9%,transparent)} .al-op b{font-size:18px;color:var(--neg);font-variant-numeric:tabular-nums} .al-op small{color:var(--muted);font-size:12.5px}
+  .al-how{font-size:13.5px;color:var(--muted)} .al-how summary{cursor:pointer;padding:6px 2px} .al-how p{margin:6px 2px}
   .cau-src{font-size:12.5px;color:var(--muted);line-height:1.4;padding:0 2px}
   .cau-hero{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:2px}
   .cau-hero .cau-k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
@@ -2843,40 +2849,43 @@
       box.appendChild(el("div","cau-src",(cauData.live?"Tasas de IOL, en vivo (última tasa de cada plazo; un feriado muestra la del último día hábil)":(old?"Cierre de la última rueda":"Última operación"+(last?" "+last.slice(0,5)+cauAgo(last):""))+" · BYMA, con unos 15 a 20 minutos de demora")+". Tasa nominal anual (TNA)."));
     }
     box.appendChild(cauBkEl());
-    // Alarmas
+    // Alarmas: poco texto, los números a la vista.
     box.appendChild(el("div","pe-k","Alarmas"));
+    function cauNorm(m,d){ var t=cauData&&cauData.items.filter(function(x){ return x.m===m&&x.d<=d&&(x.b>0||x.p>0); }).sort(function(a,b){ return (b.vol||0)-(a.vol||0); })[0]; return t?(t.b||t.p):0; }
+    function cauOpp(m,n){ return Math.max(n*2,n+(m==="ARS"?0.1:0.01)); }
+    function chip(txt,cls){ return el("span","al-chip"+(cls?" "+cls:""),txt); }
     if(pushA.cau.length){ var ag=el("div","cau-g");
-      pushA.cau.forEach(function(a,i){ var r=el("div","cau-al"), t=el("span","pe-t","Caución en "+CAU_ML[a.m]+(a.d===1?" a 1 día":" hasta "+a.d+" días")), bits=[];
-        if(a.a1>0) bits.push("aviso +"+Math.round(a.a1*100)+"% sobre la media"); bits.push("🚨 oportunidad"); if(a.r>0) bits.push("llega a "+cauPct(a.r));
-        t.appendChild(el("small",null,bits.join(" · "))); r.appendChild(t);
+      pushA.cau.forEach(function(a,i){ var r=el("div","cau-al"), t=el("span","pe-t",CAU_M[a.m]+" · "+(a.d===1?"1 día":"hasta "+a.d+" días")), n=cauNorm(a.m,a.d), cs=el("span","al-chips");
+        if(a.a1>0) cs.appendChild(chip("🔔 "+(n?cauPct(n*(1+a.a1)):"+"+Math.round(a.a1*100)+"%")));
+        cs.appendChild(chip("🚨 "+(n?cauPct(cauOpp(a.m,n)):"x2"),"op")); if(a.r>0) cs.appendChild(chip("🎯 "+cauPct(a.r)));
+        t.appendChild(cs); r.appendChild(t);
         var x=el("button",null,"✕"); x.type="button"; x.setAttribute("aria-label","Borrar alarma"); x.addEventListener("click",function(){ pushA.cau.splice(i,1); cauSaveAl(); cauRender(); }); r.appendChild(x); ag.appendChild(r); });
       box.appendChild(ag); }
     if(cauNew){ var f=el("div","cau-new"), ms=el("div","seg sm"), ds=el("div","seg sm");
-      Object.keys(CAU_M).forEach(function(m){ var b=el("button",m===cauNew.m?"on":"",CAU_M[m]); b.type="button"; b.addEventListener("click",function(){ cauNew.m=m; cauRender(); }); ms.appendChild(b); });
-      CAU_D.forEach(function(o){ var b=el("button",o[0]===cauNew.d?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ cauNew.d=o[0]; cauRender(); }); ds.appendChild(b); });
-      f.appendChild(ms); var dl=el("div","cau-lim"); dl.appendChild(el("span","pe-t","Plazos de hasta")); f.appendChild(dl); f.appendChild(ds);
-      function fld(k,lbl,sub,unit){ var l=el("label","cau-lim"), t=el("span","pe-t",lbl); t.appendChild(el("small",null,sub)); l.appendChild(t); var w=el("span","sim-in"), i=document.createElement("input"); i.inputMode="decimal"; i.value=cauNew[k]; i.placeholder="—"; i.setAttribute("aria-label",lbl);
-        i.addEventListener("input",function(){ cauNew[k]=i.value; }); w.appendChild(i); w.appendChild(el("i",null,unit)); l.appendChild(w); f.appendChild(l); return i; }
-      var med=cauNew.med||0.29, ex=el("small",null,""), oex=el("small",null,"");
-      function cauEx(){ var a1=+cauNew.v1/100, lv=med*(1+a1); ex.textContent="Normal "+(cauNew.med?"":"de ejemplo ")+cauPct(med)+" → avisos en "+cauPct(lv)+", "+cauPct(lv*(1+a1))+", "+cauPct(lv*(1+a1)*(1+a1))+"…";
-        oex.textContent="Con lo normal en "+cauPct(med)+" → oportunidad en "+cauPct(Math.max(med*2,med+(cauNew.m==="ARS"?0.1:0.01))); }
-      var aw=el("div","cau-sl"), ah=el("div","cau-lim"), at=el("span","pe-t","Aviso"); at.appendChild(el("small",null,"Cuando la tasa supera lo normal de ese plazo (el promedio de los últimos 5 días) por este %, y otra vez cada vez que vuelve a subir ese % sobre el aviso anterior. Solo cuenta si se operó plata de verdad a esa tasa:")); ah.appendChild(at);
-      var av=el("b","cau-slv",cauNew.v1+"%"); ah.appendChild(av); aw.appendChild(ah);
-      var inp=document.createElement("input"); inp.type="range"; inp.min="5"; inp.max="50"; inp.step="5"; inp.value=cauNew.v1; inp.setAttribute("aria-label","Aviso: % sobre la media");
-      inp.addEventListener("input",function(){ cauNew.v1=inp.value; av.textContent=inp.value+"%"; cauEx(); }); aw.appendChild(inp); aw.appendChild(ex); f.appendChild(aw);
-      var ow=el("div","cau-sl"), ot=el("span","pe-t","🚨 Oportunidad (siempre activa)"); ot.appendChild(el("small",null,"Una ráfaga de 20 notificaciones de una cuando la tasa llega al doble de lo normal (y al menos 10 puntos más; 1 en dólares). Vuelve a sonar si se vuelve a duplicar")); ow.appendChild(ot);
-      ow.appendChild(oex); f.appendChild(ow); cauEx();
-      fld("vr","Nivel fijo (opcional)","Una notificación si llega a esta tasa, sin importar la media","% TNA");
-      var nav=el("div","wz-nav"), cn=el("button",null,"Cancelar"), ok=el("button","primary","Guardar alarma"); cn.type=ok.type="button";
+      Object.keys(CAU_M).forEach(function(m){ var b=el("button",m===cauNew.m?"on":"",CAU_M[m]); b.type="button"; b.addEventListener("click",function(){ cauNew.m=m; cauNew.med=cauNorm(m,cauNew.d); cauRender(); }); ms.appendChild(b); });
+      CAU_D.forEach(function(o){ var b=el("button",o[0]===cauNew.d?"on":"",o[1]); b.type="button"; b.addEventListener("click",function(){ cauNew.d=o[0]; cauNew.med=cauNorm(cauNew.m,o[0]); cauRender(); }); ds.appendChild(b); });
+      f.appendChild(el("b","al-h","Nueva alarma")); f.appendChild(ms); f.appendChild(el("span","al-k","Plazo hasta")); f.appendChild(ds);
+      var med=cauNew.med||(cauNew.m==="ARS"?0.29:0.02), steps=el("div","al-steps"), oppV=el("b",null,"");
+      function cauEx(){ var a1=+cauNew.v1/100, lv=med; steps.textContent=""; for(var k=0;k<3;k++){ lv*=1+a1; steps.appendChild(chip(cauPct(lv))); } steps.appendChild(el("span","al-more","…")); oppV.textContent=cauPct(cauOpp(cauNew.m,med)); }
+      var aw=el("div","cau-sl"), ah=el("div","cau-lim"); ah.appendChild(el("span","pe-t","🔔 Avisame cada vez que suba"));
+      var av=el("b","cau-slv","+"+cauNew.v1+"%"); ah.appendChild(av); aw.appendChild(ah);
+      var inp=document.createElement("input"); inp.type="range"; inp.min="5"; inp.max="50"; inp.step="5"; inp.value=cauNew.v1; inp.setAttribute("aria-label","Aviso: % sobre lo normal");
+      inp.addEventListener("input",function(){ cauNew.v1=inp.value; av.textContent="+"+inp.value+"%"; cauEx(); }); aw.appendChild(inp);
+      var nl=el("div","al-row"); nl.appendChild(el("span","al-k","Normal "+cauPct(med)+" →")); nl.appendChild(steps); aw.appendChild(nl); f.appendChild(aw);
+      var ow=el("div","al-op"); ow.appendChild(el("span",null,"🚨 Oportunidad")); ow.appendChild(oppV); ow.appendChild(el("small",null,"el doble · 20 notificaciones")); f.appendChild(ow); cauEx();
+      var fx=el("div","al-row"); if(cauNew.vrOn||cauNew.vr){ var w=el("span","sim-in"), vi=document.createElement("input"); vi.inputMode="decimal"; vi.value=cauNew.vr; vi.placeholder="—"; vi.setAttribute("aria-label","Nivel fijo");
+          vi.addEventListener("input",function(){ cauNew.vr=vi.value; }); fx.appendChild(el("span","pe-t","🎯 Nivel fijo")); w.appendChild(vi); w.appendChild(el("i",null,"%")); fx.appendChild(w); }
+        else { var lb=el("button","linkbtn","+ Agregar un nivel fijo"); lb.type="button"; lb.addEventListener("click",function(){ cauNew.vrOn=1; cauRender(); }); fx.appendChild(lb); }
+      f.appendChild(fx);
+      var nav=el("div","wz-nav"), cn=el("button",null,"Cancelar"), ok=el("button","primary","Guardar"); cn.type=ok.type="button";
       cn.addEventListener("click",function(){ cauNew=null; cauRender(); });
       ok.addEventListener("click",function(){ function n(x){ var v=parseFloat(String(x||"").replace(",",".")); return v>0&&v<2000?Math.round(v*10)/1000:0; }
         var a={id:Math.random().toString(36).slice(2,8),m:cauNew.m,d:cauNew.d,a1:n(cauNew.v1),r:n(cauNew.vr)};
         pushA.cau.push(a); cauNew=null; cauSaveAl(); cauRender(); });
       nav.appendChild(cn); nav.appendChild(ok); f.appendChild(nav); box.appendChild(f);
-      setTimeout(function(){ try{ inp.focus(); }catch(e){} },50);
     } else if(pushA.cau.length<6){ var nb=el("button",null,"+ Nueva alarma"); nb.type="button";
-      nb.addEventListener("click",function(){ if(!auth){ alert("Para las alarmas tenés que entrar con tu cuenta de Google."); return; } var t=cauData&&cauData.items.filter(function(x){ return x.m===cauM&&x.d<=7&&(x.b>0||x.p>0); })[0];
-        cauNew={m:cauM,d:7,v1:"10",vr:"",med:t?(t.b||t.p):0}; cauRender(); }); box.appendChild(nb); }
+      nb.addEventListener("click",function(){ if(!auth){ alert("Para las alarmas tenés que entrar con tu cuenta de Google."); return; }
+        cauNew={m:cauM,d:7,v1:"10",vr:"",med:cauNorm(cauM,7)}; cauRender(); }); box.appendChild(nb); }
     if(pushA.cau.length&&!pushA.on){ var st=el("div","ib-st","Para que la alarma te llegue al celu, activá los avisos en este celu."); box.appendChild(st);
       var pb=el("button","primary","Activar avisos"); pb.type="button"; pb.addEventListener("click",function(){ pb.disabled=true; pushEnable().then(function(){ return cauSaveAl(); }).then(cauRender).catch(function(e){ st.className="ib-st err"; st.textContent=(e&&e.message)||"No se pudo."; pb.disabled=false; }); }); box.appendChild(pb); }
     else if(pushA.cau.length&&!pushA.prefs.cau) box.appendChild(el("div","ib-st","Tenés apagados los avisos de cauciones en Avisos."));
@@ -2889,7 +2898,9 @@
       cp.addEventListener("click",function(){ if(!pushA.tel){ cmsg.textContent="Primero guardá tu número."; return; } cp.disabled=true; cmsg.textContent="Llamando…";
         api("POST","/me/push/test",{kind:"call"}).then(function(r){ return r.json(); }).then(function(j){ cmsg.textContent=j&&j.ok?"Te está llamando ✓":j&&j.error==="sin_twilio"?"Las llamadas todavía no están configuradas en el servidor.":"No se pudo llamar."; }).catch(function(){ cmsg.textContent="No se pudo llamar."; }).then(function(){ setTimeout(function(){ cp.disabled=false; },8000); }); });
       cr.appendChild(cs); cr.appendChild(cp); cw.appendChild(cr); cw.appendChild(cmsg); box.appendChild(cw); }
-    box.appendChild(el("div","sim-foot","El servidor de Holdy las revisa cada minuto desde las 10 hasta el cierre, y cada 10 segundos cuando una tasa se despega, aunque tengas la app cerrada. Compara la última tasa de cada plazo con lo normal (el promedio de los últimos 5 días; mientras junta historia, la media de hoy), solo en plazos con volumen de verdad y si se operó plata a esa tasa. Los feriados no avisa."));
+    var hw=document.createElement("details"); hw.className="al-how"; hw.appendChild(el("summary",null,"¿Cómo funcionan?"));
+    ["Compara cada plazo con lo normal: el promedio de los últimos 5 días.","🔔 Te avisa al pasar tu %, y de nuevo cada vez que sube otro tanto.","🚨 Oportunidad: el doble de lo normal. Llegan 20 notificaciones juntas.","Solo cuenta si se operó plata a esa tasa. Revisa cada minuto, aunque tengas la app cerrada. Los feriados no avisa."].forEach(function(t){ hw.appendChild(el("p",null,t)); });
+    box.appendChild(hw);
   }
   function openCau(){ setScr(cauView); try{ history.pushState({scr:1},""); }catch(e){} cauRender(); if(!cauBusy&&(!cauData||Date.now()-cauData.at>60*1000)) cauLoad();
     if(auth) api("GET","/me/push").then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j) return; var ch=j.call!==cauCallCfg||(j.tel||"")!==(pushA.tel||""); cauCallCfg=j.call; pushA.tel=j.tel||"";
