@@ -2755,7 +2755,10 @@
   function isStandalone(){ return (window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true; }
   function b64uToU8(s){ s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="="; var r=atob(s), u=new Uint8Array(r.length); for(var i=0;i<r.length;i++) u[i]=r.charCodeAt(i); return u; }
   /* Lo que el servidor necesita para avisar sin abrir la app: cobros de los próximos 45 días y tus acciones con su cantidad. */
+  /* Los avisos son de cada uno: si estás mirando la cartera de un amigo (o la de ejemplo), no se mandan sus datos.
+     Si tenés una cartera tuya, se deja lo último que mandó; si no tenés ninguna, se limpia lo que hubiera. */
   function pushPayload(){
+    var c=cur(); if(c&&(c.readOnly||c.demo)) return profData.profiles.some(function(pr){ return !pr.readOnly&&!pr.demo; })?null:{agenda:[],pos:[],sr:[]};
     var bk=ui.bk; ui.bk=""; var ag=[], pos={};
     try{ var lim=dayStr(dayNum(todayStr())+45), f=dcF();
       cobItems().next.forEach(function(x){ if(x.d<=lim) ag.push({d:x.d,t:x.t,k:x.k,a:Math.round(x.a*f*100)/100}); });
@@ -2767,14 +2770,14 @@
   }
   var pushSyncT=null;
   function pushSyncSoon(){ if(!pushA.on||!auth) return; clearTimeout(pushSyncT); pushSyncT=setTimeout(function(){
-    var p=pushPayload(), h=hashStr(JSON.stringify(p)); if(h===pushA.h) return;
+    var p=pushPayload(); if(!p) return; var h=hashStr(JSON.stringify(p)); if(h===pushA.h) return;
     api("PUT","/me/push",p).then(function(r){ if(r.ok){ pushA.h=h; save(LS_PUSH,pushA); } }).catch(function(){}); },4000); }
   function pushEnable(){
     if(!pushSupported()) return Promise.reject(new Error(isIOS()&&!isStandalone()?"En iPhone, primero agregá Holdy a la pantalla de inicio (Compartir → Agregar a inicio) y abrila desde ahí.":"Este navegador no permite avisos."));
     return Notification.requestPermission().then(function(perm){ if(perm!=="granted") throw new Error("No diste permiso para avisos. Podés habilitarlo en los ajustes del navegador para holdy.pages.dev.");
       return fetch(PROXY_URL+"/push/key").then(function(r){ return r.json(); }); })
       .then(function(k){ return navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription().then(function(old){ return old||reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uToU8(k.key)}); }); }); })
-      .then(function(sub){ var p=pushPayload(); p.sub=sub.toJSON(); p.prefs=pushA.prefs; return api("PUT","/me/push",p).then(function(r){ if(!r.ok) throw new Error("No pude registrar este celu."); pushA.on=1; pushA.h=hashStr(JSON.stringify(pushPayload())); save(LS_PUSH,pushA); }); });
+      .then(function(sub){ var p0=pushPayload(), p=Object.assign({},p0||{}); p.sub=sub.toJSON(); p.prefs=pushA.prefs; return api("PUT","/me/push",p).then(function(r){ if(!r.ok) throw new Error("No pude registrar este celu."); pushA.on=1; pushA.h=p0?hashStr(JSON.stringify(p0)):""; save(LS_PUSH,pushA); }); });
   }
   function pushDisable(){
     return navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){
@@ -7202,6 +7205,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.45.5", t:"Avisos solo de tu cartera", d:["Si mirás la cartera de un amigo, ya no te llegan avisos de cierre, cobros ni soportes de la suya: cada uno recibe los de su propia cartera."]},
     {v:"1.45.4", t:"Soportes y resistencias más firmes", d:["Ahora combinan velas semanales de 5 años (los niveles grandes) con las diarias de los últimos 2.","Pesan más los niveles donde el precio giró varias veces y los más recientes."]},
     {v:"1.45.3", t:"Soportes y resistencias: aviso antes de llegar", d:["Ahora te avisa cuando una acción se acerca a un soporte o resistencia, no cuando ya llegó, así llegás a poner la orden.","Cerca es lo que esa acción se mueve en un día normal (entre 1% y 3%)."]},
     {v:"1.45.1", t:"Aviso de soportes con gráfico", d:["Al tocar el aviso ves los últimos 6 meses con los soportes y resistencias marcados.","En cada acción, soportes y resistencias pasan a “Ver más”."]},
