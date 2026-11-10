@@ -2522,30 +2522,35 @@
   /* Con los últimos 2 años de máximos y mínimos diarios: los giros (un máximo o mínimo que es el extremo de ±10 ruedas, unas 4 semanas) se agrupan si están cerca
      (según cuánto se mueve la acción en un día normal). Los 2 grupos más cercanos por debajo del precio son soportes; por arriba, resistencias.
      Es un cálculo simple, igual que el de cualquier gráfico: dónde el precio se frenó antes, no dónde se va a frenar. */
-  var LS_SR="cartera.sr.v1", srStore=load(LS_SR,null)||{}, srBusy={}, srPts={};
+  var LS_SR="cartera.sr.v2", srStore=load(LS_SR,null)||{}, srBusy={}, srPts={};
   if(!srStore.l||typeof srStore.l!=="object") srStore={l:{}};
   function srOk(p){ return insOk(p)&&!(p.qty<=0); }
-  function srCalc(pts,px){
-    var n=pts.length; if(n<120||!(px>0)) return null;
-    var H=pts.map(function(r){ return r[3]>0?r[3]:r[1]; }), L=pts.map(function(r){ return r[4]>0?r[4]:r[1]; }), C=pts.map(function(r){ return r[1]; });
-    var K=10, piv=[], i, j;
+  function srPiv(H,L,K,out,w,at){ var n=H.length, i, j;
     for(i=K;i<n-2;i++){ var R=Math.min(K,n-1-i), hi=true, lo=true;
       for(j=i-K;j<=i+R;j++){ if(j===i) continue; if(j<i?H[j]>=H[i]:H[j]>H[i]) hi=false; if(j<i?L[j]<=L[i]:L[j]<L[i]) lo=false; }
-      if(hi) piv.push({v:H[i],i:i}); if(lo) piv.push({v:L[i],i:i}); }
-    /* Mínimo y máximo del año también cuentan (aunque sean de los últimos días). */
+      if(hi) out.push({v:H[i],w:w,t:at[i]}); if(lo) out.push({v:L[i],w:w,t:at[i]}); } }
+  /* Dos miradas juntas, como en un gráfico: velas SEMANALES de 5 años (giros de ±4 semanas, los niveles grandes, pesan doble)
+     y velas DIARIAS de los últimos 2 años (giros de ±10 ruedas). Los giros recientes pesan más (último año 1, hasta 2 años 0,7, más viejos 0,45).
+     Los giros cercanos se juntan en una zona; las más firmes (peso 2 o más: un giro semanal o varios diarios) van primero. */
+  function srCalc(pts,px){
+    var n=pts.length; if(n<120||!(px>0)) return null;
+    var H=pts.map(function(r){ return r[3]>0?r[3]:r[1]; }), L=pts.map(function(r){ return r[4]>0?r[4]:r[1]; }), C=pts.map(function(r){ return r[1]; }), D=pts.map(function(r){ return dayNum(r[0]); });
+    var today=D[n-1], piv=[], i;
+    /* Semanal: máximo y mínimo de cada semana. */
+    var wH=[], wL=[], wT=[], wk=null;
+    for(i=0;i<n;i++){ var k=Math.floor((D[i]+3)/7); if(k!==wk){ wk=k; wH.push(H[i]); wL.push(L[i]); wT.push(D[i]); } else { var m=wH.length-1; if(H[i]>wH[m]) wH[m]=H[i]; if(L[i]<wL[m]) wL[m]=L[i]; wT[m]=D[i]; } }
+    srPiv(wH,wL,4,piv,2,wT);
+    var d0=Math.max(0,n-504); srPiv(H.slice(d0),L.slice(d0),10,piv,1,D.slice(d0));
+    piv.forEach(function(p){ var age=today-p.t; p.w*=age<=365?1:age<=730?0.7:0.45; });
     var mx=0, mn=0; for(i=1;i<n;i++){ if(H[i]>H[mx]) mx=i; if(L[i]<L[mn]) mn=i; }
-    if(!piv.some(function(q){ return q.i===mx&&q.v===H[mx]; })) piv.push({v:H[mx],i:mx});
-    if(!piv.some(function(q){ return q.i===mn&&q.v===L[mn]; })) piv.push({v:L[mn],i:mn});
-    /* Cuánto se mueve en un día normal (mediana de 60 ruedas): eso define qué tan cerca tienen que estar dos giros para ser la misma zona. */
+    /* Cuánto se mueve en un día normal (mediana de 60 ruedas): define qué tan cerca tienen que estar dos giros para ser la misma zona. */
     var mv=[]; for(i=Math.max(1,n-60);i<n;i++) mv.push(Math.abs(C[i]/C[i-1]-1)); mv.sort(function(a,b){ return a-b; });
     var tol=Math.min(0.05,Math.max(0.015,(mv[mv.length>>1]||0.01)*2));
     piv.sort(function(a,b){ return a.v-b.v; });
-    var cl=[]; piv.forEach(function(p){ var c=cl[cl.length-1]; if(c&&p.v<=c.v*(1+tol)){ c.sum+=p.v; c.n++; c.v=c.sum/c.n; c.i=Math.max(c.i,p.i); } else cl.push({v:p.v,sum:p.v,n:1,i:p.i}); });
-    /* Zona = el valor medio; "toques" = cuántas veces el precio giró ahí. Muy lejos (más de 35%) no sirve.
-       Primero las zonas donde giró 2 veces o más (las más firmes); si no alcanzan, se completa con las de 1 giro. */
+    var cl=[]; piv.forEach(function(p){ var c=cl[cl.length-1]; if(c&&p.v<=c.v*(1+tol)){ c.sw+=p.v*p.w; c.w+=p.w; c.n++; c.v=c.sw/c.w; } else cl.push({v:p.v,sw:p.v*p.w,w:p.w,n:1}); });
     var lim=0.35, s=[], r=[];
-    cl.forEach(function(c){ var d=c.v/px-1; if(Math.abs(d)>lim) return; (c.v<px?s:r).push({v:Math.round(c.v*1e4)/1e4,n:c.n}); });
-    function pick(a,dn){ a.sort(function(x,y){ return dn?y.v-x.v:x.v-y.v; }); var f=a.filter(function(o){ return o.n>1; }).slice(0,2);
+    cl.forEach(function(c){ var d=c.v/px-1; if(Math.abs(d)>lim) return; (c.v<px?s:r).push({v:Math.round(c.v*1e4)/1e4,n:c.n,w:Math.round(c.w*10)/10}); });
+    function pick(a,dn){ a.sort(function(x,y){ return dn?y.v-x.v:x.v-y.v; }); var f=a.filter(function(o){ return o.w>=2; }).slice(0,2);
       a.forEach(function(o){ if(f.length<2&&f.indexOf(o)<0) f.push(o); }); f.sort(function(x,y){ return dn?y.v-x.v:x.v-y.v; }); return f; }
     /* m: cuánto se mueve en un día normal; el aviso salta cuando el precio está a menos de eso de un nivel (entre 1% y 3%). */
     return {s:pick(s,1),r:pick(r,0),px:px,hi:H[mx],lo:L[mn],m:Math.round((mv[mv.length>>1]||0.015)*1e4)/1e4};
@@ -2555,7 +2560,7 @@
     list=list.filter(function(t){ return !srBusy[t]&&(force||!srGet(t)); }); if(!list.length) return Promise.resolve();
     list.forEach(function(t){ srBusy[t]=1; });
     var parts=[]; for(var i=0;i<list.length;i+=20) parts.push(list.slice(i,i+20));
-    var from=dayStr(dayNum(todayStr())-735);
+    var from=dayStr(dayNum(todayStr())-1826);
     return Promise.all(parts.map(function(pt){
       return fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(pt.join(","))+"&from="+from+"&hl=1",{cache:"no-store"}).then(function(r){ if(!r.ok) throw 0; return r.json(); })
         .then(function(j){ pt.forEach(function(t){ var h=j.data&&j.data[t]; if(!h||h.currency!=="USD"||!h.pts||!h.pts.length){ srStore.l[t]={d:todayStr(),x:null}; return; }
@@ -2588,7 +2593,7 @@
       line("Soportes","sup",x.s,now<=x.lo*1.03?"en mínimos":"lejos");
     }
     draw();
-    w.appendChild(el("div","sr-f","Últimos 2 años. Informativo, no es una recomendación."));
+    w.appendChild(el("div","sr-f","Semanal de 5 años y diario de 2. Informativo, no es una recomendación."));
     /* El historial se pide recién al abrir la acción. */
     function go(){ if(det.open&&more.open&&!srGet(p.ticker)) srFetch([p.ticker]).then(draw); }
     go(); det.addEventListener("toggle",go); more.addEventListener("toggle",go);
@@ -7197,6 +7202,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.45.4", t:"Soportes y resistencias más firmes", d:["Ahora combinan velas semanales de 5 años (los niveles grandes) con las diarias de los últimos 2.","Pesan más los niveles donde el precio giró varias veces y los más recientes."]},
     {v:"1.45.3", t:"Soportes y resistencias: aviso antes de llegar", d:["Ahora te avisa cuando una acción se acerca a un soporte o resistencia, no cuando ya llegó, así llegás a poner la orden.","Cerca es lo que esa acción se mueve en un día normal (entre 1% y 3%)."]},
     {v:"1.45.1", t:"Aviso de soportes con gráfico", d:["Al tocar el aviso ves los últimos 6 meses con los soportes y resistencias marcados.","En cada acción, soportes y resistencias pasan a “Ver más”."]},
     {v:"1.45.0", t:"Alarmas de cauciones más confiables", d:["Ahora comparan con lo normal de cada plazo (el promedio de los últimos 5 días), no con la media de hoy, que se mueve con el pico.","Solo suenan si se operó plata de verdad a esa tasa: una operación chica suelta no dispara nada.","El aviso te dice cuánto ganarías con $1.000.000."]},
