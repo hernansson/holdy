@@ -1333,14 +1333,20 @@
   <form method="dialog" id="formSell">
     <h3 id="sellTitle">Eliminar posición</h3>
     <div class="help" style="font-size:14px;color:var(--muted)">¿La vendiste? Si cargás la fecha y el precio de venta, la guardamos en “Vendidas” y se usa para calcular tu rendimiento.</div>
+    <label id="sellLotWrap" hidden>¿De qué compra?
+      <select id="sellLot"></select>
+    </label>
     <div class="two">
+      <label><span id="sellQtyLbl">Cantidad que vendés</span>
+        <input id="sellQty" type="text" inputmode="decimal" autocomplete="off">
+      </label>
       <label>Fecha de venta
         <input id="sellDate" type="text">
       </label>
-      <label><span id="sellPxLbl">Precio de venta</span>
-        <input id="sellPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
-      </label>
     </div>
+    <label><span id="sellPxLbl">Precio de venta</span>
+      <input id="sellPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
+    </label>
     <label id="sellCcyWrap" hidden>Vendiste en
       <select id="sellCcy"><option value="C">Dólar cable (CCL)</option><option value="M">Dólar MEP</option><option value="P">Pesos</option></select>
     </label>
@@ -4691,10 +4697,51 @@
       $("sellPrice").value=cp!==null?(Math.round(cp*10000)/10000):"";
       sellInfo="Tenés "+(Math.round(p.qty*10000)/10000)+". Poné el precio de una sola, no el total.";
     }
+    /* Cuánto vendés y de qué compra (si hay varias). La cantidad va en la misma unidad que el precio (CEDEARs si es CEDEAR). */
+    sellU=cm?cm.r:1;
+    var ls_=lotsOrOne(p), sl=$("sellLot"); sl.innerHTML="";
+    $("sellLotWrap").hidden=ls_.length<2;
+    if(ls_.length>1){
+      var o0=document.createElement("option"); o0.value="-1"; o0.textContent="De todas (primero las más viejas)"; sl.appendChild(o0);
+      ls_.forEach(function(l,i){ var o=document.createElement("option"); o.value=String(i);
+        o.textContent="Compra "+(i+1)+": "+qq(sellR(l.q*sellU))+" × "+mm(lotPx(p,l)/sellU,p.ccy)+(l.d?" · "+fromISO(l.d):""); sl.appendChild(o); });
+      sl.value="-1";
+    }
+    $("sellQtyLbl").textContent=cm?"CEDEARs que vendés":"Cantidad que vendés";
+    sellQtyFill();
     sellTotal();
     dlgSell.showModal();
   }
-  var sellCed=null, sellPos=null, sellInfo="", sellCp=null;
+  var sellCed=null, sellPos=null, sellInfo="", sellCp=null, sellU=1;
+  function sellR(n){ return Math.round(n*10000)/10000; }
+  /* Lo máximo que se puede vender según la compra elegida (en la unidad de la pantalla). */
+  function sellMax(){ if(!sellPos) return 0; var li=+$("sellLot").value, ls=lotsOrOne(sellPos); return sellR(($("sellLotWrap").hidden||!(li>=0)||!ls[li]?sellPos.qty:ls[li].q)*sellU); }
+  function sellQtyFill(){ $("sellQty").value=String(sellMax()).replace(".",","); }
+  /* Parte las compras: saca "q" acciones de la compra "li" (o de las más viejas primero si li<0). Devuelve las vendidas y las que quedan. */
+  function sellSplit(p,li,q){
+    var ls=lotsOrOne(p).map(function(l){ return Object.assign({},l); }), out=ls.map(function(){ return 0; }), left=q;
+    var ord=ls.map(function(l,i){ return i; });
+    if(li>=0) ord=[li]; else ord.sort(function(a,b){ var da=ls[a].d||"9999", db=ls[b].d||"9999"; return da<db?-1:(da>db?1:a-b); });
+    ord.forEach(function(i){ if(left<=1e-9) return; var t=Math.min(ls[i].q,left); out[i]=t; left-=t; });
+    var sold=[], rest=[], fr=[];
+    ls.forEach(function(l,i){
+      var t=out[i], f=l.q>0?t/l.q:0; fr.push(f);
+      if(t>1e-9){ var a={q:Math.round(t*1e6)/1e6,b:l.b,d:l.d||""}; if(l.x) a.x=l.x; if(l.f) a.f=Math.round(l.f*f*100)/100; if(!a.f) delete a.f; sold.push(a); }
+      if(l.q-t>1e-9){ var r={q:Math.round((l.q-t)*1e6)/1e6,b:l.b,d:l.d||""}; if(l.x) r.x=l.x; if(l.f) r.f=Math.round(l.f*(1-f)*100)/100; if(!r.f) delete r.f; rest.push(r); }
+    });
+    return {sold:sold,rest:rest,fr:fr};
+  }
+  /* Arma una posición con esas compras (cantidad, precio promedio y, si es CEDEAR, sus datos originales). */
+  function sellPiece(p,lots,fr,keep,share){
+    var qty=0,cst=0; lots.forEach(function(l){ qty+=l.q; cst+=l.q*l.b; });
+    var o=Object.assign({},p,{qty:Math.round(qty*1e6)/1e6,buy:cst/qty,lots:(lots.length>1||lots[0].d||lots[0].x||lots[0].f)?lots:[]});
+    var cm=cedMeta(p);
+    if(cm){ var ok=cm.lots.length===fr.length, cl=[];
+      cm.lots.forEach(function(l,i){ var f=ok?fr[i]:share; if(keep) f=1-f; var q=Math.round(l.q*f*1e4)/1e4; if(q>0) cl.push(Object.assign({},l,{q:q})); });
+      if(cl.length) o.note=String(p.note||"").replace(CED_MARK," "+cedMetaStr(cm.r,cm.mode,cl)); }
+    if(p.fi){ o.fi=Object.assign({},p.fi); var sh=keep?1-share:share; if(Array.isArray(p.fi.cp)) o.fi.cp=p.fi.cp.map(function(x){ return [x[0],Math.round(x[1]*sh*100)/100]; }).filter(function(x){ return x[1]>0; }); }
+    return o;
+  }
   /* Moneda en la que vendiste el CEDEAR (la elegís vos): cable, MEP o pesos. */
   function sellCcySync(prefill){
     if(!sellCed) return;
@@ -4707,23 +4754,41 @@
   function sellTotal(){
     var pr_=pnum($("sellPrice").value), t=sellInfo;
     if(sellPos&&pr_>0){
-      var n=sellCed?sellPos.qty*sellCed.r:sellPos.qty, tot=n*pr_, fx=pnum($("sellFx").value);
+      var nq=pnum($("sellQty").value), n=nq>0?nq:(sellCed?sellPos.qty*sellCed.r:sellPos.qty), tot=n*pr_, fx=pnum($("sellFx").value);
       if(sellCed&&sellCed.pes) t+=fx>0?" Total: ≈ US$ "+(tot/fx).toLocaleString("es-AR",{maximumFractionDigits:2})+" ($ "+tot.toLocaleString("es-AR",{maximumFractionDigits:0})+").":" Total: $ "+tot.toLocaleString("es-AR",{maximumFractionDigits:0})+".";
       else t+=" Total que cobrás: US$ "+tot.toLocaleString("es-AR",{maximumFractionDigits:2})+(sellCed&&sellCed.mode==="M"?" (MEP)":(sellCed?" (cable)":""))+".";
     }
     $("sellTot").textContent=t;
   }
   $("sellPrice").addEventListener("input",sellTotal); $("sellFx").addEventListener("input",sellTotal);
+  $("sellQty").addEventListener("input",sellTotal);
+  $("sellLot").addEventListener("change",function(){ sellQtyFill(); sellTotal(); });
   $("sellCcy").addEventListener("change",function(){ sellCcySync(false); });
   $("sellCancel").addEventListener("click",function(){ dlgSell.close(); });
   $("sellJustDelete").addEventListener("click",function(){
     var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p) return;
+    var pt=sellPart(p); if(pt===false) return;
+    if(pt){
+      if(!confirm("¿Sacar "+qtyFmt(pt.n)+" de "+p.ticker+" sin registrar la venta? Esa parte no se va a tener en cuenta para el rendimiento.")) return;
+      var rs=sellSplit(p,pt.li,pt.q); Object.assign(p,sellPiece(p,rs.rest,rs.fr,true,pt.q/p.qty),{id:p.id});
+      saveProfiles(); dlgSell.close(); render(); return;
+    }
     if(!confirm("¿Eliminar "+p.ticker+" sin registrar la venta? No se va a tener en cuenta para el rendimiento.")) return;
     positions=positions.filter(function(x){return x.id!==sellingId;}); saveProfiles(); dlgSell.close(); render();
   });
+  /* null = vende todo; false = cantidad inválida (ya avisó); si no, {q acciones, n en pantalla, li compra}. */
+  function sellPart(p){
+    var n=pnum($("sellQty").value), mx=sellMax(), li=$("sellLotWrap").hidden?-1:+$("sellLot").value;
+    if(!(n>0)){ alert("Poné cuántas vendés."); return false; }
+    if(n>mx+1e-6){ alert("Esa compra tiene "+qtyFmt(mx)+": no podés vender más que eso."); return false; }
+    var q=Math.min(n/sellU,li>=0?lotsOrOne(p)[li].q:p.qty);
+    if(Math.abs(q-p.qty)<=1e-6*Math.max(1,p.qty)) return null;
+    return {q:q,n:n,li:li};
+  }
   $("formSell").addEventListener("submit",function(ev){
     ev.preventDefault();
     var p=positions.filter(function(x){return x.id===sellingId;})[0]; if(!p||isRO()) return;
+    var pt=sellPart(p); if(pt===false) return;
     var d=$("sellDate").dataset.iso||"", sp=pnum($("sellPrice").value);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert("Elegí la fecha de venta."); return; }
     if(!(sp>0)){ alert("Poné el precio de venta."); return; }
@@ -4735,13 +4800,19 @@
     }
     var pr=cur(); if(!Array.isArray(pr.closed)) pr.closed=[];
     var so_={d:d,p:sp}; if(sx) so_.x=sx;
-    pr.closed.push(Object.assign({},p,{sold:so_}));
-    if($("sellCash").value==="out" && p.ccy==="USD"){ pr.cash=pr.cash||[]; pr.cash.push({d:d,a:-Math.round(p.qty*sp*100)/100}); }
+    var sq=pt?pt.q:p.qty;
+    if(pt){
+      /* Venta de una parte: lo vendido va a "Vendidas" con sus compras y la posición sigue con el resto. */
+      var rs=sellSplit(p,pt.li,pt.q), sh=pt.q/p.qty;
+      pr.closed.push(Object.assign(sellPiece(p,rs.sold,rs.fr,false,sh),{id:rid(),sold:so_}));
+      Object.assign(p,sellPiece(p,rs.rest,rs.fr,true,sh),{id:p.id});
+    } else pr.closed.push(Object.assign({},p,{sold:so_}));
+    if($("sellCash").value==="out" && p.ccy==="USD"){ pr.cash=pr.cash||[]; pr.cash.push({d:d,a:-Math.round(sq*sp*100)/100}); }
     else if($("sellCash").value==="keep" && p.ccy==="USD" && BROKERS.indexOf(p.broker)>=0){
-      var got=Math.round(p.qty*sp*100)/100, b0=brokerCash(p.broker), nb=Math.round((b0+got)*100)/100;
+      var got=Math.round(sq*sp*100)/100, b0=brokerCash(p.broker), nb=Math.round((b0+got)*100)/100;
       pr.bal=(pr.bal||[]).filter(function(x){return x.b!==p.broker;}); pr.bal.push({b:p.broker,a:nb,d:d});
     }
-    positions=positions.filter(function(x){return x.id!==sellingId;});
+    if(!pt) positions=positions.filter(function(x){return x.id!==sellingId;});
     saveProfiles(); dlgSell.close(); render();
   });
 
@@ -7202,6 +7273,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.45.7", t:"Vendé una parte de una compra", d:["Al vender ahora elegís cuántas vendés y, si compraste en varias veces, de qué compra (por ejemplo, 3 de la compra de 4).","Lo vendido pasa a “Vendidas” con su precio y fecha de compra, y el resto sigue en tu cartera."]},
     {v:"1.45.4", t:"Soportes y resistencias más firmes", d:["Ahora combinan velas semanales de 5 años (los niveles grandes) con las diarias de los últimos 2.","Pesan más los niveles donde el precio giró varias veces y los más recientes."]},
     {v:"1.45.3", t:"Soportes y resistencias: aviso antes de llegar", d:["Ahora te avisa cuando una acción se acerca a un soporte o resistencia, no cuando ya llegó, así llegás a poner la orden.","Cerca es lo que esa acción se mueve en un día normal (entre 1% y 3%)."]},
     {v:"1.45.1", t:"Aviso de soportes con gráfico", d:["Al tocar el aviso ves los últimos 6 meses con los soportes y resistencias marcados.","En cada acción, soportes y resistencias pasan a “Ver más”."]},
