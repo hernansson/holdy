@@ -1695,10 +1695,10 @@
   })();
   function pctLock(){ try{ var c=profData&&cur(); return !!(c&&c.readOnly&&c.view&&c.view.p); }catch(e){ return false; } }
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v338"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v339"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   /* Versión que ve el usuario (semántica, a mano): mayor.funciones.arreglos. Función nueva → sube el del medio; arreglo → el último.
      APP_VER (holdy-vNNN) es solo el número interno del caché y sube en cada publicación. */
-  var APP_SEMVER="1.45.5";
+  var APP_SEMVER="1.45.6";
   try{ document.getElementById("drVer").textContent="Versión "+APP_SEMVER; }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -7212,7 +7212,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
-    {v:"1.45.5", t:"Rentabilidad anual en todas tus acciones", d:["Ahora también la ves en las acciones que tenés, en “Ver más”.","Si no sale, te dice por qué: falta la fecha de compra o pasaron menos de 30 días."]},
+    {v:"1.45.6", t:"Rentabilidad anual en todas tus acciones", d:["Ahora también la ves en las acciones que tenés, en “Ver más”.","Si no sale, te dice por qué: falta la fecha de compra o pasaron menos de 30 días."]},
     {v:"1.45.4", t:"Soportes y resistencias más firmes", d:["Ahora combinan velas semanales de 5 años (los niveles grandes) con las diarias de los últimos 2.","Pesan más los niveles donde el precio giró varias veces y los más recientes."]},
     {v:"1.45.3", t:"Soportes y resistencias: aviso antes de llegar", d:["Ahora te avisa cuando una acción se acerca a un soporte o resistencia, no cuando ya llegó, así llegás a poner la orden.","Cerca es lo que esa acción se mueve en un día normal (entre 1% y 3%)."]},
     {v:"1.45.1", t:"Aviso de soportes con gráfico", d:["Al tocar el aviso ves los últimos 6 meses con los soportes y resistencias marcados.","En cada acción, soportes y resistencias pasan a “Ver más”."]},
