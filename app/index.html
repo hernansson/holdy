@@ -1695,10 +1695,10 @@
   })();
   function pctLock(){ try{ var c=profData&&cur(); return !!(c&&c.readOnly&&c.view&&c.view.p); }catch(e){ return false; } }
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v338"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v339"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   /* Versión que ve el usuario (semántica, a mano): mayor.funciones.arreglos. Función nueva → sube el del medio; arreglo → el último.
      APP_VER (holdy-vNNN) es solo el número interno del caché y sube en cada publicación. */
-  var APP_SEMVER="1.45.5";
+  var APP_SEMVER="1.45.6";
   try{ document.getElementById("drVer").textContent="Versión "+APP_SEMVER; }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1751,6 +1751,15 @@
     d=Math.round(d); if(d<1) return "Hoy"; if(d<60) return d+(d===1?" día":" días");
     var m=Math.floor(d/30.44); if(m<12) return m+(m===1?" mes":" meses");
     var y=Math.floor(m/12), r=m%12; return y+(y===1?" año":" años")+(r?" y "+r+(r===1?" mes":" meses"):"");
+  }
+  // Rentabilidad anual estimada (compuesta) a partir del % total y los días invertidos. Devuelve [valor, clase, aclaración] o null si no aplica.
+  // Con menos de 30 días no se anualiza: un +3% en una semana daría +300% anual, un número engañoso.
+  function annInfo(pct,days,nDated,nAll,editHint){
+    if(nDated<nAll) return ["—","",(nDated?(nAll-nDated===1?"a una compra le falta la fecha":"a algunas compras les falta la fecha"):"falta la fecha de compra")+(editHint?" (cargala en Editar)":"")];
+    if(pct===null||!(pct>-1)) return null;
+    if(days<30) return ["—","","con menos de 30 días invertido no se anualiza"];
+    var an=Math.pow(1+pct,365/days)-1;
+    return [fmtPct(an),cls(an),(days<365?"si siguiera a este ritmo un año":"por año, en promedio")];
   }
   function timeAgo(ms){
     if(!ms) return "";
@@ -2433,8 +2442,8 @@
       if(hl.length){
         var wc=0, wd=0; hl.forEach(function(l){ var w=l.q*l.b; wc+=w; wd+=w*Math.max(0,sdn-dayNum(l.d)); });
         var days=wd/wc; pair(hl.length>1?"Tiempo invertido promedio":"Tiempo invertido",spanStr(days));
-        if(days>=30&&pct!==null&&pct>-1){ var an=Math.pow(1+pct,365/days)-1; pair("Rentabilidad anual est.",fmtPct(an),cls(an)); }
       }
+      var san=annInfo(pct,hl.length?days:0,hl.length,(c.lots&&c.lots.length)||1,false); if(san) pair("Rentabilidad anual est.",san[0],san[1],san[2]);
       g.appendChild(pg); body.appendChild(g);
       if(c.ccy==="USD"&&(ui.dc!=="CCL"||c.fi)) body.appendChild(el("div","note","La compra va con el dólar del día que compraste y la venta, con el del día que vendiste."));
       if(!isRO()){
@@ -4121,6 +4130,7 @@
         var now_=Date.now(), wc=0, ws=0; dl_.forEach(function(l){ var w=l.q*l.b; wc+=w; ws+=w*Math.max(0,(now_-new Date(l.d+"T12:00:00").getTime())/864e5); });
         pair(nL?"Tiempo invertido promedio":"Tiempo invertido",spanStr(ws/wc),"",nL&&dl_.length<nL?"solo compras con fecha":"");
       }
+      if(!p.fi){ var oan=annInfo(pct,dl_.length?ws/wc:0,dl_.length,nL||1,!isRO()); if(oan) pair("Rentabilidad anual est.",oan[0],oan[1],oan[2]); }
       if(p.fi){
         var fs=el("div","dsec-t","Renta fija"); pg.appendChild(fs); fs.style.gridColumn="1/-1";
         pair("Vencimiento",p.fi.m?p.fi.m.split("-").reverse().join("/"):"—");
@@ -7205,6 +7215,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.45.6", t:"Rentabilidad anual en todas tus acciones", d:["Ahora también la ves en las acciones que tenés, en “Ver más”.","Si no sale, te dice por qué: falta la fecha de compra o pasaron menos de 30 días."]},
     {v:"1.45.5", t:"Avisos solo de tu cartera", d:["Si mirás la cartera de un amigo, ya no te llegan avisos de cierre, cobros ni soportes de la suya: cada uno recibe los de su propia cartera."]},
     {v:"1.45.4", t:"Soportes y resistencias más firmes", d:["Ahora combinan velas semanales de 5 años (los niveles grandes) con las diarias de los últimos 2.","Pesan más los niveles donde el precio giró varias veces y los más recientes."]},
     {v:"1.45.3", t:"Soportes y resistencias: aviso antes de llegar", d:["Ahora te avisa cuando una acción se acerca a un soporte o resistencia, no cuando ya llegó, así llegás a poner la orden.","Cerca es lo que esa acción se mueve en un día normal (entre 1% y 3%)."]},
