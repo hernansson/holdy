@@ -2784,7 +2784,12 @@
     return {agenda:ag,pos:Object.keys(pos).map(function(t){ return {t:t,q:Math.round(pos[t]*1e6)/1e6}; }),sr:sr||[],name:cur().name};
   }
   var pushSyncT=null;
-  function pushSyncSoon(){ if(!pushA.on||!auth) return; clearTimeout(pushSyncT); pushSyncT=setTimeout(function(){
+  // Celus registrados antes de 1.45.8: mandar una vez las claves de la suscripción, para que el texto del aviso viaje cifrado adentro.
+  var pushKeysBusy=0;
+  function pushKeysOnce(){ if(!pushA.on||!auth||pushA.k||pushKeysBusy||!pushSupported()) return; pushKeysBusy=1;
+    navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){ if(!sub) return;
+      return api("PUT","/me/push",{sub:sub.toJSON()}).then(function(r){ if(r.ok){ pushA.k=1; save(LS_PUSH,pushA); } }); }).catch(function(){}).then(function(){ pushKeysBusy=0; }); }
+  function pushSyncSoon(){ try{ pushKeysOnce(); }catch(e){} if(!pushA.on||!auth) return; clearTimeout(pushSyncT); pushSyncT=setTimeout(function(){
     var p=pushPayload(); if(!p) return; var h=hashStr(JSON.stringify(p)); if(h===pushA.h) return;
     api("PUT","/me/push",p).then(function(r){ if(r.ok){ pushA.h=h; save(LS_PUSH,pushA); } }).catch(function(){}); },4000); }
   function pushEnable(){
@@ -2792,7 +2797,7 @@
     return Notification.requestPermission().then(function(perm){ if(perm!=="granted") throw new Error("No diste permiso para avisos. Podés habilitarlo en los ajustes del navegador para holdy.pages.dev.");
       return fetch(PROXY_URL+"/push/key").then(function(r){ return r.json(); }); })
       .then(function(k){ return navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription().then(function(old){ return old||reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uToU8(k.key)}); }); }); })
-      .then(function(sub){ var p0=pushPayload(), p=Object.assign({},p0||{}); p.sub=sub.toJSON(); p.prefs=pushA.prefs; return api("PUT","/me/push",p).then(function(r){ if(!r.ok) throw new Error("No pude registrar este celu."); pushA.on=1; pushA.h=p0?hashStr(JSON.stringify(p0)):""; save(LS_PUSH,pushA); }); });
+      .then(function(sub){ var p0=pushPayload(), p=Object.assign({},p0||{}); p.sub=sub.toJSON(); p.prefs=pushA.prefs; return api("PUT","/me/push",p).then(function(r){ if(!r.ok) throw new Error("No pude registrar este celu."); pushA.on=1; pushA.k=1; pushA.h=p0?hashStr(JSON.stringify(p0)):""; save(LS_PUSH,pushA); }); });
   }
   function pushDisable(){
     return navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){
@@ -7286,6 +7291,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.45.8", t:"Los avisos dicen qué pasó", d:["Antes, si llegaban varios avisos juntos (por ejemplo, de soportes y resistencias), algunos decían solo “Tenés un aviso nuevo”.","Ahora cada aviso trae su texto: la acción, el nivel o la tasa."]},
     {v:"1.45.7", t:"Vendé una parte de una compra", d:["Al vender ahora elegís cuántas vendés y, si compraste en varias veces, de qué compra (por ejemplo, 3 de la compra de 4).","Lo vendido pasa a “Vendidas” con su precio y fecha de compra, y el resto sigue en tu cartera.","El botón de cada acción ahora dice “Vender” (adentro sigue “Solo eliminar”)."]},
     {v:"1.45.6", t:"Rentabilidad anual en todas tus acciones", d:["Ahora también la ves en las acciones que tenés, en “Ver más”.","Si no sale, te dice por qué: falta la fecha de compra o pasaron menos de 30 días."]},
     {v:"1.45.5", t:"Avisos solo de tu cartera", d:["Si mirás la cartera de un amigo, ya no te llegan avisos de cierre, cobros ni soportes de la suya: cada uno recibe los de su propia cartera."]},

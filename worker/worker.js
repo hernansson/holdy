@@ -811,7 +811,8 @@ async function divs(url, cors) {
 }
 
 // ---------- Avisos al celu (Web Push) ----------
-// Sin contenido cifrado: el aviso "despierta" al service worker, que pide el texto a /push/inbox con su suscripción.
+// El texto va cifrado dentro del aviso (RFC 8291, aes128gcm) con las claves de la suscripción del celu.
+// Celus registrados antes (sin claves guardadas): el aviso va vacío y "despierta" al service worker, que pide el texto a /push/inbox.
 // La clave VAPID la genera el propio Worker la primera vez y queda en el KV.
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 async function vapid(env) {
@@ -832,6 +833,26 @@ async function vapidAuth(env, endpoint) {
   const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(unsigned));
   return "vapid t=" + unsigned + "." + b64u(sig) + ", k=" + k.pub;
 }
+const b64uDec = (t) => Uint8Array.from(atob(String(t).replace(/-/g, "+").replace(/_/g, "/") + "===".slice((String(t).length + 3) % 4)), (c) => c.charCodeAt(0));
+async function hkdf(salt, ikm, info, len) {
+  const k = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, k, len * 8));
+}
+const cat = (...a) => { const o = new Uint8Array(a.reduce((n, x) => n + x.length, 0)); let i = 0; for (const x of a) { o.set(x, i); i += x.length; } return o; };
+// Cifra el texto del aviso para una suscripción (p256dh y auth del celu), como pide Web Push (RFC 8291 / RFC 8188).
+async function pushEncrypt(p256dh, auth, text) {
+  const te = new TextEncoder(), ua = b64uDec(p256dh), sec = b64uDec(auth);
+  const eph = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const asPub = new Uint8Array(await crypto.subtle.exportKey("raw", eph.publicKey));
+  const uaKey = await crypto.subtle.importKey("raw", ua, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: uaKey }, eph.privateKey, 256));
+  const ikm = await hkdf(sec, shared, cat(te.encode("WebPush: info\0"), ua, asPub), 32);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(salt, ikm, te.encode("Content-Encoding: aes128gcm\0"), 16), nonce = await hkdf(salt, ikm, te.encode("Content-Encoding: nonce\0"), 12);
+  const key = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, key, cat(te.encode(text), new Uint8Array([2]))));
+  return cat(salt, new Uint8Array([0, 0, 16, 0, 65]), asPub, ct); // rs = 4096, idlen = 65
+}
 // Manda un aviso a todos los celus de un usuario que tengan prendido ese tipo ("close" | "cob" | "ib").
 // once: clave para no repetir el mismo aviso (con ttl en segundos).
 async function pushTo(env, sub, kind, msg, once, ttl) {
@@ -840,10 +861,14 @@ async function pushTo(env, sub, kind, msg, once, ttl) {
   if (once) { const ok = await env.HOLDY_KV.get("pushonce:" + sub + ":" + once); if (ok) return 0; await env.HOLDY_KV.put("pushonce:" + sub + ":" + once, "1", { expirationTtl: ttl || 86400 * 2 }); }
   let sent = 0; const keep = [];
   for (const s of rec.subs) {
-    const ik = "pin:" + await sha256(s.ep), box = (await env.HOLDY_KV.get(ik, "json")) || [];
-    box.push({ k: kind, ...msg, at: Date.now() }); await env.HOLDY_KV.put(ik, JSON.stringify(box.slice(-5)), { expirationTtl: 3 * 86400 });
+    const m = { k: kind, ...msg, at: Date.now() };
+    // Con las claves del celu, el texto viaja dentro del aviso. Si no, queda en el buzón y el aviso va vacío.
+    let body = null;
+    if (s.p && s.a) { try { body = await pushEncrypt(s.p, s.a, JSON.stringify(m)); } catch (e) { body = null; } }
+    if (!body) { const ik = "pin:" + await sha256(s.ep), box = (await env.HOLDY_KV.get(ik, "json")) || []; box.push(m); await env.HOLDY_KV.put(ik, JSON.stringify(box.slice(-8)), { expirationTtl: 3 * 86400 }); }
     try {
-      const r = await fetch(s.ep, { method: "POST", headers: { TTL: "43200", Urgency: "high", Authorization: await vapidAuth(env, s.ep), "Content-Length": "0" } });
+      const hd = { TTL: "43200", Urgency: "high", Authorization: await vapidAuth(env, s.ep) };
+      const r = await fetch(s.ep, { method: "POST", headers: body ? { ...hd, "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream" } : { ...hd, "Content-Length": "0" }, body: body || undefined });
       if (r.status === 404 || r.status === 410) continue; // suscripción vencida: se borra
       if (r.ok) sent++;
     } catch (e) { /* se reintenta en el próximo aviso */ }
@@ -856,7 +881,9 @@ async function pushInbox(request, env, cors) {
   let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: "bad_json" }, 400, cors); }
   const ep = String((b && b.ep) || ""); if (!/^https:\/\//.test(ep) || ep.length > 1000) return json({ msgs: [] }, 200, cors);
   const ik = "pin:" + await sha256(ep), box = (await env.HOLDY_KV.get(ik, "json")) || [];
-  if (box.length) await env.HOLDY_KV.delete(ik);
+  // v2 (service worker nuevo): no se borra; el celu se acuerda de cuáles ya mostró. Así, si llegan varios avisos
+  // seguidos, el primero no se lleva el texto de los demás (antes quedaban como "Tenés un aviso nuevo.").
+  if (box.length && !(b.v >= 2)) await env.HOLDY_KV.delete(ik);
   return json({ msgs: box }, 200, { ...cors, "Cache-Control": "no-store" });
 }
 // /me/push: GET estado · PUT {sub:{endpoint}, prefs, agenda, pid} · DELETE {ep} · POST /me/push/test
@@ -883,7 +910,8 @@ async function pushMe(request, env, url, user, h) {
   let b; try { b = JSON.parse(await request.text() || "{}"); } catch (e) { return json({ error: "bad_json" }, 400, h); }
   if (request.method === "DELETE") { const ep = String(b.ep || ""); rec.subs = rec.subs.filter((s) => s.ep !== ep); await env.HOLDY_KV.put(key, JSON.stringify(rec)); return json({ ok: true }, 200, h); }
   if (request.method === "PUT") {
-    if (b.sub && /^https:\/\//.test(b.sub.endpoint || "") && b.sub.endpoint.length < 1000) { if (!rec.subs.some((s) => s.ep === b.sub.endpoint)) rec.subs = rec.subs.concat({ ep: b.sub.endpoint, at: Date.now() }).slice(-5); }
+    if (b.sub && /^https:\/\//.test(b.sub.endpoint || "") && b.sub.endpoint.length < 1000) { const ks = b.sub.keys || {}, p = /^[A-Za-z0-9_-]{80,100}$/.test(ks.p256dh || "") ? ks.p256dh : "", a = /^[A-Za-z0-9_-]{16,32}$/.test(ks.auth || "") ? ks.auth : "", old = rec.subs.find((s) => s.ep === b.sub.endpoint);
+      if (old) { if (p && a) { old.p = p; old.a = a; } } else rec.subs = rec.subs.concat(p && a ? { ep: b.sub.endpoint, at: Date.now(), p, a } : { ep: b.sub.endpoint, at: Date.now() }).slice(-5); }
     if (b.prefs) rec.prefs = { close: b.prefs.close ? 1 : 0, cob: b.prefs.cob ? 1 : 0, ib: b.prefs.ib ? 1 : 0, fr: b.prefs.fr === 0 ? 0 : 1, cau: b.prefs.cau === 0 ? 0 : 1, sr: b.prefs.sr ? 1 : 0, test: 1 };
     rec.prefs.test = 1;
     if (Array.isArray(b.cau)) { rec.cau = cauClean(b.cau); await cauIndex(env, user.sub, rec.cau); }
