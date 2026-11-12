@@ -20,6 +20,8 @@ const cache = new Map();
 // EQAC (EQQQ Nasdaq-100 Acc en dólares) cotiza en la bolsa suiza (.SW), no en Londres.
 const ALIAS = { EQAC: "EQAC.SW" };
 const HIST_TTL_MS = 6 * 60 * 60 * 1000;
+// Cripto (BTC-USD, ETH-USD…): Finnhub gratis no la tiene, va directo a Yahoo con ese mismo símbolo.
+const isCrypto = (s) => /^[A-Z0-9]{2,10}-USD$/.test(s);
 const histCache = new Map();
 
 export default {
@@ -83,7 +85,7 @@ export default {
     };
 
     // Símbolos con punto (VUAA.L, VUAA.DE) son de otras bolsas: Finnhub gratis no los tiene, van directo a Yahoo.
-    if (!symbol.includes(".")) {
+    if (!symbol.includes(".") && !isCrypto(symbol)) {
       let upstream;
       try {
         upstream = await fetch(
@@ -104,7 +106,7 @@ export default {
     }
 
     // Respaldo: Yahoo Finance. Sin punto se prueba la bolsa de Londres (.L) y la suiza (.SW); VUAA cotiza en Londres y EQAC en Suiza, ambos en dólares.
-    const candidates = symbol.includes(".") ? [symbol] : (ALIAS[symbol] ? [ALIAS[symbol]] : [symbol + ".L", symbol + ".SW"]);
+    const candidates = symbol.includes(".") || isCrypto(symbol) ? [symbol] : (ALIAS[symbol] ? [ALIAS[symbol]] : [symbol + ".L", symbol + ".SW"]);
     for (const c of candidates) {
       const q = await yahooQuote(c);
       if (q) return store(q);
@@ -131,6 +133,12 @@ async function yahooQuote(symbol) {
     cur = cur.toUpperCase();
     if (!(price > 0)) return null;
     const out = { c: price, currency: cur, source: "yahoo", t: typeof m.regularMarketTime === "number" ? m.regularMarketTime : 0 };
+    // Cripto opera 24/7: el "día" es contra el cierre de la vela diaria anterior (00:00 UTC), no contra el de hace 5 días.
+    if (isCrypto(symbol)) {
+      const cl = ((j.chart.result[0].indicators || {}).quote || [{}])[0].close || [];
+      const v = cl.filter((x) => typeof x === "number" && x > 0);
+      prev = v.length >= 2 ? v[v.length - 2] : prev;
+    }
     if (prev !== null && prev > 0) { out.pc = prev; out.d = price - prev; out.dp = (price - prev) / prev * 100; }
     return out;
   } catch (e) {
@@ -382,7 +390,7 @@ async function history(url, cors) {
     const key = sym + "|" + new Date(p1 * 1000).toISOString().slice(0, 10) + (hl ? "|hl" : "");
     const hit = histCache.get(key);
     if (hit && Date.now() - hit.at < HIST_TTL_MS) { out[sym] = hit.data; return; }
-    const cands = sym.includes(".") ? [sym] : (ALIAS[sym] ? [ALIAS[sym]] : [sym, sym + ".L", sym + ".SW"]);
+    const cands = sym.includes(".") || isCrypto(sym) ? [sym] : (ALIAS[sym] ? [ALIAS[sym]] : [sym, sym + ".L", sym + ".SW"]);
     for (const c of cands) {
       const d = await yahooHistory(c, p1, p2, hl);
       if (d) {
@@ -1291,7 +1299,7 @@ async function cauEval(env, idx, subs, live0, now, today, plazo) {
     if (changed) await env.HOLDY_KV.put("caul:" + sub, JSON.stringify(last), { expirationTtl: 30 * 86400 });
   }
 }
-function ibCount(csv) { let t = 0, d = 0; String(csv || "").split("\n").forEach((l) => { if (/"(BUY|SELL)"/.test(l) && /"STK"/.test(l)) t++; if (/Dividends/.test(l) && /"DETAIL"/.test(l)) d++; }); return { t, d }; }
+function ibCount(csv) { let t = 0, d = 0; String(csv || "").split("\n").forEach((l) => { if (/"(BUY|SELL)"/.test(l) && /"(STK|CRYPTO)"/.test(l)) t++; if (/Dividends/.test(l) && /"DETAIL"/.test(l)) d++; }); return { t, d }; }
 
 // ---------- Preguntale a tu cartera: la app manda sus números ya calculados y la IA solo los lee y redacta ----------
 const ASK_MODELS = ["@cf/meta/llama-3.1-8b-instruct-fp8", "@cf/meta/llama-3.1-8b-instruct"];
