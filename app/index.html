@@ -1625,7 +1625,7 @@
     var t=String(p.ticker==null?"":p.ticker).trim().toUpperCase().slice(0,20);
     if(strict ? !/^[A-Z0-9.\-]{1,20}$/.test(t) : !t) return null;
     var qty=+p.qty, buy=+p.buy, lots=[];
-    if(Array.isArray(p.lots)) p.lots.slice(0,30).forEach(function(l){
+    if(Array.isArray(p.lots)) p.lots.slice(0,120).forEach(function(l){
       if(!l) return;
       var q=+(l.q!==undefined?l.q:l[0]), b=+(l.b!==undefined?l.b:l[1]), d=String((l.d!==undefined?l.d:l[2])||"");
       var lx=fxClean(l.x!==undefined?l.x:(Array.isArray(l)?[l[3],l[4]]:null));
@@ -1701,10 +1701,10 @@
   })();
   function pctLock(){ try{ var c=profData&&cur(); return !!(c&&c.readOnly&&c.view&&c.view.p); }catch(e){ return false; } }
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v340"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v341"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   /* Versión que ve el usuario (semántica, a mano): mayor.funciones.arreglos. Función nueva → sube el del medio; arreglo → el último.
      APP_VER (holdy-vNNN) es solo el número interno del caché y sube en cada publicación. */
-  var APP_SEMVER="1.45.7";
+  var APP_SEMVER="1.46.0";
   try{ document.getElementById("drVer").textContent="Versión "+APP_SEMVER; }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1933,7 +1933,8 @@
   var LOCAL_ADR={YPFD:["YPF",1],PAMP:["PAM",25],GGAL:["GGAL",10],BMA:["BMA",10],BBAR:["BBAR",3],SUPV:["SUPV",5],CEPU:["CEPU",10],EDN:["EDN",20],TGSU2:["TGS",5],CRES:["CRESY",10],IRSA:["IRS",10],LOMA:["LOMA",5],TECO2:["TEO",5]};
   var LOC_MARK=/\s*\{loc:([A-Z0-9.]+)\|([\d.]+)\}/;
   function locMeta(p){ var m=LOC_MARK.exec((p&&p.note)||""); return m?{s:m[1],r:+m[2]}:null; }
-  function dispTk(p){ var l=locMeta(p); return l?l.s:p.ticker; }
+  function isCrypto(t){ return /^[A-Z0-9]{2,10}-USD$/.test(String(t||"")); }
+  function dispTk(p){ var l=locMeta(p); return l?l.s:(isCrypto(p.ticker)?p.ticker.slice(0,-4):p.ticker); }
   function plainNote(n){ return String(n||"").replace(LOC_MARK,"").replace(CED_MARK,"").replace(CB_MARK,"").replace(/\s*\{fci:[PD]\}/,"").replace(/(^|\s·\s)CEDEAR 1:[\d.]+( \(convertido a la acción\))?/,"").trim(); }
   function isCedPos(p){ return !p.fi && /CEDEAR/i.test(p.note||""); }
   // Desde la base CCL el CEDEAR vale lo mismo que la acción (sin prima). Las posiciones viejas, en MEP, se pasan a CCL con ensureCcl().
@@ -2650,7 +2651,7 @@
 
   // ---------- "¿Qué pasó con X?": noticias, analistas y resumen con IA (Worker /insight) ----------
   var insCache={};
-  function insOk(p){ return p&&!p.fi&&!isFci(p)&&p.ccy==="USD"&&/^[A-Z][A-Z0-9.\-]{0,11}$/.test(p.ticker||"")&&!!PROXY_URL; }
+  function insOk(p){ return p&&!p.fi&&!isFci(p)&&!isCrypto(p.ticker)&&p.ccy==="USD"&&/^[A-Z][A-Z0-9.\-]{0,11}$/.test(p.ticker||"")&&!!PROXY_URL; }
   function openIns(p){
     var d=$("dlgIns"), bx=$("insBody"); $("insTitle").textContent=p.ticker; $("insSub").textContent=""; bx.textContent="";
     var ld=el("div","ins-load"); ld.appendChild(el("div","ins-spin")); ld.appendChild(el("div",null,"Buscando noticias y armando el resumen…")); bx.appendChild(ld);
@@ -4235,16 +4236,18 @@
 
   // ---------- Precios ----------
   function fetchQuote(ticker){
-    var url=apiKey
+    /* Cripto: Finnhub gratis no la tiene; va siempre por el Worker (Yahoo), aunque haya una clave propia. */
+    var own=apiKey&&!(isCrypto(ticker)&&PROXY_URL);
+    var url=own
       ? "https://finnhub.io/api/v1/quote?symbol="+encodeURIComponent(ticker)+"&token="+encodeURIComponent(apiKey)
       : PROXY_URL.replace(/\/+$/,"")+"/quote?symbol="+encodeURIComponent(ticker);
     return fetch(url,{cache:"no-store"}).then(function(r){
-      if(!apiKey && r.status===400) throw new Error("Ticker no válido para el servicio de precios.");
-      if(!apiKey && (r.status===401||r.status===403||r.status===503)) throw new Error("El servidor de precios no está disponible por ahora.");
+      if(!own && r.status===400) throw new Error("Ticker no válido para el servicio de precios.");
+      if(!own && (r.status===401||r.status===403||r.status===503)) throw new Error("El servidor de precios no está disponible por ahora.");
       if(r.status===401||r.status===403) throw new Error("La API key no es válida o no tiene permiso.");
       if(r.status===429) throw new Error("Se superó el límite de consultas gratuitas. Probá de nuevo en un minuto.");
       if(r.status===400) throw new Error("Ticker no válido para el servicio de precios.");
-      if(!r.ok) throw new Error(apiKey?"El servicio de precios respondió con error ("+r.status+")."
+      if(!r.ok) throw new Error(own?"El servicio de precios respondió con error ("+r.status+")."
         :"El servidor de precios no está disponible por ahora.");
       return r.json();
     }).then(function(j){
@@ -5275,7 +5278,7 @@
   function cleanName(n){ var s=String(n||"").replace(/\s+/g," ").trim().replace(/^The /i,""), o;
     do { o=s; s=s.replace(/,?\s+(Inc\.?|Incorporated|Corporation|Corp\.?|Company|Co\.?|plc|Limited|Ltd\.?|N\.V\.|S\.A\.(B\.)?|SA|AG|SE)$/i,"").replace(/[,\s]+$/,""); } while(s!==o);
     return s; }
-  function tkName(tk){ var n=tkNames[tk]; return n&&n.toUpperCase()!==String(tk).toUpperCase()?n:""; }
+  function tkName(tk){ var n=tkNames[tk]; if(n&&isCrypto(tk)) n=n.replace(/\s+USD$/i,""); return n&&n.toUpperCase()!==String(tk).toUpperCase()?n:""; }
   function fetchHistory(list,from){
     var parts=[]; for(var i=0;i<list.length;i+=20) parts.push(list.slice(i,i+20));
     /* Si una tanda falla, se usan las demás (antes fallaba todo junto, por ejemplo el S&P 500 del reporte). Si fallan todas, error. */
@@ -6339,9 +6342,11 @@
       if(w.length<8) continue;
       if(C.sym>=0&&String(w[C.sym]||"").trim().toLowerCase()==="symbol") continue; /* encabezado de otro archivo */
       var asset=C.asset>=0?String(w[C.asset]).toUpperCase():"STK";
-      if(asset!=="STK"){ out.other++; continue; }
+      if(asset!=="STK"&&asset!=="CRYPTO"){ out.other++; continue; }
       if(C.lvl>=0 && w[C.lvl] && String(w[C.lvl]).toUpperCase()!=="EXECUTION") continue;
       var sym=String(w[C.sym]||"").trim().toUpperCase().replace(/\s+/g,"-");
+      /* Cripto (BTC, ETH… vía Paxos/Zero Hash): se guarda como BTC-USD, el símbolo de Yahoo. "BTC" solo es un ETF de Grayscale. */
+      if(asset==="CRYPTO"){ sym=sym.replace(/[.\/].*$/,""); if(!/^[A-Z0-9]{2,10}$/.test(sym)){ out.other++; continue; } sym+="-USD"; }
       var qty=parseFloat(w[C.qty]), px=parseFloat(w[C.px]);
       var d=ibDate(C.date>=0?w[C.date]:"")||ibDate(C.dt>=0?w[C.dt]:"");
       var side=C.side>=0?String(w[C.side]).toUpperCase():(qty<0?"SELL":"BUY");
@@ -6415,7 +6420,7 @@
       cg.f+=(t.f||0); /* comisión de la venta */
       while(rem>1e-9 && st.q.length){
         var l=st.q[0], take=Math.min(rem,l.q), lf=l.f?l.f*take/l.q:0; /* la comisión de compra se reparte según lo que se vende */
-        cg.lots.push({q:Math.round(take*1e6)/1e6,b:l.b,d:l.d,f:Math.round(lf*100)/100});
+        cg.lots.push({q:Math.round(take*1e8)/1e8,b:l.b,d:l.d,f:Math.round(lf*100)/100});
         l.f=(l.f||0)-lf; l.q-=take; rem-=take; if(l.q<=1e-9) st.q.shift();
       }
       if(rem>1e-9) orphan++;
@@ -6423,7 +6428,7 @@
     var open=[], closed=[], dmin="9999", dmax="";
     Object.keys(by).forEach(function(sym){
       var st=by[sym];
-      if(st.q.length) open.push({tk:sym,lots:st.q.map(function(l){ return {q:Math.round(l.q*1e6)/1e6,b:l.b,d:l.d,f:Math.round((l.f||0)*100)/100}; })});
+      if(st.q.length) open.push({tk:sym,lots:st.q.map(function(l){ return {q:Math.round(l.q*1e8)/1e8,b:l.b,d:l.d,f:Math.round((l.f||0)*100)/100}; })});
       Object.keys(st.closed).forEach(function(k){ var c=st.closed[k]; if(!c.lots.length) return; closed.push({tk:sym,lots:c.lots,sold:{d:c.d,p:c.p,f:Math.round(c.f*100)/100}}); });
     });
     list.forEach(function(t){ if(t.d<dmin) dmin=t.d; if(t.d>dmax) dmax=t.d; });
@@ -7286,6 +7291,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.46.0", t:"Bitcoin y otras cripto de IBKR", d:["Las compras y ventas de cripto en Interactive Brokers (BTC, ETH…) ahora se importan con el resto, con precio automático y variación del día.","Para cargarla a mano, poné BTC-USD (solo “BTC” es un ETF de Grayscale, no el bitcoin)."]},
     {v:"1.45.7", t:"Vendé una parte de una compra", d:["Al vender ahora elegís cuántas vendés y, si compraste en varias veces, de qué compra (por ejemplo, 3 de la compra de 4).","Lo vendido pasa a “Vendidas” con su precio y fecha de compra, y el resto sigue en tu cartera.","El botón de cada acción ahora dice “Vender” (adentro sigue “Solo eliminar”)."]},
     {v:"1.45.6", t:"Rentabilidad anual en todas tus acciones", d:["Ahora también la ves en las acciones que tenés, en “Ver más”.","Si no sale, te dice por qué: falta la fecha de compra o pasaron menos de 30 días."]},
     {v:"1.45.5", t:"Avisos solo de tu cartera", d:["Si mirás la cartera de un amigo, ya no te llegan avisos de cierre, cobros ni soportes de la suya: cada uno recibe los de su propia cartera."]},
