@@ -1701,10 +1701,10 @@
   })();
   function pctLock(){ try{ var c=profData&&cur(); return !!(c&&c.readOnly&&c.view&&c.view.p); }catch(e){ return false; } }
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v342"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v343"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   /* Versión que ve el usuario (semántica, a mano): mayor.funciones.arreglos. Función nueva → sube el del medio; arreglo → el último.
      APP_VER (holdy-vNNN) es solo el número interno del caché y sube en cada publicación. */
-  var APP_SEMVER="1.46.1";
+  var APP_SEMVER="1.46.2";
   try{ document.getElementById("drVer").textContent="Versión "+APP_SEMVER; }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -2548,7 +2548,7 @@
   /* Dos miradas juntas, como en un gráfico: velas SEMANALES de 5 años (giros de ±4 semanas, los niveles grandes, pesan doble)
      y velas DIARIAS de los últimos 2 años (giros de ±10 ruedas). Los giros recientes pesan más (último año 1, hasta 2 años 0,7, más viejos 0,45).
      Los giros cercanos se juntan en una zona; las más firmes (peso 2 o más: un giro semanal o varios diarios) van primero. */
-  function srCalc(pts,px){
+  function srCalc(pts,px,cr){
     var n=pts.length; if(n<120||!(px>0)) return null;
     var H=pts.map(function(r){ return r[3]>0?r[3]:r[1]; }), L=pts.map(function(r){ return r[4]>0?r[4]:r[1]; }), C=pts.map(function(r){ return r[1]; }), D=pts.map(function(r){ return dayNum(r[0]); });
     var today=D[n-1], piv=[], i;
@@ -2556,7 +2556,8 @@
     var wH=[], wL=[], wT=[], wk=null;
     for(i=0;i<n;i++){ var k=Math.floor((D[i]+3)/7); if(k!==wk){ wk=k; wH.push(H[i]); wL.push(L[i]); wT.push(D[i]); } else { var m=wH.length-1; if(H[i]>wH[m]) wH[m]=H[i]; if(L[i]<wL[m]) wL[m]=L[i]; wT[m]=D[i]; } }
     srPiv(wH,wL,4,piv,2,wT);
-    var d0=Math.max(0,n-504); srPiv(H.slice(d0),L.slice(d0),10,piv,1,D.slice(d0));
+    /* Últimos 2 años (por fecha: la cripto opera también los fines de semana). Giros de unas 2 semanas: ±10 ruedas en bolsa, ±14 días en cripto. */
+    var d0=0; while(d0<n-1&&D[d0]<today-730) d0++; srPiv(H.slice(d0),L.slice(d0),cr?14:10,piv,1,D.slice(d0));
     piv.forEach(function(p){ var age=today-p.t; p.w*=age<=365?1:age<=730?0.7:0.45; });
     var mx=0, mn=0; for(i=1;i<n;i++){ if(H[i]>H[mx]) mx=i; if(L[i]<L[mn]) mn=i; }
     /* Cuánto se mueve en un día normal (mediana de 60 ruedas): define qué tan cerca tienen que estar dos giros para ser la misma zona. */
@@ -2581,7 +2582,7 @@
       return fetch(SYNC_BASE+"/history?symbols="+encodeURIComponent(pt.join(","))+"&from="+from+"&hl=1",{cache:"no-store"}).then(function(r){ if(!r.ok) throw 0; return r.json(); })
         .then(function(j){ pt.forEach(function(t){ var h=j.data&&j.data[t]; if(!h||h.currency!=="USD"||!h.pts||!h.pts.length){ srStore.l[t]={d:todayStr(),x:null}; return; }
           var pq=prices[t], px=pq&&pq.price>0?pq.price:h.pts[h.pts.length-1][1];
-          srPts[t]=h.pts; srStore.l[t]={d:todayStr(),x:srCalc(h.pts,px)}; }); }).catch(function(){});
+          srPts[t]=h.pts; srStore.l[t]={d:todayStr(),x:srCalc(h.pts,px,isCrypto(t))}; }); }).catch(function(){});
     })).then(function(){ list.forEach(function(t){ delete srBusy[t]; });
       var keep={}; positions.forEach(function(p){ keep[p.ticker]=1; }); Object.keys(srStore.l).forEach(function(t){ if(!keep[t]&&srStore.l[t].d!==todayStr()) delete srStore.l[t]; });
       save(LS_SR,srStore); });
@@ -2617,11 +2618,11 @@
   }
   /* Abrir una acción en la lista (desde el aviso). */
   function openTicker(tk){ ui.tab="acc"; save(LS_UI,ui); renderTabs(); renderList(); syncToolbar();
-    var d=[].filter.call($("list").querySelectorAll("details.acc"),function(x){ var t=x.querySelector(".tick"); return t&&t.textContent===tk; })[0];
+    var d=[].filter.call($("list").querySelectorAll("details.acc"),function(x){ var t=x.querySelector(".tick"); return t&&(t.textContent===tk||(isCrypto(tk)&&t.textContent===tk.slice(0,-4))); })[0];
     if(d){ d.open=true; setTimeout(function(){ d.scrollIntoView({block:"start",behavior:"smooth"}); },60); } }
   /* Gráfico de los últimos 6 meses con los soportes (verde) y resistencias (rojo); el nivel que tocó, más marcado. */
   function srChart(tk,hit){
-    var pts=(srPts[tk]||[]).slice(-126), st=srStore.l[tk], x=st&&st.x; if(pts.length<20) return null;
+    var pts=(srPts[tk]||[]).slice(isCrypto(tk)?-183:-126), st=srStore.l[tk], x=st&&st.x; if(pts.length<20) return null;
     var W=340, H=170, pr=58, pt=10, pb=10, cs=pts.map(function(r){ return r[1]; });
     var lv=(x?x.s.map(function(o){ return {v:o.v,s:1}; }).concat(x.r.map(function(o){ return {v:o.v,s:0}; })):[]);
     if(hit&&hit.v>0&&!lv.some(function(o){ return Math.abs(o.v/hit.v-1)<0.002; })) lv.push({v:hit.v,s:hit.s?1:0});
@@ -2646,25 +2647,26 @@
     function draw(){ wrap.textContent=""; var c=srChart(tk,x.v>0?{v:+x.v,s:x.s}:null);
       if(!c){ wrap.appendChild(el("div","sr-m",srBusy[tk]?"Cargando el gráfico…":"")); return; }
       wrap.appendChild(c); var lg=el("div","sr-lg"); lg.appendChild(el("span","sup","Soportes")); lg.appendChild(el("span","res","Resistencias")); lg.appendChild(el("span",null,"Últimos 6 meses")); wrap.appendChild(lg); }
-    notifSheet(n,function(box){ box.appendChild(wrap); draw(); },has?"Ver "+tk:"Entendido",has?function(){ openTicker(tk); }:null);
+    notifSheet(n,function(box){ box.appendChild(wrap); draw(); },has?"Ver "+(isCrypto(tk)?tk.slice(0,-4):tk):"Entendido",has?function(){ openTicker(tk); }:null);
     if(!srPts[tk]) srFetch([tk],true).then(draw); }
 
   // ---------- "¿Qué pasó con X?": noticias, analistas y resumen con IA (Worker /insight) ----------
   var insCache={};
-  function insOk(p){ return p&&!p.fi&&!isFci(p)&&!isCrypto(p.ticker)&&p.ccy==="USD"&&/^[A-Z][A-Z0-9.\-]{0,11}$/.test(p.ticker||"")&&!!PROXY_URL; }
+  function insOk(p){ return p&&!p.fi&&!isFci(p)&&p.ccy==="USD"&&/^[A-Z][A-Z0-9.\-]{0,11}$/.test(p.ticker||"")&&!!PROXY_URL; }
   function openIns(p){
-    var d=$("dlgIns"), bx=$("insBody"); $("insTitle").textContent=p.ticker; $("insSub").textContent=""; bx.textContent="";
+    var d=$("dlgIns"), bx=$("insBody"), tl=dispTk(p); $("insTitle").textContent=tl; $("insSub").textContent=""; bx.textContent="";
     var ld=el("div","ins-load"); ld.appendChild(el("div","ins-spin")); ld.appendChild(el("div",null,"Buscando noticias y armando el resumen…")); bx.appendChild(ld);
     if(!d.open){ d.showModal(); if(document.activeElement) document.activeElement.blur(); } bx.scrollTop=0;
     var k=p.ticker+"|"+todayStr(), hit=insCache[k];
     (hit?Promise.resolve(hit):fetch(PROXY_URL+"/insight?symbol="+encodeURIComponent(p.ticker)).then(function(r){
       if(r.status===404) throw new Error("old"); if(!r.ok) throw new Error("http"); return r.json(); }).then(function(j){ insCache[k]=j; return j; }))
-      .then(function(j){ if($("insTitle").textContent===p.ticker) renderIns(bx,j,p); })
+      .then(function(j){ if($("insTitle").textContent===tl) renderIns(bx,j,p); })
       .catch(function(e){ bx.textContent=""; bx.appendChild(el("div","ins-err",e&&e.message==="old"?"El servidor de Holdy (el Worker de Cloudflare) todavía no tiene esta función. Hay que pegar la versión nueva de worker/worker.js y desplegarla.":"No pude traer la información ahora. Probá de nuevo en un rato.")); });
   }
   function renderIns(bx,j,p){
     bx.textContent=""; var F2=function(v){ return v.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2}); }, P=function(v){ return (v>=0?"+":"−")+Math.abs(v*100).toFixed(1).replace(".",",")+"%"; };
-    $("insSub").textContent=j.etf?"ETF · fondo que cotiza en bolsa":[j.name,j.industry].filter(Boolean).join(" · ");
+    $("insSub").textContent=j.crypto?(j.name?j.name+" · ":"")+"criptomoneda":j.etf?"ETF · fondo que cotiza en bolsa":[j.name,j.industry].filter(Boolean).join(" · ");
+    if(j.crypto){ var cq=el("div","ins-card"); cq.appendChild(el("div","ins-k","Qué es")); cq.appendChild(el("p","ins-txt",j.crypto)); cq.appendChild(el("div","ins-cap","No hay analistas que la sigan como a una empresa. Las noticias de abajo son del mundo cripto, primero las que la nombran.")); bx.appendChild(cq); }
     if(j.etf){ var ce=el("div","ins-card"); ce.appendChild(el("div","ins-k","Qué es")); ce.appendChild(el("p","ins-txt",j.etf)); ce.appendChild(el("div","ins-cap","No es una empresa: se mueve con el mercado o con el sector que sigue. Por eso las noticias de abajo son del mercado en general.")); bx.appendChild(ce); }
     function card(title){ var c=el("div","ins-card"); if(title) c.appendChild(el("div","ins-k",title)); bx.appendChild(c); return c; }
     var px=j.px;
@@ -2689,8 +2691,8 @@
         [["A favor",ai.aFavor,"pos"],["En contra",ai.enContra,"neg"]].forEach(function(x){ if(!x[1]||!x[1].length) return; var col=el("div","ins-col "+x[2]); col.appendChild(el("b",null,x[0])); var ul=el("ul"); x[1].forEach(function(t){ ul.appendChild(el("li",null,t)); }); col.appendChild(ul); g.appendChild(col); });
         c2.appendChild(g); }
       c2.appendChild(el("div","ins-cap","Resumen hecho con IA a partir de las noticias de abajo. Puede tener errores: revisá las fuentes.")); }
-    else c2.appendChild(el("p","ins-txt muted",(j.news&&j.news.length)?"Todavía no está activado el resumen con IA en el servidor. Mientras tanto, abajo tenés las noticias.":"No encontré noticias de este último mes para "+p.ticker+(/^(SPY|QQQ|VOO|XL[A-Z]|VUAA|EQAC|IVV|DIA)$/.test(p.ticker)?" (es un ETF: sigue a un índice o sector, no a una empresa).":".")));
-    var rec=j.rec, c3=j.etf?null:card("Qué dicen los analistas");
+    else c2.appendChild(el("p","ins-txt muted",(j.news&&j.news.length)?"Todavía no está activado el resumen con IA en el servidor. Mientras tanto, abajo tenés las noticias.":"No encontré noticias de este último mes para "+dispTk(p)+(/^(SPY|QQQ|VOO|XL[A-Z]|VUAA|EQAC|IVV|DIA)$/.test(p.ticker)?" (es un ETF: sigue a un índice o sector, no a una empresa).":".")));
+    var rec=j.rec, c3=(j.etf||j.crypto)?null:card("Qué dicen los analistas");
     if(rec){ var buy=rec.sb+rec.b, sell=rec.s+rec.ss, hold=rec.h, n=rec.n;
       var big=el("div","ins-rec"); big.appendChild(el("b",null,Math.round(buy/n*100)+"%")); big.appendChild(el("span",null," recomienda comprar")); c3.appendChild(big);
       var sb=el("div","ins-stack"); [[buy,"pos"],[hold,"mid"],[sell,"neg"]].forEach(function(x){ if(!x[0]) return; var i=el("i",x[1]); i.style.flexGrow=String(x[0]); sb.appendChild(i); }); c3.appendChild(sb);
@@ -4190,7 +4192,7 @@
           :"⚠ No encontré el valor de hoy de este fondo"+(fciErr?" ("+fciErr+")":"")+". Podés cargarlo a mano en Editar → precio manual (en dólares CCL por cuotaparte)."); }
       var pn_=String(p.note||"").replace(CED_MARK,"").replace(CB_MARK,"").replace(/\s*\{fci:[PD]\}/,""); if(pn_) notes.push(pn_);
       if(notes.length) body.appendChild(el("div","note",notes.join(" ")));
-      if(insOk(p)){ var bi=el("button","ins-btn"); bi.type="button"; bi.appendChild(el("span","ins-ic","✦")); bi.appendChild(el("span",null,"¿Qué pasó con "+p.ticker+"?")); bi.appendChild(el("span","ins-go","›"));
+      if(insOk(p)){ var bi=el("button","ins-btn"); bi.type="button"; bi.appendChild(el("span","ins-ic","✦")); bi.appendChild(el("span",null,"¿Qué pasó con "+dispTk(p)+"?")); bi.appendChild(el("span","ins-go","›"));
         bi.addEventListener("click",function(){ openIns(p); }); body.appendChild(bi); }
 
       if(p.parts){
@@ -7296,6 +7298,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.46.2", t:"Bitcoin: qué pasó y soportes", d:["En BTC (y otras cripto) volvió “¿Qué pasó con BTC?”: precio del año, noticias de cripto y resumen con IA.","También tiene soportes y resistencias, con aviso aunque sea fin de semana (la cripto opera todos los días)."]},
     {v:"1.46.1", t:"Los avisos dicen qué pasó", d:["Antes, si llegaban varios avisos juntos (por ejemplo, de soportes y resistencias), algunos decían solo “Tenés un aviso nuevo”.","Ahora cada aviso trae su texto: la acción, el nivel o la tasa."]},
     {v:"1.46.0", t:"Bitcoin y otras cripto de IBKR", d:["Las compras y ventas de cripto en Interactive Brokers (BTC, ETH…) ahora se importan con el resto, con precio automático y variación del día.","Para cargarla a mano, poné BTC-USD (solo “BTC” es un ETF de Grayscale, no el bitcoin)."]},
     {v:"1.45.7", t:"Vendé una parte de una compra", d:["Al vender ahora elegís cuántas vendés y, si compraste en varias veces, de qué compra (por ejemplo, 3 de la compra de 4).","Lo vendido pasa a “Vendidas” con su precio y fecha de compra, y el resto sigue en tu cartera.","El botón de cada acción ahora dice “Vender” (adentro sigue “Solo eliminar”)."]},

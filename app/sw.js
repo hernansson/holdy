@@ -1,6 +1,6 @@
 // Service worker: guarda la app para que abra sin conexión.
 // Las consultas de precios (otro dominio) NO se guardan: siempre van a la red.
-const CACHE = "holdy-v342";
+const CACHE = "holdy-v343";
 const SEEN = "holdy-push"; // hasta qué aviso ya se mostró (no se borra al actualizar)
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "badge-96.png"];
 
