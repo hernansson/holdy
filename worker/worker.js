@@ -22,6 +22,9 @@ const ALIAS = { EQAC: "EQAC.SW" };
 const HIST_TTL_MS = 6 * 60 * 60 * 1000;
 // Cripto (BTC-USD, ETH-USD…): Finnhub gratis no la tiene, va directo a Yahoo con ese mismo símbolo.
 const isCrypto = (s) => /^[A-Z0-9]{2,10}-USD$/.test(s);
+const CRYPTO_NAMES = { BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana", LTC: "Litecoin", BCH: "Bitcoin Cash", XRP: "XRP", ADA: "Cardano", DOGE: "Dogecoin", AVAX: "Avalanche", LINK: "Chainlink", DOT: "Polkadot", MATIC: "Polygon", UNI: "Uniswap" };
+// Palabras para quedarse con las noticias de esa moneda entre las de cripto en general.
+const CRYPTO_WORDS = { BTC: /\b(bitcoin|btc)\b/i, ETH: /\b(ethereum|ether|eth)\b/i, SOL: /\b(solana|sol)\b/i, LTC: /\b(litecoin|ltc)\b/i, BCH: /\b(bitcoin cash|bch)\b/i, XRP: /\b(xrp|ripple)\b/i, DOGE: /\b(dogecoin|doge)\b/i };
 const histCache = new Map();
 
 export default {
@@ -35,6 +38,7 @@ export default {
     if (h === 11 || h === 14) ctx.waitUntil(ibCron(env));
     if (h === 12) ctx.waitUntil(pushCobros(env));
     if (h === 21 && wd >= 1 && wd <= 5) { ctx.waitUntil(pushClose(env)); ctx.waitUntil(srCron(env)); } // 18:35 de Argentina: ya cerró Wall Street todo el año
+    else if (!(wd >= 1 && wd <= 5 && h >= 13 && h <= 20)) ctx.waitUntil(srCron(env, true)); // cripto opera 24/7: fuera del horario de bolsa, una vez por hora solo cripto
   },
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin");
@@ -501,6 +505,8 @@ async function insight(url, env, cors) {
     } catch (e) { return null; }
   };
   const base = symbol.split(".")[0];
+  const cr = isCrypto(symbol) ? symbol.slice(0, -4) : "";
+  if (cr) return insightCrypto(env, cors, symbol, cr, key, day, fh);
   const from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
   const now = Math.floor(Date.now() / 1000);
   const ycands = symbol.includes(".") ? [symbol] : (ALIAS[symbol] ? [ALIAS[symbol]] : [symbol, symbol + ".L", symbol + ".SW"]);
@@ -559,6 +565,69 @@ async function insight(url, env, cors) {
     const sys = "Sos un analista financiero que le explica a un inversor argentino, en castellano rioplatense simple y sin jerga, qué pasó con una acción. " +
       "Usá SOLO los datos que te doy; si no alcanzan para explicar un movimiento, decilo. No inventes cifras ni hechos. No recomiendes comprar ni vender. " +
       "Respondé SOLO con un JSON válido: {\"resumen\": \"3 a 5 oraciones: por qué subió o bajó en el último mes y qué está pasando con la empresa\", " +
+      "\"aFavor\": [\"hasta 3 puntos positivos, cortos\"], \"enContra\": [\"hasta 3 riesgos o puntos negativos, cortos\"], " +
+      "\"titulares\": [\"los primeros 8 títulos de noticias TRADUCIDOS al castellano (nunca en inglés), en el mismo orden\"]}. " +
+      "Escribí los números al estilo argentino: coma decimal (3,3%) y US$ para los dólares.";
+    for (const model of AI_MODELS) {
+      try {
+        const r = await env.AI.run(model, { messages: [{ role: "system", content: sys }, { role: "user", content: ctx }], max_tokens: 1100, temperature: 0.3 });
+        const txt = typeof r === "string" ? r : (r && (typeof r.response === "string" ? r.response : JSON.stringify(r.response || "")));
+        const ai = parseAi(txt);
+        if (ai) { out.ai = { ...ai, model: model.split("/").pop() }; break; }
+      } catch (e) { /* probamos el siguiente modelo */ }
+    }
+    // Si los títulos volvieron sin traducir, se piden aparte (una línea por título).
+    const heads = out.news.slice(0, 8).map((x) => x.t);
+    if (out.ai && heads.length && (!out.ai.titulares || out.ai.titulares.length < heads.length || out.ai.titulares.some((t, i) => t.trim().toLowerCase() === heads[i].trim().toLowerCase()))) {
+      try {
+        const r = await env.AI.run(AI_MODELS[0], { messages: [
+          { role: "system", content: "Traducí al castellano rioplatense cada título de noticia financiera. Devolvé SOLO las traducciones, una por línea, en el mismo orden, sin numerar ni agregar nada." },
+          { role: "user", content: heads.join("\n") } ], max_tokens: 600, temperature: 0.1 });
+        const lines = String((r && r.response) || "").split("\n").map((l) => l.replace(/^\s*(\d+[.)-]|[-•*])\s*/, "").trim()).filter(Boolean);
+        out.ai.titulares = lines.length === heads.length ? lines.map((l) => l.slice(0, 240)) : [];
+      } catch (e) { out.ai.titulares = []; }
+    }
+  }
+  insMem.set(key, out);
+  if (insMem.size > 200) insMem.delete(insMem.keys().next().value);
+  if (env.HOLDY_KV && (out.ai || !env.AI)) await env.HOLDY_KV.put(key, JSON.stringify(out), { expirationTtl: INS_TTL });
+  return json(out, 200, cors, "MISS");
+}
+
+// Cripto: no hay empresa ni analistas. Precio de Yahoo y noticias de cripto de Finnhub, filtradas por la moneda.
+async function insightCrypto(env, cors, symbol, cr, key, day, fh) {
+  const now = Math.floor(Date.now() / 1000), name = CRYPTO_NAMES[cr] || cr, words = CRYPTO_WORDS[cr] || new RegExp("\\b(" + cr + "|" + name + ")\\b", "i");
+  const [news, hist] = await Promise.all([fh("news?category=crypto"), yahooHistory(symbol, now - 372 * 86400, now + 86400)]);
+  let px = null;
+  if (hist && hist.pts.length > 5) {
+    const pts = hist.pts, last = pts[pts.length - 1][1];
+    const back = (days) => { const t = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10); let v = pts[0][1]; for (const p of pts) { if (p[0] <= t) v = p[1]; else break; } return v; };
+    const closes = pts.map((p) => p[1]);
+    px = { last, cur: hist.currency, w1: last / back(7) - 1, m1: last / back(30) - 1, m3: last / back(91) - 1, y1: last / back(365) - 1,
+      lo: Math.min(...closes), hi: Math.max(...closes), spark: pts.filter((_, i) => i % 3 === 0 || i === pts.length - 1).map((p) => p[1]) };
+  }
+  const cutoff = Date.now() / 1000 - 30 * 86400, seen = new Set();
+  const all = (Array.isArray(news) ? news : []).filter((x) => x && x.headline && x.url && (x.datetime || 0) > cutoff);
+  // Primero las que nombran a la moneda; si son pocas, se completan con las de cripto en general.
+  const mine = all.filter((x) => words.test((x.headline || "") + " " + (x.summary || "")));
+  const pool = mine.length >= 5 ? mine : mine.concat(all.filter((x) => !mine.includes(x)));
+  const items = pool.sort((a, b) => (b.datetime || 0) - (a.datetime || 0))
+    .filter((x) => { const k = x.headline.toLowerCase().slice(0, 60); if (seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, 40)
+    .map((x) => ({ t: String(x.headline).slice(0, 220), s: String(x.summary || "").slice(0, 300), src: String(x.source || ""), d: new Date((x.datetime || 0) * 1000).toISOString().slice(0, 10), u: String(x.url) }));
+  const crypto_ = name + " es una criptomoneda: no es una empresa ni paga dividendos. Su precio depende de la oferta y la demanda, y opera las 24 horas, todos los días.";
+  const out = { symbol, name, industry: "", etf: "", crypto: crypto_, px, rec: null, news: items.slice(0, 10).map(({ s, ...r }) => r), ai: null, day };
+  if (env.AI && (items.length || px)) {
+    const pct = (v) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+    const ctx = [
+      "Criptomoneda: " + name + " (" + cr + ").",
+      px ? "Precio: " + px.last.toFixed(2) + " " + px.cur + ". Cambio 1 semana " + pct(px.w1) + ", 1 mes " + pct(px.m1) + ", 3 meses " + pct(px.m3) + ", 1 año " + pct(px.y1) + ". Rango 52 semanas " + px.lo.toFixed(2) + " a " + px.hi.toFixed(2) + "." : "",
+      "Noticias de cripto del último mes (fecha · título · resumen):",
+      ...items.slice(0, 25).map((x) => "- " + x.d + " · " + x.t + (x.s ? " · " + x.s : "")),
+    ].filter(Boolean).join("\n");
+    const sys = "Sos un analista financiero que le explica a un inversor argentino, en castellano rioplatense simple y sin jerga, qué pasó con una criptomoneda. " +
+      "Usá SOLO los datos que te doy; si no alcanzan para explicar un movimiento, decilo. No inventes cifras ni hechos. No recomiendes comprar ni vender. " +
+      "Respondé SOLO con un JSON válido: {\"resumen\": \"3 a 5 oraciones: por qué subió o bajó en el último mes y qué está pasando con " + name + "\", " +
       "\"aFavor\": [\"hasta 3 puntos positivos, cortos\"], \"enContra\": [\"hasta 3 riesgos o puntos negativos, cortos\"], " +
       "\"titulares\": [\"los primeros 8 títulos de noticias TRADUCIDOS al castellano (nunca en inglés), en el mismo orden\"]}. " +
       "Escribí los números al estilo argentino: coma decimal (3,3%) y US$ para los dólares.";
@@ -979,12 +1048,16 @@ async function srIndex(env, sub, list) {
   if (list.length) idx[sub] = list; else delete idx[sub];
   if (JSON.stringify(idx[sub] || null) !== had) await env.HOLDY_KV.put("sridx", JSON.stringify(idx));
 }
-async function srCron(env) {
+async function srCron(env, onlyCrypto) {
   const idx = (await env.HOLDY_KV.get("sridx", "json")) || {}, subs = Object.keys(idx); if (!subs.length || !env.FINNHUB_KEY) return;
   const day = new Date().toISOString().slice(0, 10), today = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10), qc = {};
-  const tks = []; subs.forEach((s) => idx[s].forEach((x) => { if (!tks.includes(x.t)) tks.push(x.t); }));
+  const tks = []; subs.forEach((s) => idx[s].forEach((x) => { if (!tks.includes(x.t) && (!onlyCrypto || isCrypto(x.t))) tks.push(x.t); }));
+  // Cripto: precio de Yahoo (no gasta Finnhub). Vale si es de las últimas 2 horas.
+  for (const t of tks.filter(isCrypto).slice(0, 20)) {
+    const q = await yahooQuote(t); qc[t] = q && q.c > 0 && q.t && Date.now() / 1000 - q.t < 7200 ? q : null;
+  }
   // Finnhub gratis: 60 por minuto, compartidas con la app. Como mucho 40 acciones por vuelta, de a una.
-  for (const t of tks.slice(0, 40)) {
+  for (const t of tks.filter((x) => !isCrypto(x)).slice(0, 40)) {
     try { const r = await fetch("https://finnhub.io/api/v1/quote?symbol=" + encodeURIComponent(t) + "&token=" + encodeURIComponent(env.FINNHUB_KEY)); if (r.status === 429) break; const j = r.ok ? await r.json() : null;
       qc[t] = j && j.c > 0 && j.t && new Date(j.t * 1000).toISOString().slice(0, 10) === day ? j : null; } catch (e) { qc[t] = null; }
   }
@@ -992,12 +1065,13 @@ async function srCron(env) {
   for (const sub of subs) {
     for (const x of idx[sub]) {
       const q = qc[x.t]; if (!q) continue;
+      const tn = isCrypto(x.t) ? x.t.slice(0, -4) : x.t;
       // Cerca: el precio de ahora está a menos de m (lo que se mueve en un día normal, 1% a 3%) del nivel. Avisa antes de llegar, para poner la orden.
       const m = x.m || 0.015, near = (v) => Math.abs(q.c / v - 1) <= m;
       const lv = x.s.map((v) => ({ v, s: 1 })).concat(x.r.map((v) => ({ v, s: 0 }))).filter((o) => near(o.v));
       for (const o of lv) {
         const d = q.c / o.v - 1, past = o.s ? d < 0 : d > 0, pc = Math.abs(d * 100).toLocaleString("es-AR", { maximumFractionDigits: 1 }) + "%";
-        const title = x.t + (past ? " pasó " : " cerca de ") + (o.s ? "un soporte" : "una resistencia") + " · " + us(o.v);
+        const title = tn + (past ? " pasó " : " cerca de ") + (o.s ? "un soporte" : "una resistencia") + " · " + us(o.v);
         const body = "Ahora " + us(q.c) + (past ? ", " + pc + (o.s ? " abajo" : " arriba") : ", a " + pc) + ". Informativo, no es una recomendación.";
         await pushTo(env, sub, "sr", { title, body, tag: "sr-" + x.t, u: "#sr/" + x.t, x: { t: x.t, v: o.v, s: o.s } }, "sr:" + x.t + ":" + o.v + ":" + today, 2 * 86400);
       }
