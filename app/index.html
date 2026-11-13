@@ -1701,10 +1701,10 @@
   })();
   function pctLock(){ try{ var c=profData&&cur(); return !!(c&&c.readOnly&&c.view&&c.view.p); }catch(e){ return false; } }
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v343"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v344"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   /* Versión que ve el usuario (semántica, a mano): mayor.funciones.arreglos. Función nueva → sube el del medio; arreglo → el último.
      APP_VER (holdy-vNNN) es solo el número interno del caché y sube en cada publicación. */
-  var APP_SEMVER="1.46.2";
+  var APP_SEMVER="1.46.3";
   try{ document.getElementById("drVer").textContent="Versión "+APP_SEMVER; }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -2692,6 +2692,12 @@
         c2.appendChild(g); }
       c2.appendChild(el("div","ins-cap","Resumen hecho con IA a partir de las noticias de abajo. Puede tener errores: revisá las fuentes.")); }
     else c2.appendChild(el("p","ins-txt muted",(j.news&&j.news.length)?"Todavía no está activado el resumen con IA en el servidor. Mientras tanto, abajo tenés las noticias.":"No encontré noticias de este último mes para "+dispTk(p)+(/^(SPY|QQQ|VOO|XL[A-Z]|VUAA|EQAC|IVV|DIA)$/.test(p.ticker)?" (es un ETF: sigue a un índice o sector, no a una empresa).":".")));
+    if(j.crypto&&j.fg){ var fg=j.fg, FGL=function(v){ return v<25?"Miedo extremo":v<45?"Miedo":v<=55?"Neutral":v<=75?"Codicia":"Codicia extrema"; }, FGC=function(v){ return v<45?"neg":v<=55?"mid":"pos"; };
+      var cf=card("Clima del mercado cripto"), fb=el("div","ins-rec"); var fbn=el("b",null,String(fg.v)); fbn.style.color=FGC(fg.v)==="mid"?"var(--text)":"var(--"+FGC(fg.v)+")"; fb.appendChild(fbn); fb.appendChild(el("span",null," de 100 · "+FGL(fg.v))); cf.appendChild(fb);
+      var fbar=el("div","ins-bar"), fdot=el("i","ins-dot"); fdot.style.left=Math.max(0,Math.min(100,fg.v))+"%"; fbar.appendChild(fdot); cf.appendChild(fbar);
+      var fl=el("div","ins-rl"); fl.appendChild(el("span",null,"Miedo extremo")); fl.appendChild(el("span",null,"Codicia extrema")); cf.appendChild(fl);
+      var fch=el("div","ins-chg"); [["Hace 1 semana",fg.w],["Hace 1 mes",fg.m]].forEach(function(x){ if(x[1]==null) return; var b=el("span","ins-chip "+FGC(x[1])); b.appendChild(el("small",null,x[0])); b.appendChild(el("b",null,x[1]+" · "+FGL(x[1]))); fch.appendChild(b); }); cf.appendChild(fch);
+      cf.appendChild(el("div","ins-cap","Índice de miedo y codicia (alternative.me): mide el humor del mercado cripto con volatilidad, volumen, redes y búsquedas. El miedo extremo suele aparecer cerca de los pisos y la codicia extrema cerca de los techos. No es una recomendación.")); }
     var rec=j.rec, c3=(j.etf||j.crypto)?null:card("Qué dicen los analistas");
     if(rec){ var buy=rec.sb+rec.b, sell=rec.s+rec.ss, hold=rec.h, n=rec.n;
       var big=el("div","ins-rec"); big.appendChild(el("b",null,Math.round(buy/n*100)+"%")); big.appendChild(el("span",null," recomienda comprar")); c3.appendChild(big);
@@ -7298,6 +7304,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.46.3", t:"Clima del mercado cripto", d:["En “¿Qué pasó con BTC?”, donde en las acciones van los analistas, ahora está el índice de miedo y codicia: de 0 (miedo extremo) a 100 (codicia extrema), con hoy, hace una semana y hace un mes."]},
     {v:"1.46.2", t:"Bitcoin: qué pasó y soportes", d:["En BTC (y otras cripto) volvió “¿Qué pasó con BTC?”: precio del año, noticias de cripto y resumen con IA.","También tiene soportes y resistencias, con aviso aunque sea fin de semana (la cripto opera todos los días)."]},
     {v:"1.46.1", t:"Los avisos dicen qué pasó", d:["Antes, si llegaban varios avisos juntos (por ejemplo, de soportes y resistencias), algunos decían solo “Tenés un aviso nuevo”.","Ahora cada aviso trae su texto: la acción, el nivel o la tasa."]},
     {v:"1.46.0", t:"Bitcoin y otras cripto de IBKR", d:["Las compras y ventas de cripto en Interactive Brokers (BTC, ETH…) ahora se importan con el resto, con precio automático y variación del día.","Para cargarla a mano, poné BTC-USD (solo “BTC” es un ETF de Grayscale, no el bitcoin)."]},

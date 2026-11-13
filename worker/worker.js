@@ -506,7 +506,7 @@ async function insight(url, env, cors) {
   };
   const base = symbol.split(".")[0];
   const cr = isCrypto(symbol) ? symbol.slice(0, -4) : "";
-  if (cr) return insightCrypto(env, cors, symbol, cr, key, day, fh);
+  if (cr) return insightCrypto(env, cors, symbol, cr, key.replace("ins5:", "ins6:"), day, fh);
   const from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
   const now = Math.floor(Date.now() / 1000);
   const ycands = symbol.includes(".") ? [symbol] : (ALIAS[symbol] ? [ALIAS[symbol]] : [symbol, symbol + ".L", symbol + ".SW"]);
@@ -597,7 +597,7 @@ async function insight(url, env, cors) {
 // Cripto: no hay empresa ni analistas. Precio de Yahoo y noticias de cripto de Finnhub, filtradas por la moneda.
 async function insightCrypto(env, cors, symbol, cr, key, day, fh) {
   const now = Math.floor(Date.now() / 1000), name = CRYPTO_NAMES[cr] || cr, words = CRYPTO_WORDS[cr] || new RegExp("\\b(" + cr + "|" + name + ")\\b", "i");
-  const [news, hist] = await Promise.all([fh("news?category=crypto"), yahooHistory(symbol, now - 372 * 86400, now + 86400)]);
+  const [news, hist, fg] = await Promise.all([fh("news?category=crypto"), yahooHistory(symbol, now - 372 * 86400, now + 86400), fearGreed()]);
   let px = null;
   if (hist && hist.pts.length > 5) {
     const pts = hist.pts, last = pts[pts.length - 1][1];
@@ -616,12 +616,13 @@ async function insightCrypto(env, cors, symbol, cr, key, day, fh) {
     .slice(0, 40)
     .map((x) => ({ t: String(x.headline).slice(0, 220), s: String(x.summary || "").slice(0, 300), src: String(x.source || ""), d: new Date((x.datetime || 0) * 1000).toISOString().slice(0, 10), u: String(x.url) }));
   const crypto_ = name + " es una criptomoneda: no es una empresa ni paga dividendos. Su precio depende de la oferta y la demanda, y opera las 24 horas, todos los días.";
-  const out = { symbol, name, industry: "", etf: "", crypto: crypto_, px, rec: null, news: items.slice(0, 10).map(({ s, ...r }) => r), ai: null, day };
+  const out = { symbol, name, industry: "", etf: "", crypto: crypto_, px, rec: null, fg, news: items.slice(0, 10).map(({ s, ...r }) => r), ai: null, day };
   if (env.AI && (items.length || px)) {
     const pct = (v) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
     const ctx = [
       "Criptomoneda: " + name + " (" + cr + ").",
       px ? "Precio: " + px.last.toFixed(2) + " " + px.cur + ". Cambio 1 semana " + pct(px.w1) + ", 1 mes " + pct(px.m1) + ", 3 meses " + pct(px.m3) + ", 1 año " + pct(px.y1) + ". Rango 52 semanas " + px.lo.toFixed(2) + " a " + px.hi.toFixed(2) + "." : "",
+      fg ? "Índice de miedo y codicia cripto (0 = miedo extremo, 100 = codicia extrema): hoy " + fg.v + (fg.w != null ? ", hace una semana " + fg.w : "") + (fg.m != null ? ", hace un mes " + fg.m : "") + "." : "",
       "Noticias de cripto del último mes (fecha · título · resumen):",
       ...items.slice(0, 25).map((x) => "- " + x.d + " · " + x.t + (x.s ? " · " + x.s : "")),
     ].filter(Boolean).join("\n");
@@ -655,6 +656,19 @@ async function insightCrypto(env, cors, symbol, cr, key, day, fh) {
   if (insMem.size > 200) insMem.delete(insMem.keys().next().value);
   if (env.HOLDY_KV && (out.ai || !env.AI)) await env.HOLDY_KV.put(key, JSON.stringify(out), { expirationTtl: INS_TTL });
   return json(out, 200, cors, "MISS");
+}
+
+// Índice de miedo y codicia cripto (alternative.me, gratis, uno por día): 0 = miedo extremo, 100 = codicia extrema.
+async function fearGreed() {
+  try {
+    const r = await fetch("https://api.alternative.me/fng/?limit=31", { headers: { "Accept": "application/json" } });
+    if (!r.ok) return null;
+    const a = ((await r.json()) || {}).data;
+    if (!Array.isArray(a) || !a.length) return null;
+    const n = (i) => (a[i] && isFinite(+a[i].value) ? +a[i].value : null);
+    const v = n(0); if (v === null || v < 0 || v > 100) return null;
+    return { v, w: n(7), m: n(30), d: new Date(+a[0].timestamp * 1000).toISOString().slice(0, 10), h: a.slice(0, 31).map((x) => +x.value).filter((x) => isFinite(x)).reverse() };
+  } catch (e) { return null; }
 }
 
 function parseAi(txt) {
