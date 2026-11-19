@@ -1701,10 +1701,10 @@
   })();
   function pctLock(){ try{ var c=profData&&cur(); return !!(c&&c.readOnly&&c.view&&c.view.p); }catch(e){ return false; } }
   var $=function(id){ return document.getElementById(id); };
-  var APP_VER="holdy-v344"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
+  var APP_VER="holdy-v345"; /* igual que CACHE en sw.js: se cambian juntas en cada versión */
   /* Versión que ve el usuario (semántica, a mano): mayor.funciones.arreglos. Función nueva → sube el del medio; arreglo → el último.
      APP_VER (holdy-vNNN) es solo el número interno del caché y sube en cada publicación. */
-  var APP_SEMVER="1.46.3";
+  var APP_SEMVER="1.46.4";
   try{ document.getElementById("drVer").textContent="Versión "+APP_SEMVER; }catch(e){}
   function el(tag,cls,text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text instanceof Node) e.appendChild(text); else if(text!==undefined) e.textContent=text; return e; }
 
@@ -1900,6 +1900,16 @@
     var lots=a[2].split(";").map(function(x){ var f=x.split(","); return {q:+f[0],b:+f[1],fx:+f[2]||"",fx2:+f[4]||"",d:f[3]||""}; }).filter(function(l){return l.q>0&&l.b>0;});
     var mode=a[1]; if(mode==="A") mode="P"; else if(mode==="U") mode="M"; else if(["P","M","C"].indexOf(mode)<0) mode="C"; /* P = pesos (con dólar CCL), M = dólares MEP, C = dólares cable (CCL) */
     return lots.length?{r:R,pes:mode==="P",mode:mode,legacy:a[1]==="A"||a[1]==="U",lots:lots}:null;
+  }
+  /* Cuántos CEDEARs hay y la relación. En una fila que junta varias posiciones del mismo ticker (p.parts) suma las de todas:
+     antes tomaba solo la primera y mostraba menos CEDEARs que la suma de "Tus compras". */
+  function cedQty(p){
+    var ps=p.parts||[p], r=0;
+    ps.forEach(function(x){ var c=cedMeta(x); if(c&&!r) r=c.r; });
+    if(!r) return null;
+    var n=0, ok=true;
+    ps.forEach(function(x){ var c=cedMeta(x); if(c&&c.r===r) n+=c.lots.reduce(function(a,l){ return a+l.q; },0); else if(isCedPos(x)&&!c) n+=x.qty*r; else ok=false; });
+    return ok?{n:Math.round(n*1e4)/1e4,r:r}:null;
   }
   function cedMetaStr(r,mode,lots){ return "{ced:"+r+"|"+mode+"|"+lots.map(function(l){ return [l.q,l.b,mode==="C"?0:(l.fx||0),l.d||"",mode==="M"?(l.fx2||0):0].join(","); }).join(";")+"}"; }
   // Pasa a dólar CCL las posiciones que estaban en MEP (importadas de IOL, cargadas a mano o importadas antes de este cambio), con el dólar de hoy.
@@ -4130,10 +4140,10 @@
       g.appendChild(tiles);
       var pg=el("div","pgrid");
       function pair(k,v,c,sub){ var d=el("div","pair"); d.setAttribute("data-k",k); d.appendChild(el("span","k",k)); d.appendChild(el("span","v"+(c?" "+c:""),v)); if(sub) d.appendChild(el("small",null,sub)); pg.appendChild(d); }
-      var cm_=cedMeta(p);
+      var cm_=cedQty(p);
       var lm_=locMeta(p);
       if(lm_) pair("Acciones "+lm_.s,qq(Math.round(p.qty*lm_.r*1e4)/1e4),"","= "+qq(p.qty)+" ADR "+p.ticker+" en Nueva York (1 ADR = "+qq(lm_.r)+" acciones)");
-      else if(cm_) pair("CEDEARs",qq(cm_.lots.reduce(function(a,l){return a+l.q;},0)),"","1 acción = "+qq(cm_.r)+" CEDEARs · "+qq(p.qty)+" acciones");
+      else if(cm_) pair("CEDEARs",qq(cm_.n),"","1 acción = "+qq(cm_.r)+" CEDEARs · "+qq(Math.round(p.qty*1e4)/1e4)+" acciones");
       else pair("Cantidad",qq(p.qty));
       var nL=p.lots&&p.lots.length>1?p.lots.length:0, dl_=(p.lots||[]).filter(function(l){return l.d;});
       if(nL){ var ds_=dl_.map(function(l){return l.d;}).sort(); pair("Compras",String(nL),"",ds_.length>1?ds_[0].split("-").reverse().join("/")+" a "+ds_[ds_.length-1].split("-").reverse().join("/"):""); }
@@ -4174,8 +4184,8 @@
         p.lots.forEach(function(l,i){
           var ln=el("div","lotline");
           var dd=l.d?" · "+l.d.split("-").reverse().join("/"):"";
-          var lb_=lotPx(p,l);
-          ln.appendChild(el("span",null,(p.lots.length>1?(i+1)+". ":"")+qq(l.q)+" × "+mm(lb_,p.ccy)+dd));
+          var lb_=lotPx(p,l), lu_=(cm_&&!lm_)?cm_.r:1; /* CEDEARs: en CEDEARs, como arriba y como al vender */
+          ln.appendChild(el("span",null,(p.lots.length>1?(i+1)+". ":"")+qq(Math.round(l.q*lu_*1e4)/1e4)+" × "+mm(lb_/lu_,p.ccy)+dd));
           if(cp!==null){ var lp=(cp-lb_)/lb_; ln.appendChild(el("span",cls(lp),arrow(lp)+fmtPct(lp))); }
           ll.appendChild(ln);
         });
@@ -4205,7 +4215,8 @@
         var bk=el("div","lotlist"); bk.appendChild(el("div","k","Por broker"));
         p.parts.forEach(function(x){
           var ln=el("div","lotline");
-          ln.appendChild(el("span",null,x.broker+" · "+qq(x.qty)+" × "+mm(pBuy(x),x.ccy)));
+          var xc_=locMeta(x)?null:cedQty(x), xu_=xc_?xc_.r:1;
+          ln.appendChild(el("span",null,x.broker+" · "+qq(xc_?xc_.n:x.qty)+(xc_?" CEDEARs":"")+" × "+mm(pBuy(x)/xu_,x.ccy)));
           if(!isRO()){
             var sp=el("span"); sp.style.display="flex"; sp.style.gap="6px";
             var b1=el("button",null,"Editar"); b1.type="button"; b1.style.minHeight="30px"; b1.addEventListener("click",function(){ openPos(x.id); });
@@ -7304,6 +7315,7 @@
   /* Al abrir una versión nueva, una hoja chica con lo que trae. Cada versión lleva su entrada, aunque sea un arreglo chico;
      si alguna se queda sin entrada, sale igual una genérica. La más nueva arriba; 1 a 3 líneas cortas. */
   var NOVEDADES=[
+    {v:"1.46.4", t:"Cantidad de CEDEARs corregida", d:["Si tenés el mismo CEDEAR cargado varias veces en un broker, el detalle mostraba solo los CEDEARs de la primera compra. Ahora suma todas.","“Tus compras” y “Por broker” también muestran la cantidad en CEDEARs, igual que arriba."]},
     {v:"1.46.3", t:"Clima del mercado cripto", d:["En “¿Qué pasó con BTC?”, donde en las acciones van los analistas, ahora está el índice de miedo y codicia: de 0 (miedo extremo) a 100 (codicia extrema), con hoy, hace una semana y hace un mes."]},
     {v:"1.46.2", t:"Bitcoin: qué pasó y soportes", d:["En BTC (y otras cripto) volvió “¿Qué pasó con BTC?”: precio del año, noticias de cripto y resumen con IA.","También tiene soportes y resistencias, con aviso aunque sea fin de semana (la cripto opera todos los días)."]},
     {v:"1.46.1", t:"Los avisos dicen qué pasó", d:["Antes, si llegaban varios avisos juntos (por ejemplo, de soportes y resistencias), algunos decían solo “Tenés un aviso nuevo”.","Ahora cada aviso trae su texto: la acción, el nivel o la tasa."]},
